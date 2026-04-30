@@ -61,6 +61,8 @@ const FACTION_COMBAT_POOLS: Record<Faction, string[][]> = {
     ["bile_spewer", "hunter"],
     ["brood_commander", "hunter"],
     ["stalker", "warrior"],
+    ["dragonroach", "scavenger"],
+    ["dragonroach", "hunter", "hunter"],
   ],
   automaton: [
     ["trooper", "trooper"],
@@ -70,6 +72,8 @@ const FACTION_COMBAT_POOLS: Record<Faction, string[][]> = {
     ["devastator", "raider"],
     ["berserker", "trooper"],
     ["devastator", "berserker"],
+    ["scout_strider", "trooper"],
+    ["scout_strider", "raider", "trooper"],
   ],
   illuminate: [
     ["voteless", "voteless"],
@@ -86,16 +90,22 @@ const FACTION_ELITE_POOLS: Record<Faction, string[][]> = {
     ["warrior", "scavenger"],
     ["charger"],
     ["brood_commander", "warrior"],
+    ["impaler"],
+    ["impaler", "hunter"],
   ],
   automaton: [
     ["devastator", "trooper"],
     ["hulk"],
     ["devastator", "berserker"],
+    ["tank"],
+    ["tank", "trooper"],
   ],
   illuminate: [
     ["overseer"],
     ["elevated_overseer"],
     ["harvester"],
+    ["leviathan"],
+    ["leviathan", "voteless"],
   ],
 };
 

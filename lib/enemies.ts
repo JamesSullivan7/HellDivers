@@ -82,6 +82,31 @@ export const ENEMY_TEMPLATES: Record<string, EnemyTemplate> = {
       { kind: "wait", text: "Cloaking..." },
     ],
   },
+  impaler: {
+    id: "impaler",
+    name: "Impaler",
+    hp: 36,
+    armor: 2,
+    faction: "terminid",
+    intentPattern: [
+      { kind: "wait", text: "Burrowing..." },
+      { kind: "attack_all", damage: 4, text: "Tentacle Strike — All 4" },
+      { kind: "attack", damage: 9, text: "Impale 9" },
+      { kind: "buff", text: "Carapace (+1 Armor)" },
+    ],
+  },
+  dragonroach: {
+    id: "dragonroach",
+    name: "Dragonroach",
+    hp: 28,
+    armor: 1,
+    faction: "terminid",
+    intentPattern: [
+      { kind: "attack", damage: 7, text: "Dive Strike 7" },
+      { kind: "attack_all", damage: 3, text: "Acid Spew — All 3" },
+      { kind: "attack", damage: 5, text: "Slash 5" },
+    ],
+  },
   bile_titan: {
     id: "bile_titan",
     name: "Bile Titan",
@@ -113,6 +138,18 @@ export const ENEMY_TEMPLATES: Record<string, EnemyTemplate> = {
     intentPattern: [
       { kind: "attack", damage: 3, text: "Rifle 3" },
       { kind: "attack", damage: 2, text: "Burst 2" },
+    ],
+  },
+  scout_strider: {
+    id: "scout_strider",
+    name: "Scout Strider",
+    hp: 16,
+    armor: 1,
+    faction: "automaton",
+    intentPattern: [
+      { kind: "attack", damage: 5, text: "MG Burst 5" },
+      { kind: "attack_all", damage: 2, text: "Suppress — All 2" },
+      { kind: "buff", text: "Plating (+1 Armor)" },
     ],
   },
   raider: {
@@ -242,6 +279,20 @@ export const ENEMY_TEMPLATES: Record<string, EnemyTemplate> = {
       { kind: "attack", damage: 7, text: "Lance 7" },
       { kind: "attack_all", damage: 4, text: "Shockwave — All 4" },
       { kind: "buff", text: "Reinforce Shield (+5)" },
+    ],
+  },
+  leviathan: {
+    id: "leviathan",
+    name: "Leviathan",
+    hp: 50,
+    armor: 3,
+    shield: 12,
+    faction: "illuminate",
+    intentPattern: [
+      { kind: "attack_all", damage: 6, text: "Void Bombardment — All 6" },
+      { kind: "wait", text: "Phase-aligning..." },
+      { kind: "attack", damage: 12, text: "Lance 12" },
+      { kind: "buff", text: "Phase Shield (+5)" },
     ],
   },
   harvester: {

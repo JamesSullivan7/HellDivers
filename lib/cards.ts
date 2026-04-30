@@ -56,6 +56,38 @@ const RAW: Card[] = [
   { id: "util_stim", name: "Stim", type: "utility", cost: 0, target: "self", rarity: "common", description: "Heal 5 HP.", effect: { heal: 5 } },
   { id: "util_reinforce", name: "Reinforce", type: "utility", cost: 3, target: "self", rarity: "uncommon", description: "Heal 12 HP.", effect: { heal: 12 } },
   { id: "util_supply_pack", name: "Supply Pack", type: "backpack", cost: 2, target: "self", rarity: "uncommon", description: "Draw 3 cards. Gain 2 R.", effect: { draw: 3, gainRequisition: 2 } },
+
+  // ── EXPANSION: SENTRIES ──
+  { id: "sentry_laser", name: "Laser Sentry", type: "sentry", cost: 3, target: "self", rarity: "uncommon", description: "Deal 4 damage to highest-HP each turn for 4 turns. Ignores armor.", effect: { recurringDamage: { amount: 4, turns: 4, targetAll: false } } },
+  { id: "sentry_flame", name: "Flame Sentry", type: "sentry", cost: 2, target: "self", rarity: "uncommon", description: "Deal 2 damage and apply 2 Burn to all enemies each turn for 3 turns.", effect: { burn: 6, recurringDamage: { amount: 2, turns: 3, targetAll: true } } },
+  { id: "sentry_gas_mortar", name: "Gas Mortar Sentry", type: "sentry", cost: 3, target: "self", rarity: "uncommon", description: "Deal 2 damage to all enemies each turn for 3 turns. Apply 6 Burn on call-in.", effect: { burn: 6, recurringDamage: { amount: 2, turns: 3, targetAll: true } } },
+  { id: "sentry_at_emplacement", name: "AT-12 Anti-Tank Emplacement", type: "sentry", cost: 4, target: "self", rarity: "rare", description: "Deal 14 damage to highest-HP each turn for 2 turns. Ignores armor.", effect: { recurringDamage: { amount: 14, turns: 2, targetAll: false } } },
+  { id: "sentry_hmg_emplacement", name: "EMG-101 HMG Emplacement", type: "sentry", cost: 3, target: "self", rarity: "uncommon", description: "Deal 5 damage to a random enemy each turn for 4 turns.", effect: { recurringDamage: { amount: 5, turns: 4, targetAll: false } } },
+  { id: "sentry_grenadier", name: "GL-21 Grenadier Battlement", type: "sentry", cost: 3, target: "self", rarity: "uncommon", description: "Deal 3 damage to all enemies each turn for 3 turns.", effect: { recurringDamage: { amount: 3, turns: 3, targetAll: true } } },
+  { id: "sentry_shield_relay", name: "FX-12 Shield Generator Relay", type: "sentry", cost: 2, target: "self", rarity: "uncommon", description: "Gain 14 Block. Draw 1 card.", effect: { block: 14, draw: 1 } },
+
+  // ── EXPANSION: SUPPORT WEAPONS ──
+  { id: "support_autocannon", name: "Autocannon", type: "support", cost: 2, target: "single", rarity: "common", description: "Deal 9 damage. +4 vs armored.", effect: { damage: 9, bonusVsArmor: 4 } },
+  { id: "support_machine_gun", name: "MG-43 Machine Gun", type: "support", cost: 2, target: "random", rarity: "common", description: "Deal 3 damage to random enemies 3 times.", effect: { damage: 3, damageHits: 3 } },
+  { id: "support_hmg", name: "Heavy Machine Gun", type: "support", cost: 2, target: "single", rarity: "uncommon", description: "Deal 5 damage to a random enemy 3 times.", effect: { damage: 5, damageHits: 3 } },
+  { id: "support_laser_cannon", name: "LAS-99 Quasar Cannon", type: "support", cost: 2, target: "single", rarity: "uncommon", description: "Deal 12 damage. Ignores armor.", effect: { damage: 12, ignoreArmor: true } },
+  { id: "support_airburst", name: "Airburst Rocket Launcher", type: "support", cost: 2, target: "all", rarity: "uncommon", description: "Deal 4 damage and apply 2 Burn to all enemies.", effect: { damage: 4, burn: 2 } },
+  { id: "support_breaching_hammer", name: "Breaching Hammer", type: "support", cost: 1, target: "single", rarity: "uncommon", description: "Deal 18 damage to one enemy. Exhaust.", effect: { damage: 18, exhaust: true } },
+
+  // ── EXPANSION: BACKPACKS ──
+  { id: "util_guard_dog", name: "AR-23 Guard Dog", type: "backpack", cost: 2, target: "self", rarity: "uncommon", description: "Deal 2 damage to a random enemy each turn for 4 turns.", effect: { recurringDamage: { amount: 2, turns: 4, targetAll: false } } },
+  { id: "util_las_rover", name: "LAS-5 Guard Dog Rover", type: "backpack", cost: 3, target: "self", rarity: "rare", description: "Deal 3 damage to highest-HP each turn for 4 turns. Ignores armor.", effect: { recurringDamage: { amount: 3, turns: 4, targetAll: false } } },
+  { id: "util_jump_pack", name: "LIFT-850 Jump Pack", type: "backpack", cost: 1, target: "self", rarity: "common", description: "Gain 5 Block. Draw 1 card.", effect: { block: 5, draw: 1 } },
+
+  // ── EXPANSION: ORBITAL / EAGLE / MINES ──
+  { id: "orbital_napalm", name: "Orbital Napalm Barrage", type: "orbital", cost: 3, target: "self", rarity: "uncommon", description: "Deal 4 damage and apply 2 Burn to all enemies each turn for 2 turns.", effect: { burn: 4, recurringDamage: { amount: 4, turns: 2, targetAll: true } } },
+  { id: "orbital_smoke", name: "Orbital Smoke Strike", type: "orbital", cost: 1, target: "self", rarity: "common", description: "Strip 2 shields from all enemies. Gain 6 Block. Draw 1 card.", effect: { stripShield: 2, block: 6, draw: 1 } },
+  { id: "eagle_ap_mines", name: "Anti-Personnel Minefield", type: "eagle", cost: 2, target: "all", rarity: "uncommon", description: "Deal 6 damage to all enemies. Exhaust.", effect: { damage: 6, exhaust: true } },
+  { id: "eagle_incendiary_mines", name: "Incendiary Mines", type: "eagle", cost: 2, target: "all", rarity: "uncommon", description: "Deal 3 damage and apply 4 Burn to all enemies. Exhaust.", effect: { damage: 3, burn: 4, exhaust: true } },
+  { id: "orbital_at_mines", name: "Anti-Tank Mines", type: "orbital", cost: 3, target: "highest_hp", rarity: "rare", description: "Deal 22 damage to the highest-HP enemy. Ignores armor. Exhaust.", effect: { damage: 22, ignoreArmor: true, exhaust: true } },
+
+  // ── EXPANSION: MECH ──
+  { id: "support_exosuit", name: "EXO-55 Breakthrough Exosuit", type: "support", cost: 4, target: "all", rarity: "rare", description: "Deal 12 damage to all enemies. Draw 2. Exhaust.", effect: { damage: 12, draw: 2, exhaust: true } },
 ];
 
 export const CARD_LIBRARY: Card[] = RAW.map((c) => ({
