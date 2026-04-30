@@ -28,6 +28,7 @@ import ScreenShake from "@/components/vfx/ScreenShake";
 import VFXLayer from "@/components/vfx/VFXLayer";
 import VFXProvider from "@/components/vfx/VFXProvider";
 import ProgressionProvider from "@/components/progression/ProgressionProvider";
+import TelemetryProvider from "@/components/telemetry/TelemetryProvider";
 import PageTransitionProvider from "@/components/transitions/PageTransitionProvider";
 import PageTransitionWrapper from "@/components/transitions/PageTransitionWrapper";
 import TransitionOverlay from "@/components/transitions/TransitionOverlay";
@@ -126,6 +127,9 @@ export default function Page() {
 
       {/* Progression system — watches the unlock queue + renders the cinematic reveal modal. */}
       <ProgressionProvider />
+
+      {/* Telemetry — anonymous gameplay event recording. Opt-in. Renders nothing visible. */}
+      <TelemetryProvider />
 
       {/* Transition layer — provider watches phase, overlay renders the visual choreography. */}
       <PageTransitionProvider />
