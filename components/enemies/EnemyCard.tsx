@@ -110,7 +110,7 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
 
       {/* Image (~70%) + Stats column (~30%) split */}
       <div className="grid grid-cols-[70%_30%] flex-1 min-h-0 border-y border-border-subtle">
-        <EnemyImage faction={enemy.faction} />
+        <EnemyImage faction={enemy.faction} templateId={enemy.templateId} />
         <EnemyStats hp={enemy.hp} maxHp={enemy.maxHp} shield={enemy.shield} armor={enemy.armor} />
       </div>
 
