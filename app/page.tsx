@@ -27,6 +27,7 @@ import ImpactFlash from "@/components/vfx/ImpactFlash";
 import ScreenShake from "@/components/vfx/ScreenShake";
 import VFXLayer from "@/components/vfx/VFXLayer";
 import VFXProvider from "@/components/vfx/VFXProvider";
+import ProgressionProvider from "@/components/progression/ProgressionProvider";
 import PageTransitionProvider from "@/components/transitions/PageTransitionProvider";
 import PageTransitionWrapper from "@/components/transitions/PageTransitionWrapper";
 import TransitionOverlay from "@/components/transitions/TransitionOverlay";
@@ -122,6 +123,9 @@ export default function Page() {
       {/* VFX system — provider bridges feedback events into VFX, layer renders all active effects. */}
       <VFXProvider />
       <VFXLayer />
+
+      {/* Progression system — watches the unlock queue + renders the cinematic reveal modal. */}
+      <ProgressionProvider />
 
       {/* Transition layer — provider watches phase, overlay renders the visual choreography. */}
       <PageTransitionProvider />
