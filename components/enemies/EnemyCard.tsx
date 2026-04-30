@@ -8,7 +8,7 @@ import { useGame } from "@/lib/store";
 import EnemyHeader from "./EnemyHeader";
 import EnemyImage from "./EnemyImage";
 import EnemyStats from "./EnemyStats";
-import EnemyIntent from "./EnemyIntent";
+import EnemyIntentPanel from "@/components/intent/EnemyIntentPanel";
 import EnemyStatusRow from "./EnemyStatusRow";
 import EnemyFooter from "./EnemyFooter";
 import { SkullIcon } from "@/lib/icons";
@@ -39,7 +39,6 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
   const modifiers = useGame((s) => s.modifiers);
   const fogged = modifiers.includes("heavy_fog");
   const dead = enemy.hp <= 0;
-  const intent = enemy.intents[enemy.intentIndex % enemy.intents.length];
 
   const lastHpRef = useRef(enemy.hp);
   const lastBurnRef = useRef(enemy.burn);
@@ -114,7 +113,7 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
         <EnemyStats hp={enemy.hp} maxHp={enemy.maxHp} shield={enemy.shield} armor={enemy.armor} />
       </div>
 
-      <EnemyIntent intent={intent} fogged={fogged} />
+      <EnemyIntentPanel enemy={enemy} fogged={fogged} />
       <EnemyStatusRow burn={enemy.burn} />
       <EnemyFooter
         templateId={enemy.templateId}
