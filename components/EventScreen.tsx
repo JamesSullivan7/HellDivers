@@ -35,6 +35,12 @@ import {
   EncounterFaction,
   FALLBACK_BG,
 } from "@/lib/encounterTheme";
+import {
+  DecisionRiskLevel,
+  getRiskLevelFromEffects,
+  playTensionCue,
+  useTension,
+} from "@/lib/tension";
 
 // ──────────────────────────────────────────────────────────────────────
 //  STATIC COLOR TOKENS (panel chrome — accent comes from the theme)
@@ -219,8 +225,15 @@ export default function EventScreen() {
     if (lockedIdx !== null) return;
     setLockedIdx(idx);
     sfx.unlock();
-    sfx.beacon();
+    // Heavier feedback for locking in a dangerous choice
+    playTensionCue("choice_lock");
     setTimeout(() => {
+      // Clear any decision-hover tension before resolving
+      const ten = useTension.getState();
+      ten.reduceTension(100, "decision_hover_safe");
+      ten.reduceTension(100, "decision_hover_neutral");
+      ten.reduceTension(100, "decision_hover_risky");
+      ten.reduceTension(100, "decision_hover_dangerous");
       resolveEventChoice(choice.id);
     }, LOCK_DURATION_MS);
   };
@@ -708,6 +721,10 @@ function DecisionCard({
   onSelect,
 }: DecisionCardProps) {
   const badges = useMemo(() => parseEffects(choice.effects), [choice.effects]);
+  const riskLevel = useMemo<DecisionRiskLevel>(
+    () => getRiskLevelFromEffects(choice.effects),
+    [choice.effects]
+  );
   const hasRisk = badges.some((b) => b.kind === "risk");
   const hasReward = badges.some((b) => b.kind === "reward");
   const dimmed = anyLocked && !locked;
@@ -741,10 +758,28 @@ function DecisionCard({
         if (tone === "reward") sfx.hoverReward();
         else if (tone === "risk") sfx.hoverRisk();
         else sfx.hoverNeutral();
+        // Decision tension — risk-graded bump that reverses on leave
+        const ten = useTension.getState();
+        // Clear any prior hover tension first
+        ten.reduceTension(100, "decision_hover_safe");
+        ten.reduceTension(100, "decision_hover_neutral");
+        ten.reduceTension(100, "decision_hover_risky");
+        ten.reduceTension(100, "decision_hover_dangerous");
+        switch (riskLevel) {
+          case "safe":      ten.reduceTension(8, "decision_hover_safe"); /* downward feel */ break;
+          case "neutral":   ten.addTension(2, "decision_hover_neutral"); break;
+          case "risky":     ten.addTension(10, "decision_hover_risky"); break;
+          case "dangerous": ten.addTension(18, "decision_hover_dangerous"); break;
+        }
       }}
       onMouseLeave={() => {
         setMouseX(null);
         onLeave();
+        const ten = useTension.getState();
+        ten.reduceTension(100, "decision_hover_safe");
+        ten.reduceTension(100, "decision_hover_neutral");
+        ten.reduceTension(100, "decision_hover_risky");
+        ten.reduceTension(100, "decision_hover_dangerous");
       }}
       onMouseMove={handleMouseMove}
       onClick={onSelect}

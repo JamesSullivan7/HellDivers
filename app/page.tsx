@@ -19,6 +19,9 @@ import SquadHub from "@/components/SquadHub";
 import SquadLobby from "@/components/SquadLobby";
 import CoopCombatView from "@/components/CoopCombatView";
 import ObjectiveToast from "@/components/ObjectiveToast";
+import TensionProvider from "@/components/tension/TensionProvider";
+import TensionOverlay from "@/components/tension/TensionOverlay";
+import TensionDebugPanel from "@/components/tension/TensionDebugPanel";
 
 const IN_RUN_PHASES = new Set(["map", "combat", "reward", "rest", "event", "shop"]);
 
@@ -96,6 +99,11 @@ export default function Page() {
     <>
       {view}
       {IN_RUN_PHASES.has(phase) && <ObjectiveToast />}
+      {/* Tension system — provider runs always (no-op outside runs);
+          overlay only renders for alert+; debug panel is opt-in. */}
+      <TensionProvider />
+      <TensionOverlay />
+      <TensionDebugPanel />
     </>
   );
 }
