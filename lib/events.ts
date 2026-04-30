@@ -1,4 +1,5 @@
 import type { Faction, RunBuff } from "./types";
+import type { EncounterType, EncounterIntensity } from "./encounterTheme";
 
 export type EventEffect =
   | { kind: "noop" }
@@ -31,11 +32,23 @@ export interface ChoiceEvent {
    * everywhere.
    */
   faction?: Faction;
+  /**
+   * Encounter mood — drives backdrop overlay, scanlines, type label/icon.
+   * Defaults to "civilian" if missing.
+   */
+  type?: EncounterType;
+  /**
+   * Drama level — drives particle density, glow strength, flicker amplitude.
+   * Defaults to "medium" if missing.
+   */
+  intensity?: EncounterIntensity;
 }
 
 export const EVENTS: Record<string, ChoiceEvent> = {
   civilian_truck: {
     id: "civilian_truck",
+    type: "civilian",
+    intensity: "medium",
     title: "Civilian Convoy",
     flavor:
       "A line of overloaded transport trucks rolls toward your position. Faces in the windows. They're trying to flag you down.",
@@ -78,6 +91,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
 
   eagle_pilot_down: {
     id: "eagle_pilot_down",
+    type: "civilian",
+    intensity: "medium",
     title: "Eagle-1 Pilot Crash",
     faction: "automaton",
     flavor:
@@ -104,6 +119,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
 
   stratagem_cache: {
     id: "stratagem_cache",
+    type: "reward",
+    intensity: "low",
     title: "Stratagem Cache",
     faction: "automaton",
     flavor:
@@ -132,6 +149,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
 
   acidic_vent: {
     id: "acidic_vent",
+    type: "hazard",
+    intensity: "medium",
     title: "Acidic Vent",
     faction: "terminid",
     flavor:
@@ -167,6 +186,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
 
   dem_officer: {
     id: "dem_officer",
+    type: "command",
+    intensity: "medium",
     title: "Democracy Officer Inspection",
     flavor:
       "Boots crunch behind you. A Democracy Officer in mirror-polish armor wants a word. He has a clipboard.",
@@ -201,6 +222,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
 
   stim_cache: {
     id: "stim_cache",
+    type: "reward",
+    intensity: "low",
     title: "Hellpod Stim Cache",
     flavor:
       "A jettisoned hellpod, cracked open, contents scattered. Stim packs glitter in the dirt.",
@@ -222,6 +245,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
 
   sos_beacon: {
     id: "sos_beacon",
+    type: "civilian",
+    intensity: "medium",
     title: "Squad SOS Beacon",
     flavor:
       "A pulsing red beacon nearby. Another squad pinned down. Helldivers leave no Helldivers behind. (Probably.)",
@@ -247,6 +272,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
 
   patrol_warning: {
     id: "patrol_warning",
+    type: "combat",
+    intensity: "medium",
     title: "Patrol Sighted",
     flavor:
       "Footprints in the dust. A patrol moved through here recently. Big one.",
@@ -283,6 +310,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
   spore_field: {
     id: "spore_field",
     faction: "terminid",
+    type: "hazard",
+    intensity: "high",
     title: "Bioluminescent Spore Field",
     flavor:
       "Glowing spores drift between the trees. Sweet, choking, possibly hallucinogenic. The path through saves time.",
@@ -320,6 +349,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
   bug_breach: {
     id: "bug_breach",
     faction: "terminid",
+    type: "combat",
+    intensity: "high",
     title: "Bug Breach Warning",
     flavor:
       "A pheromone signal pulses underground. The bugs know you're here. They're calling reinforcements.",
@@ -366,6 +397,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
   bug_carcass: {
     id: "bug_carcass",
     faction: "terminid",
+    type: "reward",
+    intensity: "medium",
     title: "Bile Titan Carcass",
     flavor:
       "Half-buried in the dirt. Glistening rare samples in the wound cavity. The smell is unspeakable.",
@@ -393,6 +426,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
   derelict_factory: {
     id: "derelict_factory",
     faction: "automaton",
+    type: "reward",
+    intensity: "low",
     title: "Derelict Fabricator",
     flavor:
       "An automaton fabricator stands cold and silent. Most of the systems are still warm. One terminal blinks orange.",
@@ -437,6 +472,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
   scrap_dealer: {
     id: "scrap_dealer",
     faction: "automaton",
+    type: "civilian",
+    intensity: "low",
     title: "Scrap Dealer",
     flavor:
       "A grizzled Helldiver veteran in salvaged armor offers a trade. \"Don't ask where I got it, diver.\"",
@@ -471,6 +508,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
   jammer_tower: {
     id: "jammer_tower",
     faction: "automaton",
+    type: "hazard",
+    intensity: "high",
     title: "Stratagem Jammer Tower",
     flavor:
       "A tower humming on the ridgeline. While it's up, your stratagems are unreliable. While it's up, the bots are blind to your hellpods.",
@@ -508,6 +547,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
   void_rift: {
     id: "void_rift",
     faction: "illuminate",
+    type: "risk",
+    intensity: "high",
     title: "Void Rift",
     flavor:
       "A shimmering tear in space hangs over the path. Whispers in a language nobody admits to understanding.",
@@ -539,6 +580,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
   obelisk_resonance: {
     id: "obelisk_resonance",
     faction: "illuminate",
+    type: "risk",
+    intensity: "medium",
     title: "Resonating Obelisk",
     flavor:
       "A black obelisk hums in synchrony with your heartbeat. Touching it feels inevitable.",
@@ -577,6 +620,8 @@ export const EVENTS: Record<string, ChoiceEvent> = {
   voteless_shrine: {
     id: "voteless_shrine",
     faction: "illuminate",
+    type: "risk",
+    intensity: "low",
     title: "Voteless Shrine",
     flavor:
       "A circle of Voteless surround a low altar. None of them have moved in hours. They are smiling.",
