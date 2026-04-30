@@ -2,16 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-
-const VICTORY_VERBS = [
-  "liberated", "secured", "purged", "scoured", "extracted from", "neutralized",
-];
-
-const DEATH_VERBS = [
-  "KIA at", "extracted under fire from", "lost on", "depleted reinforcements at",
-];
+import { generateActivity, listPlanets, loadWarState } from "@/lib/galacticWar";
 
 interface FeedItem {
   id: string;
@@ -19,52 +10,49 @@ interface FeedItem {
   victory: boolean;
 }
 
-function entryFor(c: {
-  _id: string;
-  _creationTime: number;
-  helldiverName: string;
-  planetName: string;
-  victory: boolean;
-  difficulty: number;
-}): FeedItem {
-  if (c.victory) {
-    const verb = VICTORY_VERBS[Math.floor(Math.random() * VICTORY_VERBS.length)];
-    return {
-      id: c._id,
-      victory: true,
-      text: `${c.helldiverName} ${verb} ${c.planetName.toUpperCase()} (D${c.difficulty})`,
-    };
-  } else {
-    const verb = DEATH_VERBS[Math.floor(Math.random() * DEATH_VERBS.length)];
-    return {
-      id: c._id,
-      victory: false,
-      text: `${c.helldiverName} ${verb} ${c.planetName.toUpperCase()} (D${c.difficulty})`,
-    };
-  }
-}
-
+/**
+ * Solo: this ticker is purely flavor text. No live feed, no other Helldivers.
+ * It pulls planet data from the local war state and synthesizes propaganda
+ * lines on a slow rolling cadence so the war room feels alive.
+ */
 export default function ActivityTicker() {
-  const recent = useQuery(api.war.recentActivity, { limit: 12 });
   const [feed, setFeed] = useState<FeedItem[]>([]);
 
   useEffect(() => {
-    if (!recent) return;
-    setFeed(recent.map(entryFor));
-  }, [recent]);
+    const planets = listPlanets(loadWarState());
+    const initial: FeedItem[] = Array.from({ length: 6 }).map((_, i) => {
+      const text = generateActivity(planets);
+      return {
+        id: `${Date.now()}-${i}`,
+        text,
+        victory: !/KIA|extracted under fire|lost on|depleted/i.test(text),
+      };
+    });
+    setFeed(initial);
+
+    const interval = setInterval(() => {
+      const planetsNow = listPlanets(loadWarState());
+      const text = generateActivity(planetsNow);
+      const item: FeedItem = {
+        id: `${Date.now()}-${Math.random()}`,
+        text,
+        victory: !/KIA|extracted under fire|lost on|depleted/i.test(text),
+      };
+      setFeed((prev) => [item, ...prev].slice(0, 6));
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="border border-helldiver-yellow/30 bg-black/70 backdrop-blur-sm font-mono">
       <div className="px-3 py-1 border-b border-helldiver-yellow/30 text-[10px] uppercase tracking-[0.3em] text-helldiver-yellow flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-blink" />
-        Live Galactic Feed
+        Sector Bulletins
       </div>
       <div className="px-3 py-2 max-h-32 overflow-hidden text-[11px] leading-relaxed">
-        {!recent && (
-          <div className="text-helldiver-dim italic">Connecting to feed...</div>
-        )}
-        {recent && feed.length === 0 && (
-          <div className="text-helldiver-dim italic">— No recorded deployments yet. Be the first. —</div>
+        {feed.length === 0 && (
+          <div className="text-helldiver-dim italic">— Awaiting field reports. —</div>
         )}
         <AnimatePresence initial={false}>
           {feed.slice(0, 6).map((entry, i) => (

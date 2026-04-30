@@ -1,6 +1,23 @@
 import { Faction } from "./types";
 
-const WAR_KEY = "helldivers_war_v2";
+const WAR_KEY = "helldivers_war_v3_solo";
+
+/**
+ * SOLO WAR TUNING
+ * ---------------
+ * The galactic war runs entirely from this player's localStorage. No live
+ * server, no leaderboard, no community decay. A single Helldiver can liberate
+ * the galaxy by themselves over a few sessions of play.
+ *
+ * Liberation gain per victory: ~12-32% scaling with difficulty.
+ * Decay: zero — planets stay where the player left them.
+ * Major Orders: persist until completed; no time expiry.
+ */
+const SOLO_LIBERATION_BASE = 12;
+const SOLO_LIBERATION_PER_DIFFICULTY = 2;
+const SOLO_DECAY_PER_HOUR = 0;
+const SOLO_INITIAL_LIBERATION_MIN = 0;
+const SOLO_INITIAL_LIBERATION_MAX = 12;
 
 export interface PlanetState {
   id: string;
@@ -21,6 +38,7 @@ export interface MajorOrder {
   targetPlanetIds: string[];
   rewardMedals: number;
   startedAt: number;
+  /** Solo: this is informational only; orders persist until completed. */
   durationHours: number;
 }
 
@@ -29,36 +47,40 @@ export interface WarState {
   majorOrder: MajorOrder | null;
   lastTick: number;
   contributions: { planetId: string; victory: boolean; difficulty: number; date: number }[];
+  /** Solo: track completed Major Order ids so we don't repeat them. */
+  completedOrderIds: string[];
+  /** Solo: total medals earned from completed Major Orders (informational). */
+  ordersClaimedMedals: number;
 }
 
-const PLANETS_DATA: Omit<PlanetState, "liberation" | "baseLiberators">[] = [
+const PLANETS_DATA: Omit<PlanetState, "liberation" | "baseLiberators" | "decayPerHour">[] = [
   // ── TERMINID — Eastern bug worlds ──
-  { id: "phact_bay", name: "Phact Bay", faction: "terminid", sector: "Jin Xi", biome: "Sandy Mesa", decayPerHour: 1.5 },
-  { id: "gemstone_bluffs", name: "Gemstone Bluffs", faction: "terminid", sector: "L'estrade", biome: "Grassland", decayPerHour: 1.0 },
-  { id: "omicron", name: "Omicron", faction: "terminid", sector: "L'estrade", biome: "Tundra", decayPerHour: 0.9 },
-  { id: "nabatea_secundus", name: "Nabatea Secundus", faction: "terminid", sector: "L'estrade", biome: "Swamp", decayPerHour: 1.1 },
-  { id: "nivel_43", name: "Nivel 43", faction: "terminid", sector: "Mirin", biome: "Ashland", decayPerHour: 1.4 },
-  { id: "zagon_prime", name: "Zagon Prime", faction: "terminid", sector: "Mirin", biome: "Sandy Mesa", decayPerHour: 1.6 },
-  { id: "azterra", name: "Azterra", faction: "terminid", sector: "Orion", biome: "Copper Desert", decayPerHour: 1.2 },
-  { id: "terrek", name: "Terrek", faction: "terminid", sector: "Orion", biome: "Barren Moon", decayPerHour: 1.3 },
-  { id: "cirrus", name: "Cirrus", faction: "terminid", sector: "Orion", biome: "Ashland", decayPerHour: 1.5 },
+  { id: "phact_bay", name: "Phact Bay", faction: "terminid", sector: "Jin Xi", biome: "Sandy Mesa" },
+  { id: "gemstone_bluffs", name: "Gemstone Bluffs", faction: "terminid", sector: "L'estrade", biome: "Grassland" },
+  { id: "omicron", name: "Omicron", faction: "terminid", sector: "L'estrade", biome: "Tundra" },
+  { id: "nabatea_secundus", name: "Nabatea Secundus", faction: "terminid", sector: "L'estrade", biome: "Swamp" },
+  { id: "nivel_43", name: "Nivel 43", faction: "terminid", sector: "Mirin", biome: "Ashland" },
+  { id: "zagon_prime", name: "Zagon Prime", faction: "terminid", sector: "Mirin", biome: "Sandy Mesa" },
+  { id: "azterra", name: "Azterra", faction: "terminid", sector: "Orion", biome: "Copper Desert" },
+  { id: "terrek", name: "Terrek", faction: "terminid", sector: "Orion", biome: "Barren Moon" },
+  { id: "cirrus", name: "Cirrus", faction: "terminid", sector: "Orion", biome: "Ashland" },
 
   // ── AUTOMATON — Western bot strongholds ──
-  { id: "choohe", name: "Choohe", faction: "automaton", sector: "Lacaille", biome: "Sandy Mesa", decayPerHour: 2.0 },
-  { id: "yed_prior", name: "Yed Prior", faction: "automaton", sector: "Tanis", biome: "Ionized Grassland", decayPerHour: 1.7 },
-  { id: "clasa", name: "Clasa", faction: "automaton", sector: "Tanis", biome: "Swamp", decayPerHour: 1.5 },
-  { id: "zefia", name: "Zefia", faction: "automaton", sector: "Tanis", biome: "Ethereal Jungle", decayPerHour: 1.6 },
-  { id: "demiurg", name: "Demiurg", faction: "automaton", sector: "Tanis", biome: "Tundra", decayPerHour: 1.8 },
+  { id: "choohe", name: "Choohe", faction: "automaton", sector: "Lacaille", biome: "Sandy Mesa" },
+  { id: "yed_prior", name: "Yed Prior", faction: "automaton", sector: "Tanis", biome: "Ionized Grassland" },
+  { id: "clasa", name: "Clasa", faction: "automaton", sector: "Tanis", biome: "Swamp" },
+  { id: "zefia", name: "Zefia", faction: "automaton", sector: "Tanis", biome: "Ethereal Jungle" },
+  { id: "demiurg", name: "Demiurg", faction: "automaton", sector: "Tanis", biome: "Tundra" },
 
   // ── ILLUMINATE — Recent invasion sectors ──
-  { id: "myrium", name: "Myrium", faction: "illuminate", sector: "Morgon", biome: "Copper Desert", decayPerHour: 2.2 },
-  { id: "hydrobius", name: "Hydrobius", faction: "illuminate", sector: "Omega", biome: "Quake Desert", decayPerHour: 2.4 },
-  { id: "setia", name: "Setia", faction: "illuminate", sector: "Omega", biome: "Foggy Swamp", decayPerHour: 2.0 },
-  { id: "senge_23", name: "Senge 23", faction: "illuminate", sector: "Omega", biome: "Copper Desert", decayPerHour: 2.1 },
-  { id: "parsh", name: "Parsh", faction: "illuminate", sector: "Rictus", biome: "Swamp", decayPerHour: 2.3 },
-  { id: "kerth_secundus", name: "Kerth Secundus", faction: "illuminate", sector: "Rictus", biome: "Tundra", decayPerHour: 2.5 },
-  { id: "grafmere", name: "Grafmere", faction: "illuminate", sector: "Rictus", biome: "Frozen Boneyard", decayPerHour: 2.2 },
-  { id: "genesis_prime", name: "Genesis Prime", faction: "illuminate", sector: "Rictus", biome: "Shadowed Jungle", decayPerHour: 2.6 },
+  { id: "myrium", name: "Myrium", faction: "illuminate", sector: "Morgon", biome: "Copper Desert" },
+  { id: "hydrobius", name: "Hydrobius", faction: "illuminate", sector: "Omega", biome: "Quake Desert" },
+  { id: "setia", name: "Setia", faction: "illuminate", sector: "Omega", biome: "Foggy Swamp" },
+  { id: "senge_23", name: "Senge 23", faction: "illuminate", sector: "Omega", biome: "Copper Desert" },
+  { id: "parsh", name: "Parsh", faction: "illuminate", sector: "Rictus", biome: "Swamp" },
+  { id: "kerth_secundus", name: "Kerth Secundus", faction: "illuminate", sector: "Rictus", biome: "Tundra" },
+  { id: "grafmere", name: "Grafmere", faction: "illuminate", sector: "Rictus", biome: "Frozen Boneyard" },
+  { id: "genesis_prime", name: "Genesis Prime", faction: "illuminate", sector: "Rictus", biome: "Shadowed Jungle" },
 ];
 
 const MAJOR_ORDERS: Omit<MajorOrder, "startedAt">[] = [
@@ -115,11 +137,16 @@ const MAJOR_ORDERS: Omit<MajorOrder, "startedAt">[] = [
 function defaultWarState(): WarState {
   const planets: Record<string, PlanetState> = {};
   PLANETS_DATA.forEach((p) => {
-    const lib = 20 + Math.random() * 60;
+    // Solo: planets start near-occupied so the player has something to liberate.
+    const lib =
+      SOLO_INITIAL_LIBERATION_MIN +
+      Math.random() * (SOLO_INITIAL_LIBERATION_MAX - SOLO_INITIAL_LIBERATION_MIN);
     planets[p.id] = {
       ...p,
+      decayPerHour: SOLO_DECAY_PER_HOUR,
       liberation: lib,
-      baseLiberators: 100 + Math.floor(Math.random() * 4000),
+      // Solo: just the player
+      baseLiberators: 1,
     };
   });
   const orderTemplate = MAJOR_ORDERS[Math.floor(Math.random() * MAJOR_ORDERS.length)];
@@ -128,6 +155,8 @@ function defaultWarState(): WarState {
     majorOrder: { ...orderTemplate, startedAt: Date.now() },
     lastTick: Date.now(),
     contributions: [],
+    completedOrderIds: [],
+    ordersClaimedMedals: 0,
   };
 }
 
@@ -141,6 +170,9 @@ export function loadWarState(): WarState {
       return fresh;
     }
     const parsed = JSON.parse(raw) as WarState;
+    // Defensive: backfill new solo fields on older saves
+    if (!parsed.completedOrderIds) parsed.completedOrderIds = [];
+    if (parsed.ordersClaimedMedals === undefined) parsed.ordersClaimedMedals = 0;
     return tickWar(parsed);
   } catch {
     return defaultWarState();
@@ -155,24 +187,10 @@ export function saveWarState(s: WarState) {
 }
 
 export function tickWar(state: WarState): WarState {
-  const now = Date.now();
-  const hours = (now - state.lastTick) / (1000 * 60 * 60);
-  if (hours <= 0) return state;
-  const planets = { ...state.planets };
-  Object.keys(planets).forEach((id) => {
-    const p = planets[id];
-    const newLib = Math.max(0, p.liberation - p.decayPerHour * hours);
-    planets[id] = { ...p, liberation: newLib };
-  });
-  let majorOrder = state.majorOrder;
-  if (majorOrder) {
-    const elapsed = (now - majorOrder.startedAt) / (1000 * 60 * 60);
-    if (elapsed > majorOrder.durationHours) {
-      const t = MAJOR_ORDERS[Math.floor(Math.random() * MAJOR_ORDERS.length)];
-      majorOrder = { ...t, startedAt: now };
-    }
-  }
-  return { ...state, planets, lastTick: now, majorOrder };
+  // Solo: no decay, no Major Order expiry. The orders persist until the
+  // player completes them. The only thing this function does now is keep
+  // the timestamp fresh so future logic can hook in.
+  return { ...state, lastTick: Date.now() };
 }
 
 export function contributeVictory(
@@ -182,11 +200,13 @@ export function contributeVictory(
 ): WarState {
   const p = state.planets[planetId];
   if (!p) return state;
-  const boost = 4 + difficulty * 1.2;
+  // Solo tuning: a single victory liberates a meaningful chunk.
+  // D1 ≈ 14%, D5 ≈ 22%, D10 ≈ 32% — 4-5 wins per planet at mid difficulty.
+  const boost = SOLO_LIBERATION_BASE + difficulty * SOLO_LIBERATION_PER_DIFFICULTY;
   const newLib = Math.min(100, p.liberation + boost);
   const planets = {
     ...state.planets,
-    [planetId]: { ...p, liberation: newLib, baseLiberators: p.baseLiberators + 1 },
+    [planetId]: { ...p, liberation: newLib },
   };
   return {
     ...state,
@@ -221,6 +241,7 @@ export function getMajorOrderProgress(state: WarState): {
   total: number;
   pct: number;
   hoursRemaining: number;
+  complete: boolean;
 } | null {
   if (!state.majorOrder) return null;
   const order = state.majorOrder;
@@ -232,9 +253,47 @@ export function getMajorOrderProgress(state: WarState): {
   const liberated = targets.filter((p) => p.liberation >= 100).length;
   const total = order.targetPlanetIds.length || 4;
   const pct = (liberated / total) * 100;
+  // Solo: time is informational. The order doesn't expire.
   const elapsed = (Date.now() - order.startedAt) / (1000 * 60 * 60);
   const hoursRemaining = Math.max(0, order.durationHours - elapsed);
-  return { liberated, total, pct, hoursRemaining };
+  return { liberated, total, pct, hoursRemaining, complete: liberated >= total };
+}
+
+/**
+ * If the current Major Order is complete, mark it claimed, return the medal
+ * payout, and roll a fresh order from the unused pool. Idempotent: calling
+ * twice without progress is a no-op.
+ *
+ * Returns { state, medalsAwarded }.
+ */
+export function claimMajorOrderIfComplete(
+  state: WarState
+): { state: WarState; medalsAwarded: number } {
+  if (!state.majorOrder) return { state, medalsAwarded: 0 };
+  const progress = getMajorOrderProgress(state);
+  if (!progress?.complete) return { state, medalsAwarded: 0 };
+
+  const claimedId = state.majorOrder.id;
+  const completedOrderIds = [...state.completedOrderIds, claimedId];
+  const medalsAwarded = state.majorOrder.rewardMedals;
+
+  // Pick next uncompleted order, or fall back to a random one if all done.
+  const remaining = MAJOR_ORDERS.filter((o) => !completedOrderIds.includes(o.id));
+  const nextTemplate = remaining.length > 0
+    ? remaining[Math.floor(Math.random() * remaining.length)]
+    : null;
+
+  return {
+    state: {
+      ...state,
+      completedOrderIds,
+      ordersClaimedMedals: state.ordersClaimedMedals + medalsAwarded,
+      majorOrder: nextTemplate
+        ? { ...nextTemplate, startedAt: Date.now() }
+        : null,
+    },
+    medalsAwarded,
+  };
 }
 
 const HELLDIVER_NAMES = [

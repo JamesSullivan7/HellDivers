@@ -377,8 +377,11 @@ export function generateMap(faction: Faction = "terminid", modifiers: string[] =
     }
     return {
       index: i,
+      tier: 0,
+      col: 0,
       type: entry.type,
       enemyTemplateIds: enemies,
+      children: [],
       cleared: false,
     };
   });

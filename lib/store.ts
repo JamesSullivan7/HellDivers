@@ -9,15 +9,32 @@ import {
   PlayerState,
 } from "./types";
 import { getCardById, getRandomRewardCards } from "./cards";
-import { generateMap, instantiateEnemy, PLANETS } from "./enemies";
+import { instantiateEnemy, PLANETS } from "./enemies";
+import { buildMissionTree } from "./missionTree";
+import { rollObjectives, bumpObjective, setObjective, objectiveBonus } from "./objectives";
+import { EVENTS, type EventEffect } from "./events";
+import type { MissionObjective, RunBuff } from "./types";
 import {
   DEFAULT_ARMOR,
   DEFAULT_BOOSTER,
   DEFAULT_WEAPON,
   FIXED_BASICS,
   getArmor,
+  getArmorEffective,
   getBooster,
   getWeapon,
+  getWeaponEffective,
+  getBoosterPotency,
+  ARMOR_PURCHASE_COST,
+  WEAPON_PURCHASE_COST,
+  BOOSTER_PURCHASE_COST,
+  armorUpgradeCost,
+  weaponUpgradeCost,
+  boosterUpgradeCost,
+  MAX_TIER,
+  ARMORS,
+  WEAPONS,
+  BOOSTERS,
 } from "./loadout";
 import {
   Account,
@@ -31,6 +48,7 @@ import {
   SHIP_MODULES,
 } from "./account";
 import {
+  claimMajorOrderIfComplete,
   contributeDefeat,
   contributeVictory,
   loadWarState,
@@ -39,6 +57,12 @@ import {
 } from "./galacticWar";
 import { CAPES, TITLES } from "./cosmetics";
 import type { CombatEvent } from "@/game/events/combatEvents";
+import {
+  MISSION_TYPES,
+  rollMissionType,
+  applyMissionBonus,
+  type MissionType,
+} from "./missionTypes";
 
 const BASE_HAND_SIZE = 5;
 const MAX_REQUISITION = 4;
@@ -93,6 +117,12 @@ interface Loadout {
   weaponId: string;
   boosterId: string;
   stratagemIds: string[];
+  /** Equipped armor's upgrade tier, 1..3. Defaults to 1 if missing. */
+  armorTier?: number;
+  /** Equipped weapon's upgrade tier, 1..3. */
+  weaponTier?: number;
+  /** Equipped booster's upgrade tier, 1..3. */
+  boosterTier?: number;
 }
 
 interface GameStore {
@@ -102,6 +132,10 @@ interface GameStore {
   modifiers: string[];
   targetPlanetId: string | null;
   squadCode: string | null;
+  /** Current mission's primary objective type — codename, briefing, bonuses. */
+  missionType: import("./missionTypes").MissionType;
+  /** Pre-computed codename for the current mission (display only). */
+  missionCodename: string;
   loadout: Loadout;
   player: PlayerState;
   ownedDeck: Card[];
@@ -114,7 +148,26 @@ interface GameStore {
   pendingPlay: PendingPlay | null;
   handSize: number;
   account: Account;
-  lastRunReward: { medals: number; xp: number; samples: number; requisition: number } | null;
+  lastRunReward: {
+    medals: number;
+    xp: number;
+    samples: number;
+    rareSamples: number;
+    superSamples: number;
+    requisition: number;
+  } | null;
+  /** Active mission objectives (rolled at run start). */
+  objectives: import("./types").MissionObjective[];
+  /** Run-wide buffs from choice events. */
+  runBuffs: import("./types").RunBuff[];
+  /** Damage dealt this turn (tracked for the deal-damage objective). */
+  damageThisTurn: number;
+  /** Whether player gained any block this run (tracked for no-block objective). */
+  blockUsedThisRun: boolean;
+  /** Pending event id to resolve when phase === "event". */
+  pendingEventId: string | null;
+  /** Pending node index (set when entering a node, cleared on advance). */
+  pendingNodeIndex: number | null;
 
   goToWar: () => void;
   goToSquadHub: () => void;
@@ -132,9 +185,15 @@ interface GameStore {
   takeReward: (card: Card | null) => void;
   takeRest: () => void;
   proceedAfterReward: () => void;
+  buyShopCard: (card: Card, price: number) => void;
+  buyShopHeal: (price: number, hpAmount: number) => void;
+  buyShopMaxHp: (price: number, amount: number) => void;
+  removeCardFromDeck: (price: number, cardId: string) => void;
+  leaveShop: () => void;
   goToMenu: () => void;
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
   goToArmory: () => void;
+  goToCharacter: () => void;
   unlockCard: (cardId: string) => boolean;
   unlockModule: (moduleId: string) => boolean;
   unlockCape: (id: string) => boolean;
@@ -143,6 +202,16 @@ interface GameStore {
   equipTitle: (id: string) => void;
   setHelldiverName: (name: string) => void;
   resetAccount: () => void;
+  /** Outfitter: buy/upgrade armor/weapon/booster gear. Returns true on success. */
+  buyArmor: (id: string) => boolean;
+  buyWeapon: (id: string) => boolean;
+  buyBooster: (id: string) => boolean;
+  upgradeArmor: (id: string) => boolean;
+  upgradeWeapon: (id: string) => boolean;
+  upgradeBooster: (id: string) => boolean;
+
+  /** Resolve a pending choice event with one of its choice ids. */
+  resolveEventChoice: (choiceId: string) => void;
 
   /** Event-driven entry point. Routes a typed event to the appropriate action.
    *  Components should prefer `dispatch(event)` over calling actions directly —
@@ -167,10 +236,18 @@ function emptyCombat(): CombatState {
 function freshPlayer(loadout?: Loadout, modules: string[] = [], difficulty: number = 3): PlayerState {
   let maxHp = STARTING_HP;
   let maxR = MAX_REQUISITION;
+  let bonusReinf = 0;
   if (loadout) {
-    const armor = getArmor(loadout.armorId);
+    const armor = getArmorEffective(loadout.armorId, loadout.armorTier ?? 1);
     maxHp += armor.hpMod;
-    if (loadout.boosterId === "vitality_enhancement") maxHp += 15;
+    maxR += armor.reqMod;
+    bonusReinf += armor.reinforcementBonus ?? 0;
+    if (loadout.boosterId === "vitality_enhancement") {
+      maxHp += Math.round(15 * getBoosterPotency(loadout.boosterTier ?? 1));
+    }
+    if (loadout.boosterId === "increased_reinforcement") {
+      bonusReinf += 1;
+    }
   }
   if (modules.includes("vitamin_d3")) maxHp += 20;
   if (modules.includes("hellpod_storage")) maxR += 1;
@@ -180,12 +257,12 @@ function freshPlayer(loadout?: Loadout, modules: string[] = [], difficulty: numb
     requisition: maxR,
     maxRequisition: maxR,
     block: 0,
-    reinforcements: startingReinforcements(difficulty),
+    reinforcements: startingReinforcements(difficulty) + bonusReinf,
   };
 }
 
 function computeHandSize(loadout: Loadout, modules: string[] = []): number {
-  const armor = getArmor(loadout.armorId);
+  const armor = getArmorEffective(loadout.armorId, loadout.armorTier ?? 1);
   let size = BASE_HAND_SIZE + armor.handMod;
   if (loadout.boosterId === "stamina_enhancement") size += 1;
   if (modules.includes("streamlined_launch")) size += 1;
@@ -196,6 +273,12 @@ function buildLoadoutDeck(loadout: Loadout): Card[] {
   const cards: Card[] = [];
   FIXED_BASICS.forEach((id) => cards.push(getCardById(id)));
   loadout.stratagemIds.forEach((id) => cards.push(getCardById(id)));
+  // Med-Kit armor passive: extra stims in the starting deck.
+  const armor = getArmorEffective(loadout.armorId, loadout.armorTier ?? 1);
+  const extraStims = armor.bonusStims ?? 0;
+  for (let i = 0; i < extraStims; i++) {
+    cards.push(getCardById("util_stim"));
+  }
   return cards;
 }
 
@@ -235,6 +318,8 @@ export const useGame = create<GameStore>((set, get) => ({
   modifiers: [],
   targetPlanetId: null,
   squadCode: null,
+  missionType: "eliminate_target",
+  missionCodename: "OPERATION IRONCLAD",
   loadout: DEFAULT_LOADOUT,
   player: freshPlayer(),
   ownedDeck: [],
@@ -248,10 +333,17 @@ export const useGame = create<GameStore>((set, get) => ({
   handSize: BASE_HAND_SIZE,
   account: loadAccount(),
   lastRunReward: null,
+  objectives: [],
+  runBuffs: [],
+  damageThisTurn: 0,
+  blockUsedThisRun: false,
+  pendingEventId: null,
+  pendingNodeIndex: null,
 
   setDifficulty: (d) => set({ difficulty: d }),
 
   goToArmory: () => set({ phase: "armory" }),
+  goToCharacter: () => set({ phase: "character" }),
 
   unlockCard: (cardId) => {
     const { account } = get();
@@ -331,6 +423,108 @@ export const useGame = create<GameStore>((set, get) => ({
     set({ account: next });
   },
 
+  buyArmor: (id) => {
+    const { account } = get();
+    if (account.ownedArmors.includes(id)) return false;
+    const a = ARMORS.find((x) => x.id === id);
+    if (!a) return false;
+    if (account.medals < ARMOR_PURCHASE_COST) return false;
+    const next: Account = {
+      ...account,
+      medals: account.medals - ARMOR_PURCHASE_COST,
+      ownedArmors: [...account.ownedArmors, id],
+      armorTiers: { ...account.armorTiers, [id]: 1 },
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
+  buyWeapon: (id) => {
+    const { account } = get();
+    if (account.ownedWeapons.includes(id)) return false;
+    const w = WEAPONS.find((x) => x.id === id);
+    if (!w) return false;
+    if (account.medals < WEAPON_PURCHASE_COST) return false;
+    const next: Account = {
+      ...account,
+      medals: account.medals - WEAPON_PURCHASE_COST,
+      ownedWeapons: [...account.ownedWeapons, id],
+      weaponTiers: { ...account.weaponTiers, [id]: 1 },
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
+  buyBooster: (id) => {
+    const { account } = get();
+    if (account.ownedBoosters.includes(id)) return false;
+    const b = BOOSTERS.find((x) => x.id === id);
+    if (!b) return false;
+    if (account.requisition < BOOSTER_PURCHASE_COST) return false;
+    const next: Account = {
+      ...account,
+      requisition: account.requisition - BOOSTER_PURCHASE_COST,
+      ownedBoosters: [...account.ownedBoosters, id],
+      boosterTiers: { ...account.boosterTiers, [id]: 1 },
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
+  upgradeArmor: (id) => {
+    const { account } = get();
+    if (!account.ownedArmors.includes(id)) return false;
+    const tier = account.armorTiers[id] ?? 1;
+    if (tier >= MAX_TIER) return false;
+    const cost = armorUpgradeCost(tier);
+    if (account.samples < cost) return false;
+    const next: Account = {
+      ...account,
+      samples: account.samples - cost,
+      armorTiers: { ...account.armorTiers, [id]: tier + 1 },
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
+  upgradeWeapon: (id) => {
+    const { account } = get();
+    if (!account.ownedWeapons.includes(id)) return false;
+    const tier = account.weaponTiers[id] ?? 1;
+    if (tier >= MAX_TIER) return false;
+    const cost = weaponUpgradeCost(tier);
+    if (account.samples < cost) return false;
+    const next: Account = {
+      ...account,
+      samples: account.samples - cost,
+      weaponTiers: { ...account.weaponTiers, [id]: tier + 1 },
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
+  upgradeBooster: (id) => {
+    const { account } = get();
+    if (!account.ownedBoosters.includes(id)) return false;
+    const tier = account.boosterTiers[id] ?? 1;
+    if (tier >= MAX_TIER) return false;
+    const cost = boosterUpgradeCost(tier);
+    if (account.samples < cost) return false;
+    const next: Account = {
+      ...account,
+      samples: account.samples - cost,
+      boosterTiers: { ...account.boosterTiers, [id]: tier + 1 },
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
   setHelldiverName: (name) => {
     const trimmed = name.trim().slice(0, 24);
     if (!trimmed) return;
@@ -338,6 +532,84 @@ export const useGame = create<GameStore>((set, get) => ({
     const next = { ...account, helldiverName: trimmed };
     saveAccount(next);
     set({ account: next });
+  },
+
+  resolveEventChoice: (choiceId) => {
+    const state = get();
+    const eventId = state.pendingEventId;
+    if (!eventId) return;
+    const event = EVENTS[eventId];
+    if (!event) return;
+    const choice = event.choices.find((c) => c.id === choiceId);
+    if (!choice) return;
+
+    let player = { ...state.player };
+    let ownedDeck = [...state.ownedDeck];
+    let runBuffs = [...state.runBuffs];
+    let account = { ...state.account };
+
+    choice.effects.forEach((eff: EventEffect) => {
+      switch (eff.kind) {
+        case "noop":
+          break;
+        case "addCard":
+          ownedDeck = [...ownedDeck, getCardById(eff.cardId)];
+          break;
+        case "removeOneCard":
+          if (ownedDeck.length > 0) ownedDeck = ownedDeck.slice(0, -1);
+          break;
+        case "modifyMaxHp":
+          player = {
+            ...player,
+            maxHp: Math.max(1, player.maxHp + eff.amount),
+            hp: Math.max(1, Math.min(player.maxHp + eff.amount, player.hp + Math.min(0, eff.amount))),
+          };
+          break;
+        case "heal":
+          player = { ...player, hp: Math.min(player.maxHp, player.hp + eff.amount) };
+          break;
+        case "damage":
+          player = { ...player, hp: Math.max(1, player.hp - eff.amount) };
+          break;
+        case "gainCurrency":
+          account = {
+            ...account,
+            medals: account.medals + (eff.medals ?? 0),
+            samples: account.samples + (eff.samples ?? 0),
+            requisition: account.requisition + (eff.requisition ?? 0),
+          };
+          if (account.medals < 0) account.medals = 0;
+          break;
+        case "applyRunBuff":
+          runBuffs = [...runBuffs, eff.buff];
+          break;
+        case "loseReinforcement":
+          player = { ...player, reinforcements: Math.max(0, player.reinforcements - 1) };
+          break;
+        case "gainReinforcement":
+          player = { ...player, reinforcements: player.reinforcements + 1 };
+          break;
+      }
+    });
+
+    saveAccount(account);
+
+    // Mark current event node cleared and bump objective
+    const map = state.map.map((n, i) =>
+      i === state.currentNodeIndex ? { ...n, cleared: true } : n
+    );
+    let objectives = bumpObjective(state.objectives, "complete_events", 1);
+
+    set({
+      player,
+      ownedDeck,
+      runBuffs,
+      account,
+      objectives,
+      map,
+      pendingEventId: null,
+      phase: "map",
+    });
   },
 
   resetAccount: () => {
@@ -418,42 +690,132 @@ export const useGame = create<GameStore>((set, get) => ({
 
   startNewRun: (loadout) => {
     const { account, faction, modifiers, difficulty } = get();
-    const ownedDeck = buildLoadoutDeck(loadout);
-    let handSize = computeHandSize(loadout, account.unlockedModules);
+    // Backfill equipment tiers from account so the engine sees the upgrades.
+    const fullLoadout: Loadout = {
+      ...loadout,
+      armorTier: loadout.armorTier ?? account.armorTiers[loadout.armorId] ?? 1,
+      weaponTier: loadout.weaponTier ?? account.weaponTiers[loadout.weaponId] ?? 1,
+      boosterTier: loadout.boosterTier ?? account.boosterTiers[loadout.boosterId] ?? 1,
+    };
+    const ownedDeck = buildLoadoutDeck(fullLoadout);
+    let handSize = computeHandSize(fullLoadout, account.unlockedModules);
     if (modifiers.includes("atmospheric_spores")) handSize = Math.max(3, handSize - 1);
+    // Roll a mission type and apply its tree-shape weighting.
+    const missionType = rollMissionType();
+    const missionSpec = MISSION_TYPES[missionType];
+    const missionCodename = missionSpec.codename(faction);
+    const tree = buildMissionTree(faction, modifiers, missionSpec.treeWeightDelta);
+    const objectives = rollObjectives(2);
     set({
       phase: "map",
-      loadout,
-      player: freshPlayer(loadout, account.unlockedModules, difficulty),
+      loadout: fullLoadout,
+      missionType,
+      missionCodename,
+      player: freshPlayer(fullLoadout, account.unlockedModules, difficulty),
       ownedDeck,
       combat: emptyCombat(),
-      map: generateMap(faction, modifiers),
-      currentNodeIndex: -1,
+      map: tree.nodes,
+      currentNodeIndex: tree.rootIndex,
       rewardChoices: [],
-      message: "Operation begins. For Super Earth.",
+      message: `${missionCodename} — ${missionSpec.label}.`,
       pendingPlay: null,
       handSize,
       lastRunReward: null,
+      objectives,
+      runBuffs: [],
+      damageThisTurn: 0,
+      blockUsedThisRun: false,
+      pendingEventId: null,
+      pendingNodeIndex: null,
     });
   },
 
   enterNode: (index) => {
-    const { map, ownedDeck, loadout, handSize, difficulty, modifiers } = get();
+    const { map, ownedDeck, loadout, handSize, difficulty, modifiers, runBuffs } = get();
     const node = map[index];
     if (!node) return;
+
+    // Tree traversal — verify the player can reach this node from current position
+    const cur = get().currentNodeIndex;
+    if (cur >= 0 && cur !== index) {
+      const curNode = map[cur];
+      if (curNode && !curNode.children.includes(index)) {
+        // Not a valid traversal target — ignore.
+        return;
+      }
+    }
+
     if (node.type === "rest") {
-      set({ phase: "rest", currentNodeIndex: index });
+      set({ phase: "rest", currentNodeIndex: index, pendingNodeIndex: index });
       return;
     }
+
+    if (node.type === "shop") {
+      // Roll 3 buyable cards on entry
+      const stock = getRandomRewardCards(3);
+      set({
+        phase: "shop",
+        currentNodeIndex: index,
+        pendingNodeIndex: index,
+        rewardChoices: stock,
+      });
+      return;
+    }
+
+    if (node.type === "event") {
+      set({
+        phase: "event",
+        pendingEventId: node.eventId ?? null,
+        pendingNodeIndex: index,
+        currentNodeIndex: index,
+      });
+      return;
+    }
+
+    // Combat / elite / boss
+    const firebombHellpods = loadout.boosterId === "firebomb_hellpods";
+    const firebombPotency = firebombHellpods
+      ? Math.round(2 * getBoosterPotency(loadout.boosterTier ?? 1))
+      : 0;
     const enemies = node.enemyTemplateIds.map((id) => {
       const e = instantiateEnemy(id, difficulty);
       if (modifiers.includes("enemy_armor")) e.armor += 1;
+      // Apply ambush burn from event buffs
+      const ambush = runBuffs.find((b) => b.kind === "starting_burn");
+      if (ambush) e.burn += ambush.amount;
+      // Firebomb Hellpods booster: enemies start each combat with burn applied.
+      if (firebombHellpods) e.burn += firebombPotency;
       return e;
     });
     const deck = shuffle(ownedDeck);
-    const armor = getArmor(loadout.armorId);
-    const startingBlock = armor.startingBlock;
-    const reqBonus = loadout.boosterId === "hellpod_optimization" ? 2 : 0;
+    const armor = getArmorEffective(loadout.armorId, loadout.armorTier ?? 1);
+    let startingBlock = armor.startingBlock;
+    const boosterPotency = getBoosterPotency(loadout.boosterTier ?? 1);
+    let reqBonus = loadout.boosterId === "hellpod_optimization"
+      ? Math.round(2 * boosterPotency)
+      : 0;
+    // Muscle Enhancement booster: +2 starting block per combat (×potency).
+    if (loadout.boosterId === "muscle_enhancement") {
+      startingBlock += Math.round(2 * boosterPotency);
+    }
+
+    // Apply per-combat run buffs
+    runBuffs.forEach((b) => {
+      if (b.kind === "extra_starting_block") startingBlock += b.amount;
+      if (b.kind === "extra_starting_r") reqBonus += b.amount;
+    });
+
+    // Draw bonus from buffs
+    const drawBonus = runBuffs.filter((b) => b.kind === "draw_bonus").reduce((a, b) => a + b.amount, 0);
+    const effectiveHandSize = Math.max(3, handSize + drawBonus);
+
+    const openingLog: string[] = [];
+    if (node.flavor) {
+      openingLog.push(`§ ${node.flavor}`);
+    }
+    openingLog.push(`> Node engaged.`);
+    openingLog.push(`> Hostiles: ${enemies.map((e) => e.name).join(", ")}.`);
+
     let combat: CombatState = {
       enemies,
       deck,
@@ -463,22 +825,26 @@ export const useGame = create<GameStore>((set, get) => ({
       sentries: [],
       turn: 1,
       selectedCardIndex: null,
-      log: [
-        `> Node ${index + 1} engaged.`,
-        `> Hostiles: ${enemies.map((e) => e.name).join(", ")}.`,
-      ],
+      log: openingLog,
     };
     const log = [...combat.log];
-    combat = drawCards(combat, handSize, log);
+    combat = drawCards(combat, effectiveHandSize, log);
     combat.log = log;
+
+    // Expire next_combat buffs
+    const remainingBuffs = runBuffs.filter((b) => b.lifetime !== "next_combat");
+
     set((s) => ({
       phase: "combat",
       currentNodeIndex: index,
+      pendingNodeIndex: index,
       combat,
       pendingPlay: null,
+      runBuffs: remainingBuffs,
+      damageThisTurn: 0,
       player: {
         ...s.player,
-        requisition: s.player.maxRequisition + reqBonus,
+        requisition: Math.max(0, s.player.maxRequisition + reqBonus),
         block: startingBlock,
       },
     }));
@@ -520,7 +886,7 @@ export const useGame = create<GameStore>((set, get) => ({
     let enemies = combat.enemies.map((e) => ({ ...e }));
     let log = [...combat.log];
     let newPlayer = { ...player };
-    const weapon = getWeapon(loadout.weaponId);
+    const weapon = getWeaponEffective(loadout.weaponId, loadout.weaponTier ?? 1);
 
     log.push(`> End of turn ${combat.turn}.`);
 
@@ -635,9 +1001,10 @@ export const useGame = create<GameStore>((set, get) => ({
       return;
     }
 
-    // Localization Confusion booster — skip enemy turn 1
+    // Localization Confusion booster — skip first N enemy turns (N = tier)
     const localizationActive =
-      loadout.boosterId === "localization_confusion" && combat.turn === 1;
+      loadout.boosterId === "localization_confusion" &&
+      combat.turn <= (loadout.boosterTier ?? 1);
     if (localizationActive) {
       log.push(`  [Localization Confusion] enemies disoriented, skipping action.`);
     }
@@ -728,7 +1095,7 @@ export const useGame = create<GameStore>((set, get) => ({
     newPlayer.requisition = newPlayer.maxRequisition;
     newPlayer.block = 0;
 
-    set({ combat: newCombat, player: newPlayer });
+    set({ combat: newCombat, player: newPlayer, damageThisTurn: 0 });
   },
 
   takeReward: (card) => {
@@ -758,6 +1125,74 @@ export const useGame = create<GameStore>((set, get) => ({
       i === state.currentNodeIndex ? { ...n, cleared: true } : n
     );
     set({ map, phase: "map" });
+  },
+
+  buyShopCard: (card, price) => {
+    const state = get();
+    if (state.account.medals < price) return;
+    const account = {
+      ...state.account,
+      medals: state.account.medals - price,
+    };
+    saveAccount(account);
+    const ownedDeck = [...state.ownedDeck, card];
+    // Remove the bought card from the stock
+    const rewardChoices = state.rewardChoices.filter((c) => c !== card);
+    set({ account, ownedDeck, rewardChoices });
+  },
+
+  buyShopHeal: (price, hpAmount) => {
+    const state = get();
+    if (state.account.medals < price) return;
+    const account = {
+      ...state.account,
+      medals: state.account.medals - price,
+    };
+    saveAccount(account);
+    const player = {
+      ...state.player,
+      hp: Math.min(state.player.maxHp, state.player.hp + hpAmount),
+    };
+    set({ account, player });
+  },
+
+  buyShopMaxHp: (price, amount) => {
+    const state = get();
+    if (state.account.medals < price) return;
+    const account = {
+      ...state.account,
+      medals: state.account.medals - price,
+    };
+    saveAccount(account);
+    const player = {
+      ...state.player,
+      maxHp: state.player.maxHp + amount,
+      hp: state.player.hp + amount,
+    };
+    set({ account, player });
+  },
+
+  removeCardFromDeck: (price, cardId) => {
+    const state = get();
+    if (state.account.medals < price) return;
+    const account = {
+      ...state.account,
+      medals: state.account.medals - price,
+    };
+    saveAccount(account);
+    // Remove first matching card
+    const idx = state.ownedDeck.findIndex((c) => c.id === cardId);
+    if (idx < 0) return;
+    const ownedDeck = [...state.ownedDeck.slice(0, idx), ...state.ownedDeck.slice(idx + 1)];
+    set({ account, ownedDeck });
+  },
+
+  leaveShop: () => {
+    const state = get();
+    const map = state.map.map((n, i) =>
+      i === state.currentNodeIndex ? { ...n, cleared: true } : n
+    );
+    set({ map, rewardChoices: [], phase: "map" });
   },
 
   goToMenu: () => {
@@ -879,6 +1314,8 @@ function executePlay(
   if (eff.block) {
     newPlayer.block += m(eff.block);
     log.push(`  Gained ${m(eff.block)} Block.`);
+    // Track for "no_block_used" objective
+    set((s) => ({ blockUsedThisRun: true }));
   }
   if (eff.gainRequisition) {
     newPlayer.requisition += eff.gainRequisition;
@@ -890,12 +1327,15 @@ function executePlay(
 
   const aliveIndices = () => enemies.map((e, i) => ({ e, i })).filter(({ e }) => e.hp > 0);
 
+  let totalDmgThisCard = 0;
+
   const dealTo = (idx: number, base: number) => {
     const enemy = enemies[idx];
     if (!enemy || enemy.hp <= 0) return;
     const result = applyShieldThenArmor(enemy, base, !!eff.ignoreArmor, eff.bonusVsArmor ?? 0);
     enemies[idx] = result.enemy;
     const shieldedFor = enemy.shield - enemies[idx].shield;
+    totalDmgThisCard += result.dealt;
     if (shieldedFor > 0 && result.dealt === 0) {
       log.push(`  ${enemy.name}: shield -${shieldedFor}.`);
     } else if (shieldedFor > 0) {
@@ -1048,28 +1488,94 @@ function executePlay(
     newCombat = drawCards(newCombat, extraDraws, log);
   }
 
+  // Update damage-this-turn objective tracker
+  const newDmgThisTurn = state.damageThisTurn + totalDmgThisCard;
+  let updatedObjectives = setObjective(state.objectives, "deal_damage_in_turn", newDmgThisTurn);
+
   const allDead = enemies.every((e) => e.hp <= 0);
   if (allDead) {
     log.push(`> Hostiles cleared. Stand by for extraction.`);
     newCombat = { ...newCombat, log };
     const node = state.map[state.currentNodeIndex];
     const isBoss = node.type === "boss";
+
+    // Bump elite-kills objective if this was an elite node
+    if (node.type === "elite") {
+      updatedObjectives = bumpObjective(updatedObjectives, "kill_elites", 1);
+    }
+
     if (isBoss) {
-      set({ combat: newCombat, player: newPlayer });
+      // Capture turn count + final HP for objectives
+      const turnsTaken = newCombat.turn;
+      updatedObjectives = setObjective(updatedObjectives, "win_in_turns", -turnsTaken + 100);
+      // win_in_turns: target is "≤6 turns" → progress = 100 - turnsTaken; complete if progress ≥ (100 - target)
+      // Simpler: directly mark complete if turns ≤ target
+      updatedObjectives = updatedObjectives.map((o) =>
+        o.kind === "win_in_turns" && !o.completed && turnsTaken <= o.target
+          ? { ...o, progress: o.target, completed: true }
+          : o
+      );
+      const hpPct = (newPlayer.hp / newPlayer.maxHp) * 100;
+      updatedObjectives = updatedObjectives.map((o) =>
+        o.kind === "high_hp_finish" && !o.completed && hpPct >= o.target
+          ? { ...o, progress: hpPct, completed: true }
+          : o
+      );
+      // no_exhaust: completed if no exhausted cards in current combat
+      updatedObjectives = updatedObjectives.map((o) =>
+        o.kind === "no_exhaust" && !o.completed && newCombat.exhausted.length === 0
+          ? { ...o, progress: 1, completed: true }
+          : o
+      );
+      // no_block_used: completed if blockUsedThisRun is false
+      updatedObjectives = updatedObjectives.map((o) =>
+        o.kind === "no_block_used" && !o.completed && !state.blockUsedThisRun
+          ? { ...o, progress: 1, completed: true }
+          : o
+      );
+
+      set({ combat: newCombat, player: newPlayer, objectives: updatedObjectives, damageThisTurn: newDmgThisTurn });
       finalizeRun(set, get, true);
     } else {
-      const choices = getRandomRewardCards(3);
-      set({
-        combat: newCombat,
-        player: newPlayer,
-        phase: "reward",
-        rewardChoices: choices,
-      });
+      // dem_skip / free_card buff: skip the next reward draft, consume the buff,
+      // and proceed straight to map (marking the node cleared).
+      const skipBuff = state.runBuffs.find((b) => b.kind === "free_card");
+      if (skipBuff) {
+        const remainingBuffs = state.runBuffs.filter((b) => b.id !== skipBuff.id);
+        const map = state.map.map((n, i) =>
+          i === state.currentNodeIndex ? { ...n, cleared: true } : n
+        );
+        set({
+          combat: newCombat,
+          player: newPlayer,
+          objectives: updatedObjectives,
+          damageThisTurn: newDmgThisTurn,
+          runBuffs: remainingBuffs,
+          map,
+          phase: "map",
+          message: "Inspection compliant — reward draft waived.",
+        });
+      } else {
+        const choices = getRandomRewardCards(3);
+        set({
+          combat: newCombat,
+          player: newPlayer,
+          objectives: updatedObjectives,
+          damageThisTurn: newDmgThisTurn,
+          phase: "reward",
+          rewardChoices: choices,
+        });
+      }
     }
     return;
   }
 
-  set({ combat: newCombat, player: newPlayer });
+  set({
+    combat: newCombat,
+    player: newPlayer,
+    objectives: updatedObjectives,
+    damageThisTurn: newDmgThisTurn,
+  });
 }
 
 function finalizeRun(
@@ -1081,12 +1587,31 @@ function finalizeRun(
   const nodesCleared = victory
     ? state.map.length
     : state.map.filter((n) => n.cleared).length;
-  const reward = calcRunReward({
+  const baseReward = calcRunReward({
     victory,
     nodesCleared,
     faction: state.faction,
     difficulty: state.difficulty,
   });
+  const objBonus = objectiveBonus(state.objectives);
+  // Apply mission-type bonus on top of base rewards (medals / sample multipliers).
+  const withMission = applyMissionBonus(
+    {
+      medals: baseReward.medals + objBonus,
+      samples: baseReward.samples,
+      rareSamples: baseReward.rareSamples,
+      superSamples: baseReward.superSamples,
+    },
+    state.missionType,
+    victory
+  );
+  const reward = {
+    ...baseReward,
+    medals: withMission.medals,
+    samples: withMission.samples,
+    rareSamples: withMission.rareSamples,
+    superSamples: withMission.superSamples,
+  };
   const updatedAcc1 = applyXp(state.account, reward.xp);
   const planet = PLANETS[state.faction];
   const record: RunRecord = {
@@ -1103,6 +1628,8 @@ function finalizeRun(
     ...updatedAcc1,
     medals: updatedAcc1.medals + reward.medals,
     samples: updatedAcc1.samples + reward.samples,
+    rareSamples: updatedAcc1.rareSamples + reward.rareSamples,
+    superSamples: updatedAcc1.superSamples + reward.superSamples,
     requisition: updatedAcc1.requisition + reward.requisition,
     totalRuns: updatedAcc1.totalRuns + 1,
     victories: updatedAcc1.victories + (victory ? 1 : 0),
@@ -1110,18 +1637,35 @@ function finalizeRun(
   };
   saveAccount(updatedAcc);
 
-  // Contribute to galactic war state
+  // Contribute to (solo) galactic war state
+  let majorOrderBonus = 0;
   if (state.targetPlanetId) {
     let war = loadWarState();
     war = victory
       ? contributeVictory(war, state.targetPlanetId, state.difficulty)
       : contributeDefeat(war, state.targetPlanetId, state.difficulty);
+    // If this victory completed the active Major Order, claim its medal
+    // payout and roll a fresh order. Idempotent if order is incomplete.
+    const claim = claimMajorOrderIfComplete(war);
+    war = claim.state;
+    majorOrderBonus = claim.medalsAwarded;
     saveWarState(war);
   }
 
+  let finalAccount = updatedAcc;
+  if (majorOrderBonus > 0) {
+    finalAccount = {
+      ...updatedAcc,
+      medals: updatedAcc.medals + majorOrderBonus,
+    };
+    saveAccount(finalAccount);
+  }
+
   set({
-    account: updatedAcc,
-    lastRunReward: reward,
+    account: finalAccount,
+    lastRunReward: majorOrderBonus > 0
+      ? { ...reward, medals: reward.medals + majorOrderBonus }
+      : reward,
     phase: victory ? "victory" : "gameover",
   });
 }

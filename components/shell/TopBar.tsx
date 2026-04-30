@@ -49,7 +49,11 @@ export default function TopBar() {
         <div className="flex items-center gap-tok-3 text-[11px] font-mono">
           <Currency label="Medals" value={account.medals} color="text-accent-yellow" />
           <span className="w-px h-4 bg-border-strong" />
-          <Currency label="Samples" value={account.samples} color="text-accent-cyan" />
+          <SampleStack
+            common={account.samples}
+            rare={account.rareSamples}
+            sup={account.superSamples}
+          />
           <span className="w-px h-4 bg-border-strong" />
           <Currency label="Requisition" value={account.requisition} color="text-accent-yellow" />
         </div>
@@ -104,6 +108,42 @@ function Currency({ label, value, color }: { label: string; value: number; color
         className={`font-display font-bold tabular-nums ${color}`}
       >
         {value.toLocaleString()}
+      </motion.span>
+    </div>
+  );
+}
+
+function SampleStack({ common, rare, sup }: { common: number; rare: number; sup: number }) {
+  return (
+    <div className="flex items-baseline gap-1 sm:gap-1.5" title="Common · Rare · Super Samples">
+      <span className="text-[9px] uppercase tracking-[0.2em] text-text-dim hidden sm:inline">
+        Samples
+      </span>
+      <motion.span
+        key={`c-${common}`}
+        initial={{ scale: 1.2 }}
+        animate={{ scale: 1 }}
+        className="font-display font-bold tabular-nums text-accent-cyan"
+      >
+        {common}
+      </motion.span>
+      <span className="text-text-dim text-[9px]">·</span>
+      <motion.span
+        key={`r-${rare}`}
+        initial={{ scale: 1.2 }}
+        animate={{ scale: 1 }}
+        className="font-display font-bold tabular-nums text-emerald-400"
+      >
+        {rare}
+      </motion.span>
+      <span className="text-text-dim text-[9px]">·</span>
+      <motion.span
+        key={`s-${sup}`}
+        initial={{ scale: 1.2 }}
+        animate={{ scale: 1 }}
+        className="font-display font-bold tabular-nums text-helldiver-orange"
+      >
+        {sup}
       </motion.span>
     </div>
   );

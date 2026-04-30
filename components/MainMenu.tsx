@@ -8,11 +8,12 @@ import { useEffect, useState } from "react";
 import StarField from "./StarField";
 import PropagandaTicker from "./PropagandaTicker";
 import HudFrame from "./HudFrame";
-import { xpToLevelUp } from "@/lib/account";
+import WarRecordPanel from "./WarRecordPanel";
+import { xpToLevelUp, getHelldiverRank } from "@/lib/account";
 import { getCape, getTitle } from "@/lib/cosmetics";
 
 export default function MainMenu() {
-  const { goToWar, goToArmory, goToSquadHub, settings, setSetting, account, resetAccount, setHelldiverName } = useGame();
+  const { goToWar, goToArmory, goToCharacter, goToSquadHub, settings, setSetting, account, resetAccount, setHelldiverName } = useGame();
   const [muted, setMutedState] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -27,6 +28,7 @@ export default function MainMenu() {
 
   const xpNext = xpToLevelUp(account.level);
   const xpPct = Math.min(100, (account.xp / xpNext) * 100);
+  const rank = getHelldiverRank(account.level);
 
   return (
     <div className="min-h-screen text-white flex flex-col items-center justify-start relative pt-16 pb-10 px-4">
@@ -165,6 +167,12 @@ export default function MainMenu() {
             </div>
           </div>
 
+          <div className="text-center mb-3 -mt-1">
+            <div className="text-[9px] uppercase tracking-[0.3em] text-emerald-400 font-bold">
+              {rank.title} · {rank.abbr}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center mb-3">
             <div>
               <div className="text-[9px] uppercase tracking-[0.3em] text-helldiver-dim">Level</div>
@@ -203,6 +211,8 @@ export default function MainMenu() {
           </div>
         </HudFrame>
 
+        <WarRecordPanel />
+
         <HudFrame accent="yellow" className="p-5 space-y-3">
           <motion.button
             whileHover={{ scale: 1.03 }}
@@ -220,9 +230,19 @@ export default function MainMenu() {
           <button
             onClick={() => {
               sfx.click();
+              goToCharacter();
+            }}
+            className="w-full bg-helldiver-panel border-2 border-emerald-500 hover:bg-emerald-500/10 text-emerald-400 py-3 font-display font-bold uppercase tracking-[0.3em] transition-colors"
+          >
+            ✦ Character Sheet · Equipment & Stats
+          </button>
+
+          <button
+            onClick={() => {
+              sfx.click();
               goToSquadHub();
             }}
-            className="w-full bg-helldiver-panel border-2 border-emerald-500/60 hover:border-emerald-400 hover:text-emerald-400 text-emerald-400 py-3 font-display font-bold uppercase tracking-[0.3em] transition-colors"
+            className="w-full bg-helldiver-panel border-2 border-helldiver-steel hover:border-emerald-400 hover:text-emerald-400 text-helldiver-dim py-3 font-display font-bold uppercase tracking-[0.3em] transition-colors"
           >
             ◇ Squad · Form or Join
           </button>

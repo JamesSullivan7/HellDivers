@@ -7,13 +7,6 @@ interface Props {
   warState: WarState;
 }
 
-function formatTime(hours: number) {
-  if (hours <= 0) return "EXPIRED";
-  if (hours >= 24) return `${Math.floor(hours / 24)}D ${Math.floor(hours % 24)}H`;
-  if (hours >= 1) return `${Math.floor(hours)}H ${Math.floor((hours % 1) * 60)}M`;
-  return `${Math.floor(hours * 60)}M`;
-}
-
 export default function MajorOrderBanner({ warState }: Props) {
   const order = warState.majorOrder;
   if (!order) return null;
@@ -57,12 +50,18 @@ export default function MajorOrderBanner({ warState }: Props) {
         </div>
 
         <div className="text-right">
-          <div className="text-[9px] uppercase tracking-[0.3em] text-helldiver-dim">Time Remaining</div>
-          <div className="font-display font-black text-3xl text-helldiver-yellow tabular-nums">
-            {formatTime(prog.hoursRemaining)}
+          <div className="text-[9px] uppercase tracking-[0.3em] text-helldiver-dim">Status</div>
+          <div className={
+            "font-display font-black text-2xl tabular-nums " +
+            (prog.complete ? "text-emerald-400" : "text-helldiver-yellow")
+          }>
+            {prog.complete ? "READY TO CLAIM" : "ACTIVE"}
           </div>
           <div className="text-[10px] uppercase tracking-widest text-helldiver-yellow mt-1">
-            +{order.rewardMedals} ◆ on completion
+            +{order.rewardMedals} Medals
+          </div>
+          <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mt-0.5">
+            {prog.complete ? "Auto-paid on next victory" : "No expiry"}
           </div>
         </div>
       </div>

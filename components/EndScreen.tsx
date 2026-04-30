@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { useGame } from "@/lib/store";
 import { sfx } from "@/lib/sfx";
 import StarField from "./StarField";
@@ -14,10 +12,7 @@ interface Props {
 }
 
 export default function EndScreen({ victory }: Props) {
-  const { goToMenu, ownedDeck, lastRunReward, account, targetPlanetId, difficulty, map, squadCode } = useGame();
-  const reportRun = useMutation(api.war.reportRun);
-  const reportSquad = useMutation(api.squads.reportSquadVictory);
-  const reportedRef = useRef(false);
+  const { goToMenu, ownedDeck, lastRunReward, account, objectives } = useGame();
 
   useEffect(() => {
     if (victory) {
@@ -28,27 +23,6 @@ export default function EndScreen({ victory }: Props) {
       sfx.voice("Helldiver KIA. Reinforcements depleted.");
     }
   }, [victory]);
-
-  useEffect(() => {
-    if (reportedRef.current) return;
-    if (!targetPlanetId) return;
-    reportedRef.current = true;
-    const nodesCleared = victory ? map.length : map.filter((n) => n.cleared).length;
-    reportRun({
-      planetSlug: targetPlanetId,
-      helldiverName: account.helldiverName ?? "Anonymous",
-      victory,
-      difficulty,
-      nodesCleared,
-    }).catch(() => {});
-    if (squadCode) {
-      reportSquad({
-        code: squadCode,
-        helldiverName: account.helldiverName ?? "Anonymous",
-        victory,
-      }).catch(() => {});
-    }
-  }, [targetPlanetId, account.helldiverName, victory, difficulty, map, reportRun, reportSquad, squadCode]);
 
   return (
     <div className="min-h-screen text-white font-mono flex items-center justify-center p-6 relative">
@@ -87,7 +61,7 @@ export default function EndScreen({ victory }: Props) {
               <div className="text-[9px] uppercase tracking-[0.3em] text-helldiver-dim mb-2">
                 Mission Rewards
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center">
                 <div>
                   <div className="text-helldiver-yellow font-display font-black text-2xl">
                     +{lastRunReward.medals}
@@ -101,17 +75,65 @@ export default function EndScreen({ victory }: Props) {
                   <div className="text-[9px] uppercase tracking-widest text-helldiver-dim">XP</div>
                 </div>
                 <div>
-                  <div className="text-sky-400 font-display font-black text-2xl">
-                    +{lastRunReward.samples}
-                  </div>
-                  <div className="text-[9px] uppercase tracking-widest text-helldiver-dim">Samples</div>
-                </div>
-                <div>
                   <div className="text-helldiver-orange font-display font-black text-2xl">
                     +{lastRunReward.requisition}
                   </div>
                   <div className="text-[9px] uppercase tracking-widest text-helldiver-dim">Requisition</div>
                 </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-helldiver-steel/40">
+                <div className="text-[9px] uppercase tracking-widest text-helldiver-dim text-center mb-2">Samples</div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <SampleCell label="Common" value={lastRunReward.samples} color="text-sky-400" />
+                  <SampleCell label="Rare" value={lastRunReward.rareSamples} color="text-emerald-400" />
+                  <SampleCell label="Super" value={lastRunReward.superSamples} color="text-helldiver-orange" />
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {objectives.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="border border-helldiver-steel/50 p-3 mb-5 text-left"
+            >
+              <div className="text-[9px] uppercase tracking-[0.3em] text-helldiver-dim mb-2 text-center">
+                Mission Objectives
+              </div>
+              <div className="space-y-1.5">
+                {objectives.map((o) => (
+                  <div
+                    key={o.id}
+                    className="flex items-start justify-between gap-2 text-[11px]"
+                  >
+                    <div className="flex items-start gap-2 flex-1">
+                      <span
+                        className={
+                          o.completed ? "text-emerald-400 font-bold" : "text-helldiver-dim"
+                        }
+                      >
+                        {o.completed ? "✓" : "✕"}
+                      </span>
+                      <span
+                        className={
+                          o.completed ? "text-gray-200" : "text-helldiver-dim line-through"
+                        }
+                      >
+                        {o.description}
+                      </span>
+                    </div>
+                    <span
+                      className={
+                        "tabular-nums font-display font-black " +
+                        (o.completed ? "text-helldiver-yellow" : "text-helldiver-dim")
+                      }
+                    >
+                      {o.completed ? `+${o.rewardMedals}` : "—"}
+                    </span>
+                  </div>
+                ))}
               </div>
             </motion.div>
           )}
@@ -134,6 +156,17 @@ export default function EndScreen({ victory }: Props) {
           </motion.button>
         </HudFrame>
       </motion.div>
+    </div>
+  );
+}
+
+function SampleCell({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div>
+      <div className={`font-display font-black text-xl ${color} ${value === 0 ? "opacity-40" : ""}`}>
+        +{value}
+      </div>
+      <div className="text-[9px] uppercase tracking-widest text-helldiver-dim">{label}</div>
     </div>
   );
 }

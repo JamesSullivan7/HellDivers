@@ -11,8 +11,9 @@ import { CAPES, TITLES } from "@/lib/cosmetics";
 import HudFrame from "./HudFrame";
 import CardView from "./CardView";
 import AppShell from "./shell/AppShell";
+import OutfitterPanel from "./OutfitterPanel";
 
-type Tab = "warbonds" | "modules" | "cosmetics";
+type Tab = "outfitter" | "warbonds" | "modules" | "cosmetics";
 
 const FILTERS: { id: string; label: string }[] = [
   { id: "all", label: "ALL" },
@@ -26,7 +27,7 @@ const FILTERS: { id: string; label: string }[] = [
 
 export default function ArmoryScreen() {
   const { account, unlockCard, unlockModule, unlockCape, unlockTitle, equipCape, equipTitle, goToMenu } = useGame();
-  const [tab, setTab] = useState<Tab>("warbonds");
+  const [tab, setTab] = useState<Tab>("outfitter");
   const [filter, setFilter] = useState<string>("all");
 
   const filteredCards =
@@ -78,6 +79,17 @@ export default function ArmoryScreen() {
         {/* Tabs */}
         <div className="flex items-center justify-center gap-1 mb-5 flex-wrap">
           <button
+            onClick={() => { sfx.click(); setTab("outfitter"); }}
+            className={clsx(
+              "px-5 py-2 border-2 font-display font-bold tracking-widest text-xs transition-all",
+              tab === "outfitter"
+                ? "bg-emerald-500 text-black border-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.5)]"
+                : "border-helldiver-steel text-helldiver-dim hover:border-emerald-400 hover:text-emerald-400"
+            )}
+          >
+            ◇ OUTFITTER
+          </button>
+          <button
             onClick={() => { sfx.click(); setTab("warbonds"); }}
             className={clsx(
               "px-5 py-2 border-2 font-display font-bold tracking-widest text-xs transition-all",
@@ -113,6 +125,17 @@ export default function ArmoryScreen() {
         </div>
 
         <AnimatePresence mode="wait">
+          {tab === "outfitter" && (
+            <motion.div
+              key="outfitter"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <OutfitterPanel />
+            </motion.div>
+          )}
+
           {tab === "warbonds" && (
             <motion.div
               key="warbonds"

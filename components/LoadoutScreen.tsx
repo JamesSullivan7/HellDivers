@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { useGame } from "@/lib/store";
 import { sfx } from "@/lib/sfx";
+import { loadWarState } from "@/lib/galacticWar";
 import {
   ARMORS,
   WEAPONS,
@@ -17,6 +16,9 @@ import {
   DEFAULT_ARMOR,
   DEFAULT_WEAPON,
   DEFAULT_BOOSTER,
+  getArmorEffective,
+  getWeaponEffective,
+  MAX_TIER,
 } from "@/lib/loadout";
 import { CARD_LIBRARY, getCardById } from "@/lib/cards";
 import { PLANETS } from "@/lib/enemies";
@@ -46,18 +48,35 @@ const FILTERS: { id: string; label: string }[] = [
 
 export default function LoadoutScreen() {
   const { faction, startNewRun, goToWar, account, goToArmory, targetPlanetId } = useGame();
-  const war = useQuery(api.war.getWar);
-  // Resolve actual selected planet by slug. Fall back to faction default if missing.
-  const selectedPlanet = war?.planets?.find((p) => p.slug === targetPlanetId);
+  const [warPlanet, setWarPlanet] = useState<{ name: string; biome: string } | null>(null);
+  // Resolve actual selected planet from local war state. Fall back to faction default if missing.
+  useEffect(() => {
+    if (!targetPlanetId) {
+      setWarPlanet(null);
+      return;
+    }
+    const war = loadWarState();
+    const p = war.planets[targetPlanetId];
+    if (p) setWarPlanet({ name: p.name, biome: p.biome });
+    else setWarPlanet(null);
+  }, [targetPlanetId]);
+
   const fallback = PLANETS[faction];
-  const planet = selectedPlanet
-    ? { name: selectedPlanet.name.toUpperCase(), biome: selectedPlanet.biome ?? fallback.biome, description: fallback.description }
+  const planet = warPlanet
+    ? { name: warPlanet.name.toUpperCase(), biome: warPlanet.biome || fallback.biome, description: fallback.description }
     : fallback;
 
   const [step, setStep] = useState<Step>("armor");
-  const [armorId, setArmorId] = useState<string>(DEFAULT_ARMOR);
-  const [weaponId, setWeaponId] = useState<string>(DEFAULT_WEAPON);
-  const [boosterId, setBoosterId] = useState<string>(DEFAULT_BOOSTER);
+  // Default to the first owned item the player has, falling back to standard issue.
+  const [armorId, setArmorId] = useState<string>(
+    account.ownedArmors.includes(DEFAULT_ARMOR) ? DEFAULT_ARMOR : (account.ownedArmors[0] ?? DEFAULT_ARMOR)
+  );
+  const [weaponId, setWeaponId] = useState<string>(
+    account.ownedWeapons.includes(DEFAULT_WEAPON) ? DEFAULT_WEAPON : (account.ownedWeapons[0] ?? DEFAULT_WEAPON)
+  );
+  const [boosterId, setBoosterId] = useState<string>(
+    account.ownedBoosters.includes(DEFAULT_BOOSTER) ? DEFAULT_BOOSTER : (account.ownedBoosters[0] ?? DEFAULT_BOOSTER)
+  );
   const [stratagems, setStratagems] = useState<string[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [showLocked, setShowLocked] = useState<boolean>(false);
@@ -159,134 +178,201 @@ export default function LoadoutScreen() {
           >
           {step === "armor" && (
             <div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {ARMORS.map((a) => (
-                  <motion.button
-                    key={a.id}
-                    whileHover={{ y: -4 }}
-                    onClick={() => {
-                      sfx.cardSelect();
-                      setArmorId(a.id);
-                    }}
-                    className={clsx(
-                      "relative p-5 border-2 text-left transition-all bg-helldiver-panel/80",
-                      armorId === a.id
-                        ? "border-helldiver-yellow shadow-[0_0_24px_rgba(255, 211, 77,0.4)]"
-                        : "border-helldiver-steel hover:border-helldiver-yellow/50"
-                    )}
-                  >
-                    <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-helldiver-yellow" />
-                    <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-helldiver-yellow" />
-                    <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-helldiver-yellow" />
-                    <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-helldiver-yellow" />
-                    <div className="text-[10px] uppercase tracking-widest text-helldiver-dim mb-2">
-                      {a.id === "scout" ? "LIGHT" : a.id === "frontline" ? "MEDIUM" : "HEAVY"} ARMOR
-                    </div>
-                    <div className="font-display font-black text-lg text-helldiver-yellow tracking-tight mb-3">
-                      {a.name.toUpperCase()}
-                    </div>
-                    <div className="text-xs text-gray-300 leading-relaxed mb-3">{a.passive}</div>
-                    <div className="space-y-1 text-[11px] font-mono">
-                      <div className="flex justify-between"><span className="text-helldiver-dim">HP</span><span className={a.hpMod >= 0 ? "text-emerald-400" : "text-helldiver-red"}>{a.hpMod >= 0 ? "+" : ""}{a.hpMod}</span></div>
-                      <div className="flex justify-between"><span className="text-helldiver-dim">Hand Size</span><span className={a.handMod >= 0 ? "text-emerald-400" : "text-helldiver-red"}>{a.handMod >= 0 ? "+" : ""}{a.handMod}</span></div>
-                      <div className="flex justify-between"><span className="text-helldiver-dim">Starting Block</span><span className="text-sky-400">+{a.startingBlock}</span></div>
-                    </div>
-                    {armorId === a.id && (
-                      <div className="absolute top-2 right-2 text-helldiver-yellow text-xs font-bold">✓ EQUIPPED</div>
-                    )}
-                  </motion.button>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                {ARMORS.map((a) => {
+                  const owned = account.ownedArmors.includes(a.id);
+                  const tier = account.armorTiers[a.id] ?? 1;
+                  const eff = owned ? getArmorEffective(a.id, tier) : a;
+                  return (
+                    <motion.button
+                      key={a.id}
+                      whileHover={owned ? { y: -4 } : {}}
+                      onClick={() => {
+                        if (!owned) {
+                          sfx.alert();
+                          return;
+                        }
+                        sfx.cardSelect();
+                        setArmorId(a.id);
+                      }}
+                      disabled={!owned}
+                      className={clsx(
+                        "relative p-5 border-2 text-left transition-all bg-helldiver-panel/80",
+                        !owned && "opacity-60 cursor-not-allowed border-helldiver-steel/40",
+                        owned && armorId === a.id
+                          ? "border-helldiver-yellow shadow-[0_0_24px_rgba(255, 211, 77,0.4)]"
+                          : owned && "border-helldiver-steel hover:border-helldiver-yellow/50"
+                      )}
+                    >
+                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-helldiver-yellow" />
+                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-helldiver-yellow" />
+                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-helldiver-yellow" />
+                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-helldiver-yellow" />
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
+                          {a.id === "scout" ? "LIGHT" : a.id === "frontline" ? "MEDIUM" : "HEAVY"} ARMOR
+                        </div>
+                        {owned && (
+                          <TierBadge tier={tier} />
+                        )}
+                      </div>
+                      <div className="font-display font-black text-lg text-helldiver-yellow tracking-tight mb-3">
+                        {a.name.toUpperCase()}
+                      </div>
+                      <div className="text-xs text-gray-300 leading-relaxed mb-3">{a.passive}</div>
+                      <div className="space-y-1 text-[11px] font-mono">
+                        <div className="flex justify-between"><span className="text-helldiver-dim">HP</span><span className={eff.hpMod >= 0 ? "text-emerald-400" : "text-helldiver-red"}>{eff.hpMod >= 0 ? "+" : ""}{eff.hpMod}</span></div>
+                        <div className="flex justify-between"><span className="text-helldiver-dim">Hand Size</span><span className={eff.handMod >= 0 ? "text-emerald-400" : "text-helldiver-red"}>{eff.handMod >= 0 ? "+" : ""}{eff.handMod}</span></div>
+                        <div className="flex justify-between"><span className="text-helldiver-dim">Starting Block</span><span className="text-sky-400">+{eff.startingBlock}</span></div>
+                      </div>
+                      {!owned && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[1px]">
+                          <div className="text-3xl mb-1">🔒</div>
+                          <div className="text-[10px] uppercase tracking-widest text-helldiver-red font-bold">Locked</div>
+                          <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mt-1">Visit Outfitter</div>
+                        </div>
+                      )}
+                      {owned && armorId === a.id && (
+                        <div className="absolute top-9 right-2 text-helldiver-yellow text-xs font-bold">✓ EQUIPPED</div>
+                      )}
+                    </motion.button>
+                  );
+                })}
               </div>
+              <ArmoryHint />
             </div>
           )}
 
           {step === "weapon" && (
             <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {WEAPONS.map((w) => (
-                  <motion.button
-                    key={w.id}
-                    whileHover={{ y: -4 }}
-                    onClick={() => {
-                      sfx.cardSelect();
-                      setWeaponId(w.id);
-                    }}
-                    className={clsx(
-                      "relative p-5 border-2 text-left transition-all bg-helldiver-panel/80",
-                      weaponId === w.id
-                        ? "border-sky-400 shadow-[0_0_24px_rgba(14,165,233,0.4)]"
-                        : "border-helldiver-steel hover:border-sky-400/50"
-                    )}
-                  >
-                    <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-sky-400" />
-                    <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-sky-400" />
-                    <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-sky-400" />
-                    <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-sky-400" />
-                    <div className="text-[10px] uppercase tracking-widest text-helldiver-dim mb-2">
-                      Primary Weapon · Auto-Fire
-                    </div>
-                    <div className="font-display font-black text-lg text-sky-400 tracking-tight mb-3">
-                      {w.name.toUpperCase()}
-                    </div>
-                    <div className="text-xs text-gray-300 mb-3 leading-relaxed">{w.description}</div>
-                    <div className="flex gap-3 text-[11px] font-mono">
-                      <div className="px-2 py-1 border border-helldiver-steel">
-                        <span className="text-helldiver-dim">DMG </span>
-                        <span className="text-helldiver-yellow font-bold">{w.damage}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {WEAPONS.map((w) => {
+                  const owned = account.ownedWeapons.includes(w.id);
+                  const tier = account.weaponTiers[w.id] ?? 1;
+                  const eff = owned ? getWeaponEffective(w.id, tier) : w;
+                  return (
+                    <motion.button
+                      key={w.id}
+                      whileHover={owned ? { y: -4 } : {}}
+                      onClick={() => {
+                        if (!owned) {
+                          sfx.alert();
+                          return;
+                        }
+                        sfx.cardSelect();
+                        setWeaponId(w.id);
+                      }}
+                      disabled={!owned}
+                      className={clsx(
+                        "relative p-5 border-2 text-left transition-all bg-helldiver-panel/80",
+                        !owned && "opacity-60 cursor-not-allowed border-helldiver-steel/40",
+                        owned && weaponId === w.id
+                          ? "border-sky-400 shadow-[0_0_24px_rgba(14,165,233,0.4)]"
+                          : owned && "border-helldiver-steel hover:border-sky-400/50"
+                      )}
+                    >
+                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-sky-400" />
+                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-sky-400" />
+                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-sky-400" />
+                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-sky-400" />
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
+                          Primary Weapon · Auto-Fire
+                        </div>
+                        {owned && <TierBadge tier={tier} />}
                       </div>
-                      <div className="px-2 py-1 border border-helldiver-steel">
-                        <span className="text-helldiver-dim">HITS </span>
-                        <span className="text-helldiver-yellow font-bold">{w.hitsPerTurn}</span>
+                      <div className="font-display font-black text-lg text-sky-400 tracking-tight mb-3">
+                        {w.name.toUpperCase()}
                       </div>
-                      <div className="px-2 py-1 border border-helldiver-steel">
-                        <span className="text-helldiver-dim">TGT </span>
-                        <span className="text-helldiver-yellow font-bold uppercase">{w.target.replace("_", " ")}</span>
+                      <div className="text-xs text-gray-300 mb-3 leading-relaxed">{w.description}</div>
+                      <div className="flex gap-3 text-[11px] font-mono">
+                        <div className="px-2 py-1 border border-helldiver-steel">
+                          <span className="text-helldiver-dim">DMG </span>
+                          <span className="text-helldiver-yellow font-bold">{eff.damage}</span>
+                        </div>
+                        <div className="px-2 py-1 border border-helldiver-steel">
+                          <span className="text-helldiver-dim">HITS </span>
+                          <span className="text-helldiver-yellow font-bold">{eff.hitsPerTurn}</span>
+                        </div>
+                        <div className="px-2 py-1 border border-helldiver-steel">
+                          <span className="text-helldiver-dim">TGT </span>
+                          <span className="text-helldiver-yellow font-bold uppercase">{eff.target.replace("_", " ")}</span>
+                        </div>
                       </div>
-                    </div>
-                    {weaponId === w.id && (
-                      <div className="absolute top-2 right-2 text-sky-400 text-xs font-bold">✓ EQUIPPED</div>
-                    )}
-                  </motion.button>
-                ))}
+                      {!owned && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[1px]">
+                          <div className="text-3xl mb-1">🔒</div>
+                          <div className="text-[10px] uppercase tracking-widest text-helldiver-red font-bold">Locked</div>
+                          <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mt-1">Visit Outfitter</div>
+                        </div>
+                      )}
+                      {owned && weaponId === w.id && (
+                        <div className="absolute top-9 right-2 text-sky-400 text-xs font-bold">✓ EQUIPPED</div>
+                      )}
+                    </motion.button>
+                  );
+                })}
               </div>
+              <ArmoryHint />
             </div>
           )}
 
           {step === "booster" && (
             <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {BOOSTERS.map((b) => (
-                  <motion.button
-                    key={b.id}
-                    whileHover={{ y: -4 }}
-                    onClick={() => {
-                      sfx.cardSelect();
-                      setBoosterId(b.id);
-                    }}
-                    className={clsx(
-                      "relative p-5 border-2 text-left transition-all bg-helldiver-panel/80",
-                      boosterId === b.id
-                        ? "border-purple-400 shadow-[0_0_24px_rgba(168,85,247,0.4)]"
-                        : "border-helldiver-steel hover:border-purple-400/50"
-                    )}
-                  >
-                    <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-purple-400" />
-                    <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-purple-400" />
-                    <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-purple-400" />
-                    <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-purple-400" />
-                    <div className="text-[10px] uppercase tracking-widest text-helldiver-dim mb-2">
-                      Run-Wide Booster
-                    </div>
-                    <div className="font-display font-black text-lg text-purple-400 tracking-tight mb-3">
-                      {b.name.toUpperCase()}
-                    </div>
-                    <div className="text-xs text-gray-300 leading-relaxed">{b.description}</div>
-                    {boosterId === b.id && (
-                      <div className="absolute top-2 right-2 text-purple-400 text-xs font-bold">✓ ACTIVE</div>
-                    )}
-                  </motion.button>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {BOOSTERS.map((b) => {
+                  const owned = account.ownedBoosters.includes(b.id);
+                  const tier = account.boosterTiers[b.id] ?? 1;
+                  return (
+                    <motion.button
+                      key={b.id}
+                      whileHover={owned ? { y: -4 } : {}}
+                      onClick={() => {
+                        if (!owned) {
+                          sfx.alert();
+                          return;
+                        }
+                        sfx.cardSelect();
+                        setBoosterId(b.id);
+                      }}
+                      disabled={!owned}
+                      className={clsx(
+                        "relative p-5 border-2 text-left transition-all bg-helldiver-panel/80",
+                        !owned && "opacity-60 cursor-not-allowed border-helldiver-steel/40",
+                        owned && boosterId === b.id
+                          ? "border-purple-400 shadow-[0_0_24px_rgba(168,85,247,0.4)]"
+                          : owned && "border-helldiver-steel hover:border-purple-400/50"
+                      )}
+                    >
+                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-purple-400" />
+                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-purple-400" />
+                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-purple-400" />
+                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-purple-400" />
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
+                          Run-Wide Booster
+                        </div>
+                        {owned && <TierBadge tier={tier} />}
+                      </div>
+                      <div className="font-display font-black text-lg text-purple-400 tracking-tight mb-3">
+                        {b.name.toUpperCase()}
+                      </div>
+                      <div className="text-xs text-gray-300 leading-relaxed">{b.description}</div>
+                      {!owned && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[1px]">
+                          <div className="text-3xl mb-1">🔒</div>
+                          <div className="text-[10px] uppercase tracking-widest text-helldiver-red font-bold">Locked</div>
+                          <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mt-1">Visit Outfitter</div>
+                        </div>
+                      )}
+                      {owned && boosterId === b.id && (
+                        <div className="absolute top-9 right-2 text-purple-400 text-xs font-bold">✓ ACTIVE</div>
+                      )}
+                    </motion.button>
+                  );
+                })}
               </div>
+              <ArmoryHint />
             </div>
           )}
 
@@ -447,5 +533,51 @@ export default function LoadoutScreen() {
         </div>
       </motion.div>
     </AppShell>
+  );
+}
+
+const TIER_LABELS: Record<number, string> = { 1: "MK I", 2: "MK II", 3: "MK III" };
+const TIER_COLORS: Record<number, string> = {
+  1: "text-helldiver-yellow border-helldiver-yellow",
+  2: "text-sky-300 border-sky-400",
+  3: "text-purple-300 border-purple-400",
+};
+
+function TierBadge({ tier }: { tier: number }) {
+  return (
+    <div
+      className={clsx(
+        "px-1.5 py-0.5 border text-[9px] font-display font-black tracking-widest bg-black/60 flex items-center gap-1",
+        TIER_COLORS[tier]
+      )}
+    >
+      {TIER_LABELS[tier]}
+      <span className="flex gap-0.5">
+        {Array.from({ length: MAX_TIER }).map((_, i) => (
+          <span
+            key={i}
+            className={clsx(
+              "w-1 h-1 inline-block",
+              i < tier
+                ? tier === 3
+                  ? "bg-purple-400"
+                  : tier === 2
+                    ? "bg-sky-400"
+                    : "bg-helldiver-yellow"
+                : "bg-helldiver-steel"
+            )}
+          />
+        ))}
+      </span>
+    </div>
+  );
+}
+
+function ArmoryHint() {
+  return (
+    <div className="text-[10px] text-helldiver-dim text-center font-mono uppercase tracking-widest mb-2">
+      Locked items can be purchased and upgraded in the{" "}
+      <span className="text-emerald-400">Armory ▸ Outfitter</span> tab.
+    </div>
   );
 }

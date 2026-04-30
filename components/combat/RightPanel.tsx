@@ -7,10 +7,10 @@ import { useGame } from "@/lib/store";
 import { getModifier } from "@/lib/modifiers";
 import { sfx } from "@/lib/sfx";
 
-type Tab = "player" | "enemy" | "global";
+type Tab = "player" | "enemy" | "global" | "objectives";
 
 export default function RightPanel() {
-  const { player, combat, modifiers } = useGame();
+  const { player, combat, modifiers, objectives, runBuffs } = useGame();
   const [tab, setTab] = useState<Tab>("player");
   const focusedEnemy =
     combat.selectedCardIndex !== null
@@ -21,6 +21,7 @@ export default function RightPanel() {
     { id: "player", label: "PLAYER" },
     { id: "enemy", label: "ENEMY" },
     { id: "global", label: "GLOBAL" },
+    { id: "objectives", label: "OBJ" },
   ];
 
   return (
@@ -55,6 +56,42 @@ export default function RightPanel() {
             <Stat label="REQUISITION" value={`${player.requisition} / ${player.maxRequisition}`} bar={(player.requisition / player.maxRequisition) * 100} barColor="bg-accent-yellow" />
             <Stat label="REINFORCEMENTS" value={`${player.reinforcements}`} />
             <Stat label="TURN" value={`${combat.turn}`} />
+
+            {runBuffs.length > 0 && (
+              <div className="pt-tok-2 border-t border-border-subtle">
+                <div className="text-[9px] uppercase tracking-widest text-text-dim mb-2">
+                  Active Buffs
+                </div>
+                <div className="space-y-1.5">
+                  {runBuffs.map((b) => (
+                    <div
+                      key={b.id}
+                      className={clsx(
+                        "border-l-2 pl-tok-2 py-1",
+                        b.lifetime === "next_combat"
+                          ? "border-accent-cyan"
+                          : "border-accent-yellow"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={clsx(
+                          "text-[11px] font-bold",
+                          b.lifetime === "next_combat" ? "text-accent-cyan" : "text-accent-yellow"
+                        )}>
+                          {b.name}
+                        </span>
+                        <span className="text-[8px] uppercase tracking-widest text-text-dim">
+                          {b.lifetime === "next_combat" ? "1 fight" : "run"}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-text-secondary leading-snug">
+                        {b.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -89,6 +126,45 @@ export default function RightPanel() {
               </>
             ) : (
               <div className="text-text-dim italic">No hostiles in view.</div>
+            )}
+          </div>
+        )}
+
+        {tab === "objectives" && (
+          <div className="space-y-tok-3">
+            {objectives.length === 0 ? (
+              <div className="text-text-dim italic">No mission objectives.</div>
+            ) : (
+              objectives.map((o) => {
+                const pct = o.target > 0 ? Math.min(100, Math.round((o.progress / o.target) * 100)) : (o.completed ? 100 : 0);
+                return (
+                  <div
+                    key={o.id}
+                    className={clsx(
+                      "border-l-2 pl-tok-2 py-1",
+                      o.completed ? "border-accent-green" : "border-accent-yellow"
+                    )}
+                  >
+                    <div className={clsx("text-[11px] font-bold", o.completed ? "text-accent-green" : "text-accent-yellow")}>
+                      {o.completed ? "✓ " : ""}{o.description}
+                    </div>
+                    <div className="flex items-center gap-tok-2 mt-1">
+                      <div className="flex-1 h-1 bg-black border border-border-strong overflow-hidden">
+                        <div
+                          className={clsx("h-full transition-all", o.completed ? "bg-accent-green" : "bg-accent-yellow")}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] tabular-nums text-text-dim">
+                        {o.progress}/{o.target || 1}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-text-dim uppercase tracking-widest mt-1">
+                      Bonus +{o.rewardMedals} medals
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         )}

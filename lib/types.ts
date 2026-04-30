@@ -98,18 +98,73 @@ export interface ActiveSentry {
   targetAll: boolean;
 }
 
-export type NodeType = "combat" | "elite" | "rest" | "boss" | "shop";
+export type NodeType = "combat" | "elite" | "rest" | "boss" | "shop" | "event";
 
 export interface MapNode {
   index: number;
+  /** Tier in the branching tree (0 = drop, 5 = boss). */
+  tier: number;
+  /** X position within the tier — drives layout column. */
+  col: number;
   type: NodeType;
   enemyTemplateIds: string[];
+  /** Event id when type === "event". Resolved against EVENTS dict. */
+  eventId?: string;
+  /** Indices of nodes in the next tier this node connects to. */
+  children: number[];
   cleared: boolean;
+  /** Procedurally-generated atmospheric flavor text shown on hover/entry. */
+  flavor?: string;
+}
+
+/** Run-wide buffs applied by choice events. */
+export interface RunBuff {
+  id: string;
+  name: string;
+  description: string;
+  /** Lifetime: "run" persists for whole mission, "next_combat" expires after one combat. */
+  lifetime: "run" | "next_combat";
+  /** Effect kind handled by the combat reducer. */
+  kind:
+    | "extra_starting_block"
+    | "max_hp_delta"
+    | "extra_starting_r"
+    | "eagle_cost_delta"
+    | "free_card"
+    | "draw_bonus"
+    | "weapon_dmg_delta"
+    | "starting_burn";
+  amount: number;
+  /** For "free_card", the card id to add. */
+  payload?: string;
+}
+
+export interface MissionObjective {
+  id: string;
+  /** Display name shown to player. */
+  description: string;
+  /** Bonus medals on completion. */
+  rewardMedals: number;
+  /** What the objective tracks. */
+  kind:
+    | "kill_elites"
+    | "deal_damage_in_turn"
+    | "high_hp_finish"
+    | "no_exhaust"
+    | "win_in_turns"
+    | "no_block_used"
+    | "complete_events";
+  /** Target value. */
+  target: number;
+  /** Current tracked value. */
+  progress: number;
+  completed: boolean;
 }
 
 export type GamePhase =
   | "menu"
   | "armory"
+  | "character"
   | "squad_hub"
   | "squad_lobby"
   | "coop_combat"
@@ -119,19 +174,30 @@ export type GamePhase =
   | "combat"
   | "reward"
   | "rest"
+  | "event"
+  | "shop"
   | "gameover"
   | "victory";
 
+/** Armor weight class drives base passive/silhouette. */
 export type ArmorClass = "scout" | "frontline" | "fortified";
 
 export interface Armor {
-  id: ArmorClass;
+  id: string;
   name: string;
   passive: string;
+  /** Weight class — light / medium / heavy silhouette. */
+  weightClass: ArmorClass;
+  /** Helldivers-canonical passive name (Engineering Kit, Servo-Assisted, etc.) */
+  passiveName?: string;
   hpMod: number;
   handMod: number;
   startingBlock: number;
   reqMod: number;
+  /** Reinforcement bonus — used by Scout passive. */
+  reinforcementBonus?: number;
+  /** Bonus stim cards added to the run deck — used by Med-Kit. */
+  bonusStims?: number;
 }
 
 export interface Weapon {

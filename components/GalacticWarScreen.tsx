@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { useGame } from "@/lib/store";
 import { sfx } from "@/lib/sfx";
 import { Faction } from "@/lib/types";
 import { rollModifiers, getModifier } from "@/lib/modifiers";
+import { loadWarState, listPlanets, PlanetState, WarState } from "@/lib/galacticWar";
 import HudFrame from "./HudFrame";
 import MajorOrderBanner from "./MajorOrderBanner";
 import ActivityTicker from "./ActivityTicker";
@@ -33,16 +32,29 @@ const FACTION_BG: Record<Faction, string> = {
 };
 
 export default function GalacticWarScreen() {
-  const { goToMenu, goToLoadout, difficulty, setDifficulty } = useGame();
-  const war = useQuery(api.war.getWar);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const { goToLoadout, difficulty, setDifficulty } = useGame();
+  const [war, setWar] = useState<WarState | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [seed, setSeed] = useState(() => Date.now());
 
-  const planets = war?.planets ?? [];
+  // Load local war state on mount, refresh when reward phase changes update it
+  useEffect(() => {
+    setWar(loadWarState());
+    // Reload when storage changes (e.g. after a run finishes)
+    const onStorage = () => setWar(loadWarState());
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onStorage);
+    };
+  }, []);
+
+  const planets: PlanetState[] = war ? listPlanets(war) : [];
   const majorOrder = war?.majorOrder ?? null;
 
   const sectors = useMemo(() => {
-    const map: Record<string, typeof planets> = {};
+    const map: Record<string, PlanetState[]> = {};
     planets.forEach((p) => {
       if (!map[p.sector]) map[p.sector] = [];
       map[p.sector].push(p);
@@ -50,9 +62,9 @@ export default function GalacticWarScreen() {
     return map;
   }, [planets]);
 
-  const selected = selectedSlug ? planets.find((p) => p.slug === selectedSlug) ?? null : null;
+  const selected = selectedId ? planets.find((p) => p.id === selectedId) ?? null : null;
   const isMajorTarget =
-    selected && majorOrder?.targetSlugs.includes(selected.slug);
+    selected && majorOrder?.targetPlanetIds.includes(selected.id);
 
   const modifierIds = useMemo(() => {
     if (!selected) return [];
@@ -61,55 +73,24 @@ export default function GalacticWarScreen() {
 
   return (
     <AppShell activeNav="war">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <div className="text-center mb-5">
           <div className="text-[10px] uppercase tracking-[0.4em] text-helldiver-yellow mb-1 flex items-center justify-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-blink" />
-            ◢ Galactic War · Live · Sector Command ◣
+            ◢ Galactic War · Sector Command ◣
           </div>
           <div className="text-4xl font-display font-black tracking-tight">
             STRATEGIC <span className="text-helldiver-yellow">DEPLOYMENT MAP</span>
           </div>
         </div>
 
-        {majorOrder && (
-          <MajorOrderBanner
-            warState={{
-              majorOrder: {
-                id: majorOrder._id,
-                title: majorOrder.title,
-                briefing: majorOrder.briefing,
-                targetPlanetIds: majorOrder.targetSlugs,
-                rewardMedals: majorOrder.rewardMedals,
-                startedAt: majorOrder.startedAt,
-                durationHours: majorOrder.durationHours,
-              },
-              planets: Object.fromEntries(
-                planets.map((p) => [p.slug, {
-                  id: p.slug,
-                  name: p.name,
-                  faction: p.faction,
-                  sector: p.sector,
-                  biome: p.biome ?? "",
-                  liberation: p.liberation,
-                  decayPerHour: p.decayPerHour,
-                  baseLiberators: p.activeLiberators,
-                }])
-              ),
-              lastTick: 0,
-              contributions: [],
-            }}
-          />
-        )}
+        {majorOrder && war && <MajorOrderBanner warState={war} />}
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 mb-5">
           <HudFrame label="Active Planetary Theaters" accent="yellow" className="p-4">
             {!war ? (
               <div className="text-center py-8 text-helldiver-dim text-xs uppercase tracking-widest">
-                Connecting to Galactic Command...
+                Loading war room...
               </div>
             ) : (
               <div className="space-y-4">
@@ -120,17 +101,17 @@ export default function GalacticWarScreen() {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                       {sectorPlanets.map((planet) => {
-                        const isMajor = majorOrder?.targetSlugs.includes(planet.slug);
-                        const isSelected = selectedSlug === planet.slug;
+                        const isMajor = majorOrder?.targetPlanetIds.includes(planet.id);
+                        const isSelected = selectedId === planet.id;
                         const liberated = planet.liberation >= 100;
                         return (
                           <motion.button
-                            key={planet._id}
+                            key={planet.id}
                             whileHover={{ y: -3, scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => {
                               sfx.click();
-                              setSelectedSlug(planet.slug);
+                              setSelectedId(planet.id);
                               setSeed(Date.now());
                             }}
                             className={clsx(
@@ -143,6 +124,11 @@ export default function GalacticWarScreen() {
                             {isMajor && (
                               <div className="absolute -top-1 -right-1 px-1.5 py-0.5 text-[8px] tracking-widest font-bold bg-helldiver-red text-white border border-helldiver-red">
                                 ★MO
+                              </div>
+                            )}
+                            {liberated && (
+                              <div className="absolute -top-1 -left-1 px-1.5 py-0.5 text-[8px] tracking-widest font-bold bg-emerald-500 text-black border border-emerald-500">
+                                ✓
                               </div>
                             )}
                             <div className="flex items-center gap-1 mb-1">
@@ -176,7 +162,7 @@ export default function GalacticWarScreen() {
                             </div>
                             <div className="text-[10px] mt-1 flex items-center justify-between text-helldiver-dim">
                               <span>{planet.liberation.toFixed(1)}% LIB</span>
-                              <span className="text-[9px]">↓{planet.decayPerHour.toFixed(1)}/h</span>
+                              {liberated && <span className="text-emerald-400 text-[9px]">FREED</span>}
                             </div>
                           </motion.button>
                         );
@@ -192,7 +178,7 @@ export default function GalacticWarScreen() {
             <AnimatePresence mode="wait">
               {selected ? (
                 <motion.div
-                  key={selected.slug}
+                  key={selected.id}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -223,7 +209,7 @@ export default function GalacticWarScreen() {
 
                     <div className="border-t border-helldiver-steel pt-3 mb-3">
                       <div className="text-[10px] uppercase tracking-widest text-helldiver-dim mb-1">
-                        Liberation Status · LIVE
+                        Liberation Status
                       </div>
                       <div className="h-2.5 bg-black border border-helldiver-steel relative overflow-hidden mb-1">
                         <motion.div
@@ -241,7 +227,11 @@ export default function GalacticWarScreen() {
                       </div>
                       <div className="flex justify-between text-[10px] text-helldiver-dim">
                         <span>{selected.liberation.toFixed(2)}% liberated</span>
-                        <span>{selected.activeLiberators.toLocaleString()} active</span>
+                        <span>
+                          {selected.liberation >= 100
+                            ? "PLANET SECURED"
+                            : `${Math.ceil((100 - selected.liberation) / 22)} ops to liberate`}
+                        </span>
                       </div>
                     </div>
 
@@ -329,7 +319,7 @@ export default function GalacticWarScreen() {
                       onClick={() => {
                         sfx.unlock();
                         sfx.beacon();
-                        useGame.setState({ targetPlanetId: selected.slug });
+                        useGame.setState({ targetPlanetId: selected.id });
                         goToLoadout(selected.faction, difficulty, modifierIds);
                       }}
                       className="w-full py-3 bg-gradient-to-b from-helldiver-yellow to-yellow-500 text-helldiver-dark font-display font-black uppercase tracking-[0.3em] border-2 border-helldiver-yellow shadow-[0_0_20px_rgba(255, 211, 77,0.4)]"
@@ -350,7 +340,6 @@ export default function GalacticWarScreen() {
             <ActivityTicker />
           </div>
         </div>
-
       </motion.div>
     </AppShell>
   );

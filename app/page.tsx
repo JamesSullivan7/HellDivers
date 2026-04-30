@@ -7,13 +7,19 @@ import MapView from "@/components/MapView";
 import CombatView from "@/components/CombatView";
 import RewardScreen from "@/components/RewardScreen";
 import RestScreen from "@/components/RestScreen";
+import EventScreen from "@/components/EventScreen";
+import ShopScreen from "@/components/ShopScreen";
 import EndScreen from "@/components/EndScreen";
 import GalacticWarScreen from "@/components/GalacticWarScreen";
 import LoadoutScreen from "@/components/LoadoutScreen";
 import ArmoryScreen from "@/components/ArmoryScreen";
+import CharacterSheet from "@/components/CharacterSheet";
 import SquadHub from "@/components/SquadHub";
 import SquadLobby from "@/components/SquadLobby";
 import CoopCombatView from "@/components/CoopCombatView";
+import ObjectiveToast from "@/components/ObjectiveToast";
+
+const IN_RUN_PHASES = new Set(["map", "combat", "reward", "rest", "event", "shop"]);
 
 export default function Page() {
   const phase = useGame((s) => s.phase);
@@ -28,34 +34,64 @@ export default function Page() {
     );
   }
 
+  let view: React.ReactNode;
   switch (phase) {
     case "menu":
-      return <MainMenu />;
+      view = <MainMenu />;
+      break;
     case "armory":
-      return <ArmoryScreen />;
+      view = <ArmoryScreen />;
+      break;
+    case "character":
+      view = <CharacterSheet />;
+      break;
     case "squad_hub":
-      return <SquadHub />;
+      view = <SquadHub />;
+      break;
     case "squad_lobby":
-      return <SquadLobby />;
+      view = <SquadLobby />;
+      break;
     case "coop_combat":
-      return <CoopCombatView />;
+      view = <CoopCombatView />;
+      break;
     case "faction":
-      return <GalacticWarScreen />;
+      view = <GalacticWarScreen />;
+      break;
     case "loadout":
-      return <LoadoutScreen />;
+      view = <LoadoutScreen />;
+      break;
     case "map":
-      return <MapView />;
+      view = <MapView />;
+      break;
     case "combat":
-      return <CombatView />;
+      view = <CombatView />;
+      break;
     case "reward":
-      return <RewardScreen />;
+      view = <RewardScreen />;
+      break;
     case "rest":
-      return <RestScreen />;
+      view = <RestScreen />;
+      break;
+    case "event":
+      view = <EventScreen />;
+      break;
+    case "shop":
+      view = <ShopScreen />;
+      break;
     case "victory":
-      return <EndScreen victory />;
+      view = <EndScreen victory />;
+      break;
     case "gameover":
-      return <EndScreen victory={false} />;
+      view = <EndScreen victory={false} />;
+      break;
     default:
-      return <MainMenu />;
+      view = <MainMenu />;
   }
+
+  return (
+    <>
+      {view}
+      {IN_RUN_PHASES.has(phase) && <ObjectiveToast />}
+    </>
+  );
 }
