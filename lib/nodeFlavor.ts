@@ -6,6 +6,25 @@ import type { Faction, NodeType } from "./types";
  * for that dungeon-crawler mood.
  */
 
+const CACHE_FLAVOR = [
+  "A buried hellpod cracked open. Loot scattered in the dirt.",
+  "Ration crate, half-buried, seal still intact.",
+  "Abandoned Helldiver pack — owner not present.",
+  "Resupply container venting cold steam.",
+];
+const HAZARD_FLAVOR = [
+  "The ground here glistens. Something corrosive.",
+  "Atmospheric anomaly. Compass spins. Stay alert.",
+  "Toxic ground sample. Watch your step.",
+  "Pressure pocket. Step wrong and the air bites you.",
+];
+const SIGNAL_FLAVOR = [
+  "An old SEAF beacon. Still pinging. Reveals nearby contacts.",
+  "Comms array, unattended. You can pull a sector scan.",
+  "Long-range scout terminal. Up the data — see what's ahead.",
+  "Hellpod uplink, still warm. Patch in.",
+];
+
 const FLAVOR: Record<NodeType, Record<Faction, string[]>> = {
   combat: {
     terminid: [
@@ -75,6 +94,9 @@ const FLAVOR: Record<NodeType, Record<Faction, string[]>> = {
       "Black geometry impossible to look at directly. Engage.",
     ],
   } as any,
+  cache: { terminid: [], automaton: [], illuminate: [] } as any,
+  hazard: { terminid: [], automaton: [], illuminate: [] } as any,
+  signal: { terminid: [], automaton: [], illuminate: [] } as any,
 };
 
 // Manually fill the three factions for the four most common types.
@@ -151,6 +173,17 @@ const SHOP_ILL = [
 (FLAVOR.shop as any).automaton = SHOP_AUTO;
 (FLAVOR.shop as any).illuminate = SHOP_ILL;
 
+// Fill cache/hazard/signal pools for all factions (faction-agnostic copy).
+(FLAVOR.cache as any).terminid = CACHE_FLAVOR;
+(FLAVOR.cache as any).automaton = CACHE_FLAVOR;
+(FLAVOR.cache as any).illuminate = CACHE_FLAVOR;
+(FLAVOR.hazard as any).terminid = HAZARD_FLAVOR;
+(FLAVOR.hazard as any).automaton = HAZARD_FLAVOR;
+(FLAVOR.hazard as any).illuminate = HAZARD_FLAVOR;
+(FLAVOR.signal as any).terminid = SIGNAL_FLAVOR;
+(FLAVOR.signal as any).automaton = SIGNAL_FLAVOR;
+(FLAVOR.signal as any).illuminate = SIGNAL_FLAVOR;
+
 export function rollNodeFlavor(type: NodeType, faction: Faction): string {
   const pool: string[] = (FLAVOR as any)[type]?.[faction] ?? [];
   if (pool.length === 0) {
@@ -163,7 +196,13 @@ export function rollNodeFlavor(type: NodeType, faction: Faction): string {
           ? "A vendor under a tarp, salvaging on the side."
           : type === "event"
             ? "Something off the path."
-            : "Motion ahead. Lock and load.";
+            : type === "cache"
+              ? "Salvage in the dirt."
+              : type === "hazard"
+                ? "Something corrosive on the ground."
+                : type === "signal"
+                  ? "A working comms array. You can scan ahead."
+                  : "Motion ahead. Lock and load.";
   }
   return pool[Math.floor(Math.random() * pool.length)];
 }

@@ -98,7 +98,22 @@ export interface ActiveSentry {
   targetAll: boolean;
 }
 
-export type NodeType = "combat" | "elite" | "rest" | "boss" | "shop" | "event";
+export type NodeType =
+  | "combat"
+  | "elite"
+  | "rest"
+  | "boss"
+  | "shop"
+  | "event"
+  | "cache"
+  | "hazard"
+  | "signal";
+
+/** Tag indicating which "route identity" a tier-1 path takes. */
+export type PathTag = "safe" | "aggressive" | "unknown" | "elite";
+
+/** How much of a node is visible to the player on the map. */
+export type NodeVisibility = "visible" | "partial" | "hidden";
 
 export interface MapNode {
   index: number;
@@ -115,6 +130,20 @@ export interface MapNode {
   cleared: boolean;
   /** Procedurally-generated atmospheric flavor text shown on hover/entry. */
   flavor?: string;
+  /** How visible this node is on the map. Defaults to "visible" when missing. */
+  visibility?: NodeVisibility;
+  /** Identifies the route lineage this node belongs to (computed at gen-time). */
+  pathTag?: PathTag;
+  /** For signal nodes — how many tiers ahead they reveal. */
+  revealRadius?: number;
+  /** For cache/hazard nodes — payload describing the on-enter effect. */
+  payload?: {
+    medals?: number;
+    samples?: number;
+    requisition?: number;
+    hpDelta?: number;
+    runModifierId?: string;
+  };
 }
 
 /** Run-wide buffs applied by choice events. */

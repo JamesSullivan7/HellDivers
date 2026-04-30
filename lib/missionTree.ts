@@ -28,14 +28,14 @@ interface TierSpec {
 const ROUTE: TierSpec[] = [
   // tier 0 — drop (always combat for tutorial fight)
   { count: 1, weights: { combat: 1 } },
-  // tier 1 — 3 entry combat choices
+  // tier 1 — 3 entry combat choices, route entrance
   { count: 3, weights: { combat: 1 } },
-  // tier 2 — easier-mid options (chance for shop appearance)
-  { count: 3, weights: { combat: 0.55, event: 0.35, shop: 0.1 } },
-  // tier 3 — first hard tier
-  { count: 3, weights: { elite: 0.35, event: 0.3, rest: 0.15, combat: 0.15, shop: 0.05 } },
-  // tier 4 — pre-boss (rest, elite, shop most likely)
-  { count: 3, weights: { rest: 0.3, elite: 0.25, event: 0.2, shop: 0.15, combat: 0.1 } },
+  // tier 2 — mid options: combat / event / cache / signal / shop
+  { count: 3, weights: { combat: 0.40, event: 0.25, cache: 0.10, signal: 0.10, shop: 0.10, hazard: 0.05 } },
+  // tier 3 — first hard tier with elite + hazard pressure
+  { count: 3, weights: { elite: 0.30, event: 0.20, rest: 0.13, combat: 0.13, cache: 0.07, hazard: 0.10, signal: 0.04, shop: 0.03 } },
+  // tier 4 — pre-boss
+  { count: 3, weights: { rest: 0.25, elite: 0.22, event: 0.18, shop: 0.13, combat: 0.10, cache: 0.07, hazard: 0.05 } },
   // tier 5 — boss
   { count: 1, weights: { boss: 1 } },
 ];
@@ -189,18 +189,45 @@ export function generateTree(
   const tiers: MapNode[][] = [];
   let nodeIndex = 0;
 
+  // Tier-1 nodes get distinct path identities — drives the per-route feel.
+  // We assign one of each (safe / aggressive / unknown) to the three tier-1 columns,
+  // shuffled so the column-tag mapping varies per run.
+  const PATH_TAG_DECK: ("safe" | "aggressive" | "unknown")[] = ["safe", "aggressive", "unknown"];
+  // Fisher-Yates shuffle
+  for (let i = PATH_TAG_DECK.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [PATH_TAG_DECK[i], PATH_TAG_DECK[j]] = [PATH_TAG_DECK[j], PATH_TAG_DECK[i]];
+  }
+
   ROUTE.forEach((spec, tier) => {
     const tierNodes: MapNode[] = [];
     for (let col = 0; col < spec.count; col++) {
-      const type =
+      // ── Per-tier-1 path identity drives the type weights for the
+      // SAFE = +rest/+cache, AGGRESSIVE = +elite/+hazard, UNKNOWN = +signal/+hidden visibility
+      let weights = spec.weights;
+      let pathTag: import("./types").PathTag | undefined;
+      if (tier >= 1 && tier < ROUTE.length - 1) {
+        pathTag = PATH_TAG_DECK[col % PATH_TAG_DECK.length];
+        if (pathTag === "safe") {
+          weights = applyTagWeights(weights, { rest: 0.10, cache: 0.10, elite: -0.15, hazard: -0.05 });
+        } else if (pathTag === "aggressive") {
+          weights = applyTagWeights(weights, { elite: 0.15, hazard: 0.10, rest: -0.10 });
+        } else if (pathTag === "unknown") {
+          weights = applyTagWeights(weights, { signal: 0.10, event: 0.05 });
+        }
+      }
+
+      const type: NodeType =
         tier === 0
           ? "combat"
           : tier === ROUTE.length - 1
             ? "boss"
-            : pickType(spec.weights);
+            : pickType(weights);
 
       let enemies: string[] = [];
       let eventId: string | undefined;
+      let payload: MapNode["payload"];
+      let revealRadius: number | undefined;
 
       if (type === "combat") {
         enemies = [...pickEnemy(FACTION_COMBAT_POOLS[faction])];
@@ -211,6 +238,32 @@ export function generateTree(
         enemies = [FACTION_BOSS[faction]];
       } else if (type === "event") {
         eventId = pickEvent();
+      } else if (type === "cache") {
+        // Stash node — small medal/sample/req drop on enter
+        const roll = rng();
+        if (roll < 0.5) payload = { medals: 60 + Math.floor(rng() * 60) };
+        else if (roll < 0.85) payload = { samples: 1 + Math.floor(rng() * 3) };
+        else payload = { requisition: 20 + Math.floor(rng() * 30) };
+      } else if (type === "hazard") {
+        // Hazard node — small HP penalty + may add a run modifier
+        const roll = rng();
+        if (roll < 0.6) payload = { hpDelta: -(4 + Math.floor(rng() * 6)) };
+        else payload = { hpDelta: -3, runModifierId: "vent_burned" };
+      } else if (type === "signal") {
+        // Signal — reveals nearby tiers
+        revealRadius = 1 + Math.floor(rng() * 2); // 1–2 tiers
+      }
+
+      // Visibility: tier 0/1 always visible. Tier 2+ has chance of being partial,
+      // tier 3+ has chance of being hidden — biased by path tag.
+      let visibility: import("./types").NodeVisibility = "visible";
+      if (tier >= 2 && type !== "boss") {
+        const r = rng();
+        const isUnknownPath = pathTag === "unknown";
+        const partialChance = isUnknownPath ? 0.45 : 0.20;
+        const hiddenChance = isUnknownPath ? 0.20 : 0.05;
+        if (tier >= 3 && r < hiddenChance) visibility = "hidden";
+        else if (r < partialChance) visibility = "partial";
       }
 
       tierNodes.push({
@@ -223,10 +276,18 @@ export function generateTree(
         children: [],
         cleared: tier === 0, // drop point starts cleared
         flavor: tier === 0 ? undefined : rollNodeFlavor(type, faction),
+        visibility,
+        pathTag,
+        revealRadius,
+        payload,
       });
     }
     tiers.push(tierNodes);
   });
+
+  // Path-tag inheritance — children that descend primarily from one tier-1 column
+  // adopt that column's tag (used for danger-meter rollups in the UI).
+  // We do this lazily after edges are wired — see below.
 
   // Wire edges between adjacent tiers
   for (let t = 0; t < tiers.length - 1; t++) {
@@ -260,7 +321,71 @@ export function generateTree(
     });
   }
 
+  // Path-tag propagation: each node inherits the most common pathTag from its
+  // parent(s). This enables route-aware UI rollups (Danger Meter etc.).
+  // Walk tier 2..N-1; tier 0/1 already set.
+  for (let t = 2; t < tiers.length; t++) {
+    tiers[t].forEach((node) => {
+      if (node.pathTag) return;
+      // Find parents — any node in the previous tier whose children include this index.
+      const parents = tiers[t - 1].filter((p) => p.children.includes(node.index));
+      const tagVotes: Record<string, number> = {};
+      parents.forEach((p) => {
+        if (p.pathTag) tagVotes[p.pathTag] = (tagVotes[p.pathTag] ?? 0) + 1;
+      });
+      const winner = Object.entries(tagVotes).sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (winner) node.pathTag = winner as import("./types").PathTag;
+    });
+  }
+
   return tiers.flat();
+}
+
+/** Apply additive deltas to a weights object, clamping at 0. */
+function applyTagWeights(
+  base: Partial<Record<NodeType, number>>,
+  delta: Partial<Record<NodeType, number>>,
+): Partial<Record<NodeType, number>> {
+  const out: Partial<Record<NodeType, number>> = { ...base };
+  (Object.keys(delta) as NodeType[]).forEach((k) => {
+    out[k] = Math.max(0, (out[k] ?? 0) + (delta[k] ?? 0));
+  });
+  return out;
+}
+
+/**
+ * Mutates the nodes array — when called from a Signal node, all nodes within
+ * `radius` tiers ahead get their visibility upgraded one step (hidden→partial,
+ * partial→visible). Safe to call multiple times.
+ */
+export function revealNearbyNodes(nodes: MapNode[], fromIndex: number, radius: number = 1): MapNode[] {
+  const from = nodes[fromIndex];
+  if (!from) return nodes;
+  return nodes.map((n) => {
+    if (n.index === from.index) return n;
+    const tierDelta = n.tier - from.tier;
+    if (tierDelta <= 0 || tierDelta > radius) return n;
+    if (n.visibility === "hidden") return { ...n, visibility: "partial" as const };
+    if (n.visibility === "partial") return { ...n, visibility: "visible" as const };
+    return n;
+  });
+}
+
+/** Mutates: marks specific nodes visible (used by event-based reveals). */
+export function revealSpecificNodes(nodes: MapNode[], indices: number[]): MapNode[] {
+  const set = new Set(indices);
+  return nodes.map((n) =>
+    set.has(n.index) ? { ...n, visibility: "visible" as const } : n
+  );
+}
+
+/** Mutates: dim a path branch (used by path-lock map modifiers). */
+export function lockNodeChildren(nodes: MapNode[], fromIndex: number): MapNode[] {
+  const from = nodes[fromIndex];
+  if (!from) return nodes;
+  return nodes.map((n) =>
+    from.children.includes(n.index) ? { ...n, cleared: true } : n
+  );
 }
 
 export interface MissionTree {

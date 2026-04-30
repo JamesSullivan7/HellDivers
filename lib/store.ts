@@ -64,6 +64,12 @@ import {
   type MissionType,
 } from "./missionTypes";
 import { feedback } from "@/systems/feedback/FeedbackManager";
+import { useConsequence } from "./consequenceStore";
+import {
+  Consequence,
+  CombatModifier,
+} from "./consequenceTypes";
+import { revealNearbyNodes } from "./missionTree";
 
 const BASE_HAND_SIZE = 5;
 const MAX_REQUISITION = 4;
@@ -748,6 +754,72 @@ export const useGame = create<GameStore>((set, get) => ({
       }
     }
 
+    // ── Tick delayed consequences whose trigger is "next_node" / "after_nodes" ──
+    {
+      const consq = useConsequence.getState();
+      const fired = consq.resolvePendingConsequences("next_node");
+      fired.forEach((c) => applyConsequenceToGame(c, set, get));
+    }
+
+    // ── Cache: instant reward, mark cleared, return to map ──
+    if (node.type === "cache") {
+      const account = { ...get().account };
+      const player = { ...get().player };
+      const p = node.payload ?? {};
+      let summary = "Loot recovered:";
+      if (p.medals) {
+        account.medals += p.medals;
+        summary += ` +${p.medals} M`;
+      }
+      if (p.samples) {
+        account.samples += p.samples;
+        summary += ` +${p.samples} S`;
+      }
+      if (p.requisition) {
+        account.requisition += p.requisition;
+        summary += ` +${p.requisition} R`;
+      }
+      saveAccount(account);
+      const newMap = map.map((n, i) => (i === index ? { ...n, cleared: true } : n));
+      set({ account, player, map: newMap, currentNodeIndex: index, message: summary });
+      feedback.reward(p.medals ?? p.samples ?? p.requisition ?? 0,
+        p.medals ? "medals" : p.samples ? "samples" : "requisition");
+      return;
+    }
+
+    // ── Hazard: penalty, optional run modifier, mark cleared ──
+    if (node.type === "hazard") {
+      const player = { ...get().player };
+      const p = node.payload ?? {};
+      let summary = "Hazard endured.";
+      if (p.hpDelta) {
+        player.hp = Math.max(1, player.hp + p.hpDelta);
+        summary = `Hazard exposure: ${p.hpDelta} HP.`;
+      }
+      if (p.runModifierId) {
+        useConsequence.getState().addRunModifier({
+          id: p.runModifierId,
+          name: "Vent-Burned",
+          description: "+1 starting Requisition per combat for the rest of the run.",
+          flavor: "neutral",
+          scope: "run",
+        });
+        summary += " Run modifier applied.";
+      }
+      const newMap = map.map((n, i) => (i === index ? { ...n, cleared: true } : n));
+      set({ player, map: newMap, currentNodeIndex: index, message: summary });
+      return;
+    }
+
+    // ── Signal: reveal nearby nodes ──
+    if (node.type === "signal") {
+      const radius = node.revealRadius ?? 1;
+      const revealed = revealNearbyNodes(map, index, radius);
+      const newMap = revealed.map((n, i) => (i === index ? { ...n, cleared: true } : n));
+      set({ map: newMap, currentNodeIndex: index, message: `Sector scan: revealed ${radius} tier${radius > 1 ? "s" : ""} ahead.` });
+      return;
+    }
+
     if (node.type === "rest") {
       set({ phase: "rest", currentNodeIndex: index, pendingNodeIndex: index });
       return;
@@ -780,6 +852,26 @@ export const useGame = create<GameStore>((set, get) => ({
     const firebombPotency = firebombHellpods
       ? Math.round(2 * getBoosterPotency(loadout.boosterTier ?? 1))
       : 0;
+
+    // Resolve/consume combat modifiers FIRST so enemy instantiation can read them.
+    let extraEnemyArmorDelta = 0;
+    let extraEnemyBurnDelta = 0;
+    let extraStartingBlock = 0;
+    let extraReqBonus = 0;
+    {
+      const consq = useConsequence.getState();
+      const fired = consq.resolvePendingConsequences("next_combat");
+      fired.forEach((c) => applyConsequenceToGame(c, set, get));
+      const mods = consq.consumeCombatModifiers();
+      mods.forEach((m) => {
+        const p = m.payload as any;
+        if (typeof p.enemyArmorDelta === "number") extraEnemyArmorDelta += p.enemyArmorDelta;
+        if (typeof p.enemyBurn === "number") extraEnemyBurnDelta += p.enemyBurn;
+        if (typeof p.startingBlock === "number") extraStartingBlock += p.startingBlock;
+        if (typeof p.reqBonus === "number") extraReqBonus += p.reqBonus;
+      });
+    }
+
     const enemies = node.enemyTemplateIds.map((id) => {
       const e = instantiateEnemy(id, difficulty);
       if (modifiers.includes("enemy_armor")) e.armor += 1;
@@ -788,6 +880,9 @@ export const useGame = create<GameStore>((set, get) => ({
       if (ambush) e.burn += ambush.amount;
       // Firebomb Hellpods booster: enemies start each combat with burn applied.
       if (firebombHellpods) e.burn += firebombPotency;
+      // Consequence combat mods
+      e.armor = Math.max(0, e.armor + extraEnemyArmorDelta);
+      e.burn += extraEnemyBurnDelta;
       return e;
     });
     const deck = shuffle(ownedDeck);
@@ -807,6 +902,15 @@ export const useGame = create<GameStore>((set, get) => ({
       if (b.kind === "extra_starting_block") startingBlock += b.amount;
       if (b.kind === "extra_starting_r") reqBonus += b.amount;
     });
+
+    // Apply combat-modifier-derived starting block / req bonus deltas
+    if (extraStartingBlock !== 0) startingBlock += extraStartingBlock;
+    if (extraReqBonus !== 0) reqBonus += extraReqBonus;
+
+    // Apply Vent-Burned hazard modifier — +1 starting R per combat
+    if (useConsequence.getState().activeRunModifiers.some((m) => m.id === "vent_burned")) {
+      reqBonus += 1;
+    }
 
     // Draw bonus from buffs
     const drawBonus = runBuffs.filter((b) => b.kind === "draw_bonus").reduce((a, b) => a + b.amount, 0);
@@ -1697,7 +1801,111 @@ function finalizeRun(
     phase: victory ? "victory" : "gameover",
   });
 
+  // Reset consequence state — fresh slate next run
+  useConsequence.getState().clearAll();
+
   // Game-feel feedback for the run resolution
   if (victory) feedback.victory();
   else feedback.defeat();
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  CONSEQUENCE → GAME STATE BRIDGE
+//  The consequence store holds data; this function applies it to the
+//  game store. Called from enterNode tick + EventScreen choice flow.
+// ──────────────────────────────────────────────────────────────────────
+export function applyConsequenceToGame(
+  c: Consequence,
+  set: any,
+  get: any,
+): void {
+  const consq = useConsequence.getState();
+
+  switch (c.type) {
+    case "immediate":
+    case "resource": {
+      // Direct write into game state — payload describes deltas.
+      const p = c.payload as {
+        medals?: number;
+        samples?: number;
+        rareSamples?: number;
+        superSamples?: number;
+        requisition?: number;
+        hpDelta?: number;
+      };
+      const acc = { ...get().account };
+      const player = { ...get().player };
+      if (p.medals) acc.medals += p.medals;
+      if (p.samples) acc.samples += p.samples;
+      if (p.rareSamples) acc.rareSamples += p.rareSamples;
+      if (p.superSamples) acc.superSamples += p.superSamples;
+      if (p.requisition) acc.requisition += p.requisition;
+      if (p.hpDelta) player.hp = Math.max(1, Math.min(player.maxHp, player.hp + p.hpDelta));
+      saveAccount(acc);
+      set({ account: acc, player });
+      break;
+    }
+    case "run_modifier": {
+      const p = c.payload as {
+        modifierId: string;
+        name: string;
+        description: string;
+        flavor?: "positive" | "neutral" | "negative";
+        scope?: "run" | "next_combat";
+      };
+      consq.addRunModifier({
+        id: p.modifierId,
+        name: p.name,
+        description: p.description,
+        flavor: p.flavor ?? "neutral",
+        scope: p.scope ?? "run",
+      });
+      break;
+    }
+    case "narrative_flag": {
+      const p = c.payload as { flag: string };
+      if (p.flag) consq.addNarrativeFlag(p.flag);
+      break;
+    }
+    case "combat_modifier": {
+      // Stash for the next combat to consume.
+      consq.pushPendingCombatMod({
+        id: c.id,
+        payload: c.payload,
+        displayText: c.displayText,
+        consumeAfterCombat: true,
+      });
+      break;
+    }
+    case "map_modifier": {
+      const state = get();
+      const p = c.payload as {
+        kind: "reveal_radius" | "lock_path" | "convert_node" | "mark_danger";
+        fromIndex?: number;
+        radius?: number;
+        targetIndex?: number;
+        toType?: import("./types").NodeType;
+      };
+      if (p.kind === "reveal_radius") {
+        const from = p.fromIndex ?? state.currentNodeIndex;
+        const newMap = revealNearbyNodes(state.map, from, p.radius ?? 2);
+        set({ map: newMap });
+      } else if (p.kind === "convert_node" && p.targetIndex !== undefined && p.toType) {
+        const newMap = state.map.map((n: import("./types").MapNode, i: number) =>
+          i === p.targetIndex ? { ...n, type: p.toType! } : n
+        );
+        set({ map: newMap });
+      }
+      // lock_path / mark_danger left for future expansion
+      break;
+    }
+    case "delayed":
+      // Should never be applied directly — delayed consequences are queued and ticked.
+      // Treat as a passthrough noop.
+      break;
+  }
+
+  // Toast for the player so they see what just happened.
+  feedback.choiceSelect(c.displayText);
+  consq.appendResolvedToLastHistory(c.displayText);
 }

@@ -1,5 +1,6 @@
 import type { Faction, RunBuff } from "./types";
 import type { EncounterType, EncounterIntensity } from "./encounterTheme";
+import type { Consequence } from "./consequenceTypes";
 
 export type EventEffect =
   | { kind: "noop" }
@@ -17,8 +18,13 @@ export interface ChoiceOption {
   id: string;
   label: string;
   description: string;
-  /** Multiple effects can be chained per choice. */
+  /** Multiple effects can be chained per choice. (Legacy — direct game-state writes.) */
   effects: EventEffect[];
+  /**
+   * Optional richer consequences — delayed triggers, run/map/combat modifiers,
+   * narrative flags. Resolved by the consequence store. Coexists with effects[].
+   */
+  consequences?: Consequence[];
 }
 
 export interface ChoiceEvent {
@@ -56,7 +62,7 @@ export const EVENTS: Record<string, ChoiceEvent> = {
       {
         id: "escort",
         label: "Escort to Safety",
-        description: "Detour adds drag to next combat (-1 R), but Super Earth pays out.",
+        description: "Detour adds drag to next combat (-1 R), but Super Earth pays out. Civilians remember this.",
         effects: [
           { kind: "gainCurrency", medals: 80 },
           {
@@ -71,12 +77,51 @@ export const EVENTS: Record<string, ChoiceEvent> = {
             },
           },
         ],
+        consequences: [
+          {
+            id: "csq_helped_civilians",
+            type: "narrative_flag",
+            trigger: "now",
+            payload: { flag: "helped_civilians" },
+            displayText: "Civilians will speak well of you.",
+          },
+          {
+            id: "csq_civ_morale",
+            type: "run_modifier",
+            trigger: "now",
+            payload: {
+              modifierId: "civ_morale",
+              name: "Civilian Support",
+              description: "Reward draws are slightly more likely to skew uncommon+.",
+              flavor: "positive",
+              scope: "run",
+            },
+            displayText: "Civilian Support · run modifier active.",
+          },
+          {
+            id: "csq_escort_ambush",
+            type: "delayed",
+            trigger: "after_nodes",
+            delayNodes: 2,
+            payload: { kind: "ambush_warning" },
+            displayText: "Automaton patrols are tracking the convoy.",
+          },
+        ],
       },
       {
         id: "wave_off",
         label: "Wave Them Off",
         description: "No effect. They'll figure it out.",
         effects: [{ kind: "noop" }],
+        consequences: [
+          {
+            id: "csq_ignored_civilians",
+            type: "narrative_flag",
+            trigger: "now",
+            payload: { flag: "ignored_civilians" },
+            displayText: "Civilians remember being ignored.",
+          },
+        ],
       },
       {
         id: "salvage",
@@ -84,6 +129,28 @@ export const EVENTS: Record<string, ChoiceEvent> = {
         description: "Find a Resupply card. Civilians lose faith.",
         effects: [
           { kind: "addCard", cardId: "util_resupply" },
+        ],
+        consequences: [
+          {
+            id: "csq_betrayed_civilians",
+            type: "narrative_flag",
+            trigger: "now",
+            payload: { flag: "betrayed_civilians" },
+            displayText: "Word will spread. Civilians will not forget.",
+          },
+          {
+            id: "csq_low_morale",
+            type: "run_modifier",
+            trigger: "now",
+            payload: {
+              modifierId: "low_morale",
+              name: "Low Morale",
+              description: "Mission objective bonuses reduced 10% for the rest of the run.",
+              flavor: "negative",
+              scope: "run",
+            },
+            displayText: "Low Morale · run modifier active.",
+          },
         ],
       },
     ],
@@ -210,12 +277,38 @@ export const EVENTS: Record<string, ChoiceEvent> = {
             },
           },
         ],
+        consequences: [
+          {
+            id: "csq_complied",
+            type: "narrative_flag",
+            trigger: "now",
+            payload: { flag: "complied_with_officer" },
+            displayText: "On record: compliant with Democracy Officer.",
+          },
+        ],
       },
       {
         id: "refuse",
         label: "Refuse",
         description: "Patriotism intact. Take 5 damage from a 'random' debris hit later.",
         effects: [{ kind: "damage", amount: 5 }],
+        consequences: [
+          {
+            id: "csq_defied",
+            type: "narrative_flag",
+            trigger: "now",
+            payload: { flag: "defied_officer" },
+            displayText: "On record: refused inspection.",
+          },
+          {
+            id: "csq_debris_delayed",
+            type: "delayed",
+            trigger: "after_nodes",
+            delayNodes: 1,
+            payload: { kind: "debris_strike" },
+            displayText: "Random debris strike — incoming next sector.",
+          },
+        ],
       },
     ],
   },
@@ -517,19 +610,17 @@ export const EVENTS: Record<string, ChoiceEvent> = {
       {
         id: "destroy",
         label: "Demolition Run",
-        description: "Take 8 damage. Next combat: enemies have 0 armor.",
+        description: "Take 8 damage. Next combat: enemies have weakened armor (-1).",
         effects: [
           { kind: "damage", amount: 8 },
+        ],
+        consequences: [
           {
-            kind: "applyRunBuff",
-            buff: {
-              id: "jammer_down",
-              name: "Jammer Down",
-              description: "Enemies have weakened armor next combat.",
-              lifetime: "next_combat",
-              kind: "weapon_dmg_delta",
-              amount: 2,
-            },
+            id: "csq_jammer_armor_strip",
+            type: "combat_modifier",
+            trigger: "next_combat",
+            payload: { enemyArmorDelta: -1 },
+            displayText: "Jammer Down · enemy armor weakened next combat.",
           },
         ],
       },

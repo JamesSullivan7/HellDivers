@@ -41,6 +41,8 @@ import {
   playTensionCue,
   useTension,
 } from "@/lib/tension";
+import { useConsequence } from "@/lib/consequenceStore";
+import { applyConsequenceToGame } from "@/lib/store";
 
 // ──────────────────────────────────────────────────────────────────────
 //  STATIC COLOR TOKENS (panel chrome — accent comes from the theme)
@@ -227,6 +229,31 @@ export default function EventScreen() {
     sfx.unlock();
     // Heavier feedback for locking in a dangerous choice
     playTensionCue("choice_lock");
+
+    // ── Apply richer consequences (if any) ──
+    if (event && choice.consequences && choice.consequences.length > 0) {
+      const consq = useConsequence.getState();
+      // Open a history entry for this decision; resolved effects append to it.
+      consq.pushHistory({
+        id: `${event.id}_${choice.id}_${Date.now()}`,
+        source: event.title,
+        decision: choice.label,
+        at: Date.now(),
+        immediate: [],
+        resolved: [],
+      });
+      // Process each consequence: immediate ones apply now; delayed go to queue.
+      const game = useGame as any;
+      for (const c of choice.consequences) {
+        if (c.trigger === "now") {
+          applyConsequenceToGame(c, game.setState, game.getState);
+        } else {
+          consq.queueConsequence(c);
+          consq.appendResolvedToLastHistory(`Queued: ${c.displayText}`);
+        }
+      }
+    }
+
     setTimeout(() => {
       // Clear any decision-hover tension before resolving
       const ten = useTension.getState();
@@ -922,6 +949,50 @@ function DecisionCard({
               <span className="font-bold">{b.text}</span>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* CONSEQUENCE PREVIEW CHIPS — visible delayed/run/map effects.
+          Plain immediate consequences are already covered by the badge row above. */}
+      {choice.consequences && choice.consequences.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-1.5 relative">
+          {choice.consequences
+            .filter((c) => c.type !== "immediate" && c.type !== "resource" && c.type !== "narrative_flag")
+            .map((c) => {
+              const colorClass =
+                c.type === "delayed"
+                  ? "border-purple-400 text-purple-300"
+                  : c.type === "combat_modifier"
+                  ? "border-sky-400 text-sky-300"
+                  : c.type === "map_modifier"
+                  ? "border-cyan-400 text-cyan-300"
+                  : c.type === "run_modifier"
+                  ? "border-helldiver-yellow text-helldiver-yellow"
+                  : "border-white/20 text-white/60";
+              const icon =
+                c.type === "delayed"
+                  ? "⌛"
+                  : c.type === "combat_modifier"
+                  ? "⚔"
+                  : c.type === "map_modifier"
+                  ? "✦"
+                  : c.type === "run_modifier"
+                  ? "★"
+                  : "·";
+              return (
+                <span
+                  key={c.id}
+                  className={clsx(
+                    "px-2 py-0.5 border text-[10px] uppercase tracking-widest font-mono flex items-center gap-1.5 bg-black/40",
+                    colorClass
+                  )}
+                  title={c.displayText}
+                >
+                  <span className="text-[11px]">{icon}</span>
+                  <span className="font-bold truncate max-w-[180px]">{c.displayText}</span>
+                </span>
+              );
+            })}
         </div>
       )}
 

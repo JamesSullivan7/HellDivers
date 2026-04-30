@@ -16,6 +16,11 @@ import StarField from "./StarField";
 import HudFrame from "./HudFrame";
 import SquadStatusPanel from "./SquadStatusPanel";
 import ObjectivePanel from "./ObjectivePanel";
+import {
+  RunModifierBadgeStrip,
+  PendingConsequenceIndicator,
+  ConsequenceHistoryPanel,
+} from "./consequences/ConsequenceHUD";
 import { HellpodIcon, FactionIcon } from "@/lib/icons";
 
 const NODE_GLYPH: Record<NodeType, string> = {
@@ -25,6 +30,9 @@ const NODE_GLYPH: Record<NodeType, string> = {
   shop: "$",
   boss: "★",
   event: "?",
+  cache: "◆",
+  hazard: "☣",
+  signal: "◈",
 };
 
 const NODE_LABELS: Record<NodeType, string> = {
@@ -34,6 +42,9 @@ const NODE_LABELS: Record<NodeType, string> = {
   shop: "MARKET",
   boss: "PRIMARY OBJECTIVE",
   event: "ENCOUNTER",
+  cache: "CACHE",
+  hazard: "HAZARD",
+  signal: "SIGNAL",
 };
 
 const NODE_BORDER: Record<NodeType, string> = {
@@ -43,6 +54,9 @@ const NODE_BORDER: Record<NodeType, string> = {
   shop: "border-sky-500",
   boss: "border-helldiver-red",
   event: "border-purple-400",
+  cache: "border-amber-300",
+  hazard: "border-lime-500",
+  signal: "border-cyan-400",
 };
 
 const NODE_TEXT: Record<NodeType, string> = {
@@ -52,6 +66,9 @@ const NODE_TEXT: Record<NodeType, string> = {
   shop: "text-sky-400",
   boss: "text-helldiver-red",
   event: "text-purple-300",
+  cache: "text-amber-300",
+  hazard: "text-lime-400",
+  signal: "text-cyan-300",
 };
 
 const NODE_GLOW: Record<NodeType, string> = {
@@ -61,6 +78,9 @@ const NODE_GLOW: Record<NodeType, string> = {
   shop: "shadow-[0_0_18px_rgba(56,189,248,0.5)]",
   boss: "shadow-[0_0_24px_rgba(239,68,68,0.6)]",
   event: "shadow-[0_0_18px_rgba(192,132,252,0.55)]",
+  cache: "shadow-[0_0_18px_rgba(252,211,77,0.55)]",
+  hazard: "shadow-[0_0_18px_rgba(132,204,22,0.55)]",
+  signal: "shadow-[0_0_18px_rgba(34,211,238,0.55)]",
 };
 
 // Visual layout constants for the SVG tree
@@ -282,24 +302,40 @@ export default function MapView() {
                       }}
                       className={clsx(
                         "flex flex-col items-center justify-center border-2 bg-helldiver-panel/60 transition-colors",
-                        NODE_BORDER[node.type],
-                        NODE_TEXT[node.type],
-                        isSelectable && NODE_GLOW[node.type],
+                        node.visibility === "hidden"
+                          ? "border-helldiver-steel/50 text-helldiver-dim"
+                          : node.visibility === "partial"
+                          ? clsx(NODE_BORDER[node.type], "opacity-70 text-helldiver-dim")
+                          : clsx(NODE_BORDER[node.type], NODE_TEXT[node.type]),
+                        isSelectable && node.visibility !== "hidden" && NODE_GLOW[node.type],
                         isCleared && "border-emerald-700 bg-emerald-900/30 opacity-60",
                         !isSelectable && !isCleared && "opacity-40",
                         isCurrent && "ring-2 ring-helldiver-yellow"
                       )}
-                      title={`${NODE_LABELS[node.type]}${node.enemyTemplateIds.length ? ` · ${node.enemyTemplateIds.join(", ")}` : ""}`}
+                      title={
+                        node.visibility === "hidden"
+                          ? "UNKNOWN · scout for intel"
+                          : node.visibility === "partial"
+                          ? `${NODE_LABELS[node.type]} · partial scan`
+                          : `${NODE_LABELS[node.type]}${node.enemyTemplateIds.length ? ` · ${node.enemyTemplateIds.join(", ")}` : ""}`
+                      }
                     >
                       <div className="font-display font-black text-2xl leading-none">
-                        {NODE_GLYPH[node.type]}
+                        {node.visibility === "hidden" ? "?" : NODE_GLYPH[node.type]}
                       </div>
                       <div className="text-[7px] uppercase tracking-[0.15em] mt-0.5 leading-none">
-                        {NODE_LABELS[node.type].split(" ")[0]}
+                        {node.visibility === "hidden"
+                          ? "UNKNOWN"
+                          : NODE_LABELS[node.type].split(" ")[0]}
                       </div>
                       {isCleared && (
                         <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 text-black text-[9px] font-black flex items-center justify-center rounded-full">
                           ✓
+                        </div>
+                      )}
+                      {node.visibility === "partial" && !isCleared && (
+                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-helldiver-steel text-helldiver-yellow text-[8px] font-black flex items-center justify-center" title="Partial scan">
+                          ◐
                         </div>
                       )}
                     </motion.button>
@@ -357,12 +393,22 @@ export default function MapView() {
               <Legend color="border-helldiver-orange" text="text-helldiver-orange" label="Elite" />
               <Legend color="border-purple-400" text="text-purple-300" label="Encounter" />
               <Legend color="border-emerald-500" text="text-emerald-400" label="Resupply" />
+              <Legend color="border-amber-300" text="text-amber-300" label="Cache" />
+              <Legend color="border-lime-500" text="text-lime-400" label="Hazard" />
+              <Legend color="border-cyan-400" text="text-cyan-300" label="Signal" />
               <Legend color="border-helldiver-red" text="text-helldiver-red" label="Boss" />
+              <span className="text-helldiver-dim">·</span>
+              <span>◐ partial intel</span>
+              <span>? unknown</span>
             </div>
           </HudFrame>
 
           <div className="space-y-4">
             <ObjectivePanel />
+
+            <RunModifierBadgeStrip />
+            <PendingConsequenceIndicator />
+            <ConsequenceHistoryPanel />
 
             {runBuffs.length > 0 && (
               <HudFrame label="Active Buffs" accent="steel" className="p-3">
@@ -459,11 +505,66 @@ function Legend({ color, text, label }: { color: string; text: string; label: st
 }
 
 function NodePreviewBody({ node }: { node: MapNode }) {
-  const flavorLine = node.flavor ? (
+  // Hidden = no info at all. Partial = type but no enemy details / no flavor.
+  if (node.visibility === "hidden") {
+    return (
+      <div className="space-y-1">
+        <div className="text-[10px] text-helldiver-dim italic leading-snug">
+          Sector unmapped. Scout a Signal node to reveal nearby positions.
+        </div>
+      </div>
+    );
+  }
+
+  const flavorLine = node.flavor && node.visibility !== "partial" ? (
     <div className="text-[10px] text-gray-300 leading-snug italic mb-2 border-l-2 border-helldiver-steel/40 pl-2">
       "{node.flavor}"
     </div>
   ) : null;
+
+  if (node.type === "cache") {
+    const p = node.payload ?? {};
+    const reward = p.medals ? `+${p.medals} M` : p.samples ? `+${p.samples} S` : p.requisition ? `+${p.requisition} R` : "Loot";
+    return (
+      <>
+        {flavorLine}
+        <div className="text-[11px] text-amber-300 font-display font-bold">
+          ◆ Cache · {reward}
+        </div>
+        <div className="text-[10px] text-gray-300 leading-snug">
+          On-enter loot. No combat.
+        </div>
+      </>
+    );
+  }
+  if (node.type === "hazard") {
+    const p = node.payload ?? {};
+    return (
+      <>
+        {flavorLine}
+        <div className="text-[11px] text-lime-300 font-display font-bold">
+          ☣ Hazard · {p.hpDelta ? `${p.hpDelta} HP` : ""}
+          {p.runModifierId ? " · run modifier" : ""}
+        </div>
+        <div className="text-[10px] text-gray-300 leading-snug">
+          Environmental cost on entry.
+        </div>
+      </>
+    );
+  }
+  if (node.type === "signal") {
+    return (
+      <>
+        {flavorLine}
+        <div className="text-[11px] text-cyan-300 font-display font-bold">
+          ◈ Signal · reveals {node.revealRadius ?? 1} tier{(node.revealRadius ?? 1) > 1 ? "s" : ""} ahead
+        </div>
+        <div className="text-[10px] text-gray-300 leading-snug">
+          Free intel. Hidden nodes near you become readable.
+        </div>
+      </>
+    );
+  }
 
   if (node.type === "rest") {
     return (
