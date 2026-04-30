@@ -1,15 +1,20 @@
 "use client";
 
+/**
+ * CombatView — engine wiring shell.
+ * The visual layout lives in CombatScreenAAA. This component handles:
+ *   - dispatching card clicks / enemy clicks / end turn through the store
+ *   - per-card type SFX cues
+ *   - hit-flash + screen-shake feedback when player HP drops
+ *   - the stratagem code overlay
+ */
+
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGame } from "@/lib/store";
 import { sfx } from "@/lib/sfx";
 import StratagemCodeOverlay from "./StratagemCodeOverlay";
-import CombatLayout from "./combat/CombatLayout";
-import Battlefield from "./combat/Battlefield";
-import PlayerHand from "./combat/PlayerHand";
-import ActionBar from "./combat/ActionBar";
-import Timeline from "./combat/Timeline";
+import CombatScreenAAA from "./combat/CombatScreenAAA";
 
 export default function CombatView() {
   const { combat, player, selectCard, beginPlayCard, endTurn } = useGame();
@@ -18,6 +23,7 @@ export default function CombatView() {
     combat.selectedCardIndex !== null ? combat.hand[combat.selectedCardIndex] : null;
   const needsTarget = selected?.target === "single";
 
+  // Hit-flash + screen shake when player HP drops
   const lastHpRef = useRef(player.hp);
   const [shake, setShake] = useState(0);
   const [flash, setFlash] = useState(0);
@@ -79,11 +85,12 @@ export default function CombatView() {
         {flash > 0 && (
           <motion.div
             key={flash}
-            initial={{ opacity: 0.6 }}
+            initial={{ opacity: 0.55 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
             onAnimationComplete={() => setFlash(0)}
-            className="fixed inset-0 bg-accent-red pointer-events-none z-overlay"
+            className="fixed inset-0 pointer-events-none z-[100]"
+            style={{ background: "rgba(255,77,77,1)" }}
           />
         )}
       </AnimatePresence>
@@ -96,13 +103,11 @@ export default function CombatView() {
       transition={{ duration: 0.4 }}
       className="contents"
     >
-      <CombatLayout
-        timeline={<Timeline />}
-        battlefield={
-          <Battlefield needsTarget={!!needsTarget} onEnemyClick={handleEnemyClick} />
-        }
-        hand={<PlayerHand onCardClick={handleCardClick} />}
-        actionBar={<ActionBar onEndTurn={endTurn} />}
+      <CombatScreenAAA
+        needsTarget={!!needsTarget}
+        onCardClick={handleCardClick}
+        onEnemyClick={handleEnemyClick}
+        onEndTurn={endTurn}
         overlays={overlays}
       />
     </motion.div>
