@@ -70,6 +70,9 @@ import {
   CombatModifier,
 } from "./consequenceTypes";
 import { revealNearbyNodes } from "./missionTree";
+import { useRunStore } from "./runStore";
+import { selectRunIdentity } from "./runIdentity";
+import { generateSeedString } from "./seededRng";
 
 const BASE_HAND_SIZE = 5;
 const MAX_REQUISITION = 4;
@@ -609,6 +612,23 @@ export const useGame = create<GameStore>((set, get) => ({
     );
     let objectives = bumpObjective(state.objectives, "complete_events", 1);
 
+    // ── Faction pressure: events of a specific faction nudge that faction up ──
+    if (event.faction) {
+      const factionKey =
+        event.faction === "terminid" ? "terminids" :
+        event.faction === "automaton" ? "automatons" :
+        "illuminate";
+      useRunStore.getState().updateFactionPressure(factionKey as any, 4);
+    }
+
+    // Record encounter resolution into the run history
+    useRunStore.getState().recordEncounter({
+      eventId: event.id,
+      eventTitle: event.title,
+      choiceId: choice.id,
+      choiceLabel: choice.label,
+    });
+
     set({
       player,
       ownedDeck,
@@ -713,8 +733,26 @@ export const useGame = create<GameStore>((set, get) => ({
     const missionType = rollMissionType();
     const missionSpec = MISSION_TYPES[missionType];
     const missionCodename = missionSpec.codename(faction);
-    const tree = buildMissionTree(faction, modifiers, missionSpec.treeWeightDelta);
+
+    // ── Run Variation: seed + identity drive a unique run signature ──
+    const seed = generateSeedString();
+    const runIdentity = selectRunIdentity(faction, difficulty, seed);
+    const runId = `${seed}::${Date.now().toString(36)}`;
+    // Combine mission-type weight delta with identity weight delta for the
+    // generator. Identity nudges are additive on top of mission shaping.
+    const combinedDelta = mergeWeightDelta(missionSpec.treeWeightDelta, runIdentity.treeWeightDelta);
+    const tree = buildMissionTree(faction, modifiers, combinedDelta, seed);
     const objectives = rollObjectives(2);
+
+    // Initialize the run store with identity + seed + starting faction pressure
+    useRunStore.getState().startRun({
+      runId,
+      seed,
+      identity: runIdentity,
+      missionLength: "standard",
+    });
+    // Reset consequence state for the new run
+    useConsequence.getState().clearAll();
     set({
       phase: "map",
       loadout: fullLoadout,
@@ -1631,6 +1669,21 @@ function executePlay(
       feedback.objectiveComplete("Hostiles Cleared", 0);
     }
 
+    // ── Faction pressure: reduce when we clear combat against the run's faction ──
+    {
+      const runFaction = state.faction;
+      const factionKey =
+        runFaction === "terminid" ? "terminids" :
+        runFaction === "automaton" ? "automatons" :
+        "illuminate";
+      // Boss kill = bigger pressure relief; elite kill = moderate; combat = small
+      const delta = isBoss ? -25 : node.type === "elite" ? -10 : -5;
+      useRunStore.getState().updateFactionPressure(factionKey as any, delta);
+      // Slight ambient pressure bump on the OTHER factions (they're advancing while you fight here)
+      const others = (["terminids", "automatons", "illuminate"] as const).filter((f) => f !== factionKey);
+      others.forEach((f) => useRunStore.getState().updateFactionPressure(f, 1));
+    }
+
     // Bump elite-kills objective if this was an elite node
     if (node.type === "elite") {
       updatedObjectives = bumpObjective(updatedObjectives, "kill_elites", 1);
@@ -1801,8 +1854,9 @@ function finalizeRun(
     phase: victory ? "victory" : "gameover",
   });
 
-  // Reset consequence state — fresh slate next run
+  // Reset consequence + run state — fresh slate next run
   useConsequence.getState().clearAll();
+  useRunStore.getState().endRun();
 
   // Game-feel feedback for the run resolution
   if (victory) feedback.victory();
@@ -1908,4 +1962,16 @@ export function applyConsequenceToGame(
   // Toast for the player so they see what just happened.
   feedback.choiceSelect(c.displayText);
   consq.appendResolvedToLastHistory(c.displayText);
+}
+
+/** Merge two TreeWeightDelta objects additively. */
+function mergeWeightDelta(
+  a: import("./missionTree").TreeWeightDelta,
+  b: import("./missionTree").TreeWeightDelta,
+): import("./missionTree").TreeWeightDelta {
+  const out: import("./missionTree").TreeWeightDelta = { ...a };
+  (Object.keys(b) as (keyof import("./missionTree").TreeWeightDelta)[]).forEach((k) => {
+    out[k] = (out[k] ?? 0) + (b[k] ?? 0);
+  });
+  return out;
 }

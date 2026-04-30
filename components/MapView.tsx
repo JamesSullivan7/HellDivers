@@ -21,6 +21,11 @@ import {
   PendingConsequenceIndicator,
   ConsequenceHistoryPanel,
 } from "./consequences/ConsequenceHUD";
+import {
+  RunIdentityBanner,
+  FactionPressureMeter,
+  RunSeedDisplay,
+} from "./run/RunHUD";
 import { HellpodIcon, FactionIcon } from "@/lib/icons";
 
 const NODE_GLYPH: Record<NodeType, string> = {
@@ -143,6 +148,9 @@ export default function MapView() {
       <StarField />
 
       <div className="max-w-7xl mx-auto relative z-10">
+        {/* Run Identity banner — sits above the standard operation briefing */}
+        <RunIdentityBanner />
+
         <HudFrame label="Galactic Operation Briefing" accent="yellow" glow className="p-5 mb-6">
           <div className="flex items-start justify-between gap-6">
             <div>
@@ -406,9 +414,14 @@ export default function MapView() {
           <div className="space-y-4">
             <ObjectivePanel />
 
+            <FactionPressureMeter />
             <RunModifierBadgeStrip />
             <PendingConsequenceIndicator />
             <ConsequenceHistoryPanel />
+
+            <div className="flex justify-end">
+              <RunSeedDisplay />
+            </div>
 
             {runBuffs.length > 0 && (
               <HudFrame label="Active Buffs" accent="steel" className="p-3">

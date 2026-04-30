@@ -1,6 +1,7 @@
 import type { Faction, MapNode, NodeType } from "./types";
 import { mulberry32 } from "@/game/engine/pure";
 import { rollNodeFlavor } from "./nodeFlavor";
+import { hashString } from "./seededRng";
 
 /**
  * Branching mission tree generator (Slay-the-Spire style).
@@ -131,15 +132,21 @@ export interface TreeWeightDelta {
   rest?: number;
   combat?: number;
   shop?: number;
+  cache?: number;
+  hazard?: number;
+  signal?: number;
 }
 
 export function generateTree(
   faction: Faction,
   modifiers: string[] = [],
-  weightDelta: TreeWeightDelta = {}
+  weightDelta: TreeWeightDelta = {},
+  seed?: string,
 ): MapNode[] {
-  // Lightly seeded by Date.now() for variety; not deterministic across reloads.
-  const rng = mulberry32(Date.now() & 0xffffffff);
+  // Deterministic when a seed is supplied (replayable runs).
+  // Falls back to Date.now() for legacy callers / tooling.
+  const seedInt = seed ? hashString(`${seed}::tree`) : Date.now() & 0xffffffff;
+  const rng = mulberry32(seedInt);
   const usedEvents = new Set<string>();
 
   const pickEnemy = (pool: string[][]) =>
@@ -399,9 +406,10 @@ export interface MissionTree {
 export function buildMissionTree(
   faction: Faction,
   modifiers: string[] = [],
-  weightDelta: TreeWeightDelta = {}
+  weightDelta: TreeWeightDelta = {},
+  seed?: string,
 ): MissionTree {
-  const nodes = generateTree(faction, modifiers, weightDelta);
+  const nodes = generateTree(faction, modifiers, weightDelta, seed);
   const rootIndex = nodes.find((n) => n.tier === 0)!.index;
   const bossIndex = nodes.find((n) => n.type === "boss")!.index;
   return { nodes, rootIndex, bossIndex };
