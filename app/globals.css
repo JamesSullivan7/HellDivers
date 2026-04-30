@@ -1,0 +1,243 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ────────────────────────────────────────────────────────────
+   DESIGN TOKENS — single source of truth
+   No raw values anywhere downstream. Everything references these.
+   ──────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── COLORS — base ── */
+  --color-bg-primary: #0b0f14;
+  --color-bg-secondary: #121821;
+  --color-bg-tertiary: #0f141a;
+
+  /* ── COLORS — text ── */
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: rgba(230, 237, 243, 0.7);
+  --color-text-dim: rgba(230, 237, 243, 0.5);
+
+  /* ── COLORS — accents ── */
+  --color-accent-yellow: #ffd34d;
+  --color-accent-red: #ff4d4d;
+  --color-accent-cyan: #4de1ff;
+  --color-accent-green: #4dff88;
+  --color-accent-purple: #a56eff;
+
+  /* ── COLORS — factions ── */
+  --color-terminid: #6bff2d;
+  --color-automaton: #ff3b3b;
+  --color-illuminate: #9a6bff;
+
+  /* ── COLORS — borders ── */
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.2);
+
+  /* ── COLORS — overlays ── */
+  --color-overlay-dark: rgba(0, 0, 0, 0.6);
+  --color-overlay-light: rgba(255, 255, 255, 0.05);
+
+  /* ── SPACING — strict 4pt scale ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ── TYPOGRAPHY ── */
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-md: 14px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --letter-wide: 0.08em;
+
+  /* ── BORDER + RADIUS ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --border-thin: 1px;
+  --border-thick: 2px;
+
+  /* ── SHADOW + GLOW ── */
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-strong: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --glow-yellow: 0 0 16px rgba(255, 211, 77, 0.25);
+  --glow-red: 0 0 16px rgba(255, 77, 77, 0.3);
+  --glow-cyan: 0 0 16px rgba(77, 225, 255, 0.25);
+  --glow-green: 0 0 16px rgba(77, 255, 136, 0.25);
+  --glow-purple: 0 0 16px rgba(165, 110, 255, 0.25);
+
+  /* ── MOTION ── */
+  --ease-fast: 120ms ease-out;
+  --ease-medium: 200ms ease-out;
+  --ease-slow: 300ms ease-out;
+  --ease-snap: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* ── Z-INDEX ── */
+  --z-base: 1;
+  --z-ui: 10;
+  --z-overlay: 50;
+  --z-alert: 100;
+  --z-critical: 999;
+}
+
+/* ────────────────────────────────────────────────────────────
+   GLOBAL RESET + BASE
+   ──────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  overflow-x: hidden;
+}
+
+body {
+  font-family: var(--font-mono), "JetBrains Mono", "Courier New", monospace;
+  background-color: var(--color-bg-primary);
+  min-height: 100vh;
+  /* iOS safe-area aware */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button {
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+input,
+textarea {
+  font-size: 16px; /* prevents iOS zoom on focus */
+}
+
+::selection {
+  background: var(--color-accent-yellow);
+  color: var(--color-bg-primary);
+}
+
+/* ────────────────────────────────────────────────────────────
+   ANIMATION PRESETS — referenced by name, never inlined
+   ──────────────────────────────────────────────────────────── */
+
+.card-hover {
+  transform: translateY(-6px) scale(1.03);
+  transition: var(--ease-fast);
+}
+
+.button-press {
+  transform: scale(0.96);
+  transition: var(--ease-fast);
+}
+
+.panel-enter {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: var(--ease-medium);
+}
+
+.panel-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ────────────────────────────────────────────────────────────
+   UTILITY PATTERNS
+   ──────────────────────────────────────────────────────────── */
+
+.warning-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-accent-yellow) 0,
+    var(--color-accent-yellow) 12px,
+    rgba(0, 0, 0, 0.9) 12px,
+    rgba(0, 0, 0, 0.9) 24px
+  );
+}
+
+.tech-grid {
+  background-image:
+    linear-gradient(rgba(255, 211, 77, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 211, 77, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border: 1px solid var(--color-bg-secondary);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-yellow);
+}
+
+.crt {
+  position: relative;
+}
+.crt::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-critical);
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.06) 0px,
+    rgba(0, 0, 0, 0.06) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* Horizontally scrollable hand on small screens */
+.hand-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+}
+@media (max-width: 768px) {
+  .hand-strip {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: var(--space-3) var(--space-2) var(--space-4);
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+  .hand-strip > * {
+    flex: 0 0 auto;
+    scroll-snap-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

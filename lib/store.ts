@@ -1,0 +1,1127 @@
+import { create } from "zustand";
+import {
+  ActiveSentry,
+  Card,
+  CombatState,
+  Faction,
+  GamePhase,
+  MapNode,
+  PlayerState,
+} from "./types";
+import { getCardById, getRandomRewardCards } from "./cards";
+import { generateMap, instantiateEnemy, PLANETS } from "./enemies";
+import {
+  DEFAULT_ARMOR,
+  DEFAULT_BOOSTER,
+  DEFAULT_WEAPON,
+  FIXED_BASICS,
+  getArmor,
+  getBooster,
+  getWeapon,
+} from "./loadout";
+import {
+  Account,
+  applyXp,
+  calcRunReward,
+  defaultAccount,
+  getCardCost,
+  loadAccount,
+  RunRecord,
+  saveAccount,
+  SHIP_MODULES,
+} from "./account";
+import {
+  contributeDefeat,
+  contributeVictory,
+  loadWarState,
+  saveWarState,
+  WarState,
+} from "./galacticWar";
+import { CAPES, TITLES } from "./cosmetics";
+import type { CombatEvent } from "@/game/events/combatEvents";
+
+const BASE_HAND_SIZE = 5;
+const MAX_REQUISITION = 4;
+const STARTING_HP = 55;
+const CRIT_MULTIPLIER = 1.3;
+
+function startingReinforcements(difficulty: number): number {
+  if (difficulty <= 3) return 3;
+  if (difficulty <= 6) return 2;
+  if (difficulty <= 8) return 1;
+  return 0; // helldive: no reinforcements
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+interface Settings {
+  muted: boolean;
+  codeMinigameEnabled: boolean;
+}
+
+const SETTINGS_KEY = "helldivers_settings";
+function loadSettings(): Settings {
+  if (typeof window === "undefined") return { muted: false, codeMinigameEnabled: false };
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) return { muted: false, codeMinigameEnabled: false, ...JSON.parse(raw) };
+  } catch {}
+  return { muted: false, codeMinigameEnabled: false };
+}
+function saveSettings(s: Settings) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch {}
+}
+
+interface PendingPlay {
+  handIndex: number;
+  enemyId?: string;
+  card: Card;
+}
+
+interface Loadout {
+  armorId: string;
+  weaponId: string;
+  boosterId: string;
+  stratagemIds: string[];
+}
+
+interface GameStore {
+  phase: GamePhase;
+  faction: Faction;
+  difficulty: number;
+  modifiers: string[];
+  targetPlanetId: string | null;
+  squadCode: string | null;
+  loadout: Loadout;
+  player: PlayerState;
+  ownedDeck: Card[];
+  combat: CombatState;
+  map: MapNode[];
+  currentNodeIndex: number;
+  rewardChoices: Card[];
+  message: string;
+  settings: Settings;
+  pendingPlay: PendingPlay | null;
+  handSize: number;
+  account: Account;
+  lastRunReward: { medals: number; xp: number; samples: number; requisition: number } | null;
+
+  goToWar: () => void;
+  goToSquadHub: () => void;
+  goToSquadLobby: (code: string) => void;
+  leaveSquad: () => void;
+  goToLoadout: (faction: Faction, difficulty: number, modifiers: string[]) => void;
+  startNewRun: (loadout: Loadout) => void;
+  setDifficulty: (d: number) => void;
+  enterNode: (index: number) => void;
+  endTurn: () => void;
+  beginPlayCard: (handIndex: number, enemyId?: string) => void;
+  resolvePendingPlay: (multiplier: number) => void;
+  cancelPendingPlay: () => void;
+  selectCard: (handIndex: number | null) => void;
+  takeReward: (card: Card | null) => void;
+  takeRest: () => void;
+  proceedAfterReward: () => void;
+  goToMenu: () => void;
+  setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+  goToArmory: () => void;
+  unlockCard: (cardId: string) => boolean;
+  unlockModule: (moduleId: string) => boolean;
+  unlockCape: (id: string) => boolean;
+  unlockTitle: (id: string) => boolean;
+  equipCape: (id: string) => void;
+  equipTitle: (id: string) => void;
+  setHelldiverName: (name: string) => void;
+  resetAccount: () => void;
+
+  /** Event-driven entry point. Routes a typed event to the appropriate action.
+   *  Components should prefer `dispatch(event)` over calling actions directly —
+   *  this is the migration path toward a fully pure reducer. */
+  dispatch: (event: CombatEvent) => void;
+}
+
+function emptyCombat(): CombatState {
+  return {
+    enemies: [],
+    deck: [],
+    hand: [],
+    discard: [],
+    exhausted: [],
+    sentries: [],
+    turn: 0,
+    selectedCardIndex: null,
+    log: [],
+  };
+}
+
+function freshPlayer(loadout?: Loadout, modules: string[] = [], difficulty: number = 3): PlayerState {
+  let maxHp = STARTING_HP;
+  let maxR = MAX_REQUISITION;
+  if (loadout) {
+    const armor = getArmor(loadout.armorId);
+    maxHp += armor.hpMod;
+    if (loadout.boosterId === "vitality_enhancement") maxHp += 15;
+  }
+  if (modules.includes("vitamin_d3")) maxHp += 20;
+  if (modules.includes("hellpod_storage")) maxR += 1;
+  return {
+    hp: maxHp,
+    maxHp,
+    requisition: maxR,
+    maxRequisition: maxR,
+    block: 0,
+    reinforcements: startingReinforcements(difficulty),
+  };
+}
+
+function computeHandSize(loadout: Loadout, modules: string[] = []): number {
+  const armor = getArmor(loadout.armorId);
+  let size = BASE_HAND_SIZE + armor.handMod;
+  if (loadout.boosterId === "stamina_enhancement") size += 1;
+  if (modules.includes("streamlined_launch")) size += 1;
+  return Math.max(3, size);
+}
+
+function buildLoadoutDeck(loadout: Loadout): Card[] {
+  const cards: Card[] = [];
+  FIXED_BASICS.forEach((id) => cards.push(getCardById(id)));
+  loadout.stratagemIds.forEach((id) => cards.push(getCardById(id)));
+  return cards;
+}
+
+const DEFAULT_LOADOUT: Loadout = {
+  armorId: DEFAULT_ARMOR,
+  weaponId: DEFAULT_WEAPON,
+  boosterId: DEFAULT_BOOSTER,
+  stratagemIds: [
+    "eagle_airstrike",
+    "support_recoilless",
+    "sentry_mg",
+    "util_resupply",
+    "support_eat",
+  ],
+};
+
+function drawCards(state: CombatState, count: number, log: string[]): CombatState {
+  let { deck, hand, discard } = state;
+  for (let i = 0; i < count; i++) {
+    if (deck.length === 0) {
+      if (discard.length === 0) break;
+      deck = shuffle(discard);
+      discard = [];
+      log.push("> Deck reshuffled.");
+    }
+    const card = deck[0];
+    deck = deck.slice(1);
+    hand = [...hand, card];
+  }
+  return { ...state, deck, hand, discard };
+}
+
+export const useGame = create<GameStore>((set, get) => ({
+  phase: "menu",
+  faction: "terminid",
+  difficulty: 3,
+  modifiers: [],
+  targetPlanetId: null,
+  squadCode: null,
+  loadout: DEFAULT_LOADOUT,
+  player: freshPlayer(),
+  ownedDeck: [],
+  combat: emptyCombat(),
+  map: [],
+  currentNodeIndex: -1,
+  rewardChoices: [],
+  message: "",
+  settings: loadSettings(),
+  pendingPlay: null,
+  handSize: BASE_HAND_SIZE,
+  account: loadAccount(),
+  lastRunReward: null,
+
+  setDifficulty: (d) => set({ difficulty: d }),
+
+  goToArmory: () => set({ phase: "armory" }),
+
+  unlockCard: (cardId) => {
+    const { account } = get();
+    if (account.unlockedCards.includes(cardId)) return false;
+    const card = getCardById(cardId);
+    const cost = getCardCost(card.rarity);
+    if (account.medals < cost) return false;
+    const next: Account = {
+      ...account,
+      medals: account.medals - cost,
+      unlockedCards: [...account.unlockedCards, cardId],
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
+  unlockModule: (moduleId) => {
+    const { account } = get();
+    if (account.unlockedModules.includes(moduleId)) return false;
+    const mod = SHIP_MODULES.find((m) => m.id === moduleId);
+    if (!mod) return false;
+    if (account.samples < mod.cost) return false;
+    const next: Account = {
+      ...account,
+      samples: account.samples - mod.cost,
+      unlockedModules: [...account.unlockedModules, moduleId],
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
+  unlockCape: (id) => {
+    const { account } = get();
+    if (account.unlockedCapes.includes(id)) return false;
+    const cape = CAPES.find((c) => c.id === id);
+    if (!cape || account.requisition < cape.cost) return false;
+    const next = {
+      ...account,
+      requisition: account.requisition - cape.cost,
+      unlockedCapes: [...account.unlockedCapes, id],
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
+  unlockTitle: (id) => {
+    const { account } = get();
+    if (account.unlockedTitles.includes(id)) return false;
+    const title = TITLES.find((t) => t.id === id);
+    if (!title || account.requisition < title.cost) return false;
+    const next = {
+      ...account,
+      requisition: account.requisition - title.cost,
+      unlockedTitles: [...account.unlockedTitles, id],
+    };
+    saveAccount(next);
+    set({ account: next });
+    return true;
+  },
+
+  equipCape: (id) => {
+    const { account } = get();
+    if (!account.unlockedCapes.includes(id)) return;
+    const next = { ...account, equippedCape: id };
+    saveAccount(next);
+    set({ account: next });
+  },
+
+  equipTitle: (id) => {
+    const { account } = get();
+    if (!account.unlockedTitles.includes(id)) return;
+    const next = { ...account, equippedTitle: id };
+    saveAccount(next);
+    set({ account: next });
+  },
+
+  setHelldiverName: (name) => {
+    const trimmed = name.trim().slice(0, 24);
+    if (!trimmed) return;
+    const { account } = get();
+    const next = { ...account, helldiverName: trimmed };
+    saveAccount(next);
+    set({ account: next });
+  },
+
+  resetAccount: () => {
+    const fresh = defaultAccount();
+    saveAccount(fresh);
+    set({ account: fresh });
+  },
+
+  /**
+   * Event-driven dispatch — routes a typed event to the corresponding action.
+   * This is the migration path toward a pure reducer. New components should
+   * prefer `useGame((s) => s.dispatch)` and `dispatch({ type: ... })` over
+   * calling individual action methods directly.
+   *
+   * Internally still routes to existing actions, but the event surface is
+   * fixed and importable by both UI and (eventually) Convex coop functions.
+   */
+  dispatch: (event: CombatEvent) => {
+    const s = get();
+    switch (event.type) {
+      case "BEGIN_PLAY_CARD":
+        return s.beginPlayCard(event.handIndex, event.enemyId);
+      case "PLAY_CARD":
+        // For now: same as BEGIN_PLAY_CARD; pure reducer will distinguish.
+        return s.beginPlayCard(event.handIndex, event.enemyId);
+      case "RESOLVE_PENDING_PLAY":
+        return s.resolvePendingPlay(event.multiplier);
+      case "CANCEL_PENDING_PLAY":
+        return s.cancelPendingPlay();
+      case "SELECT_CARD":
+        return s.selectCard(event.handIndex);
+      case "END_TURN":
+        return s.endTurn();
+      case "ENTER_NODE":
+        return s.enterNode(event.nodeIndex);
+      case "TAKE_REWARD":
+        return s.takeReward(event.card);
+      case "TAKE_REST":
+        return s.takeRest();
+      // Atomic events not yet routed — these are placeholders for the pure
+      // reducer migration. Currently the store handles them implicitly
+      // inside the action methods.
+      case "APPLY_DAMAGE":
+      case "APPLY_BURN":
+      case "STRIP_SHIELD":
+      case "DRAW_CARD":
+      case "GAIN_ENERGY":
+      case "GAIN_BLOCK":
+      case "HEAL":
+      case "ENEMY_KIA":
+      case "BOSS_ENRAGED":
+      case "PLAYER_KIA":
+        // Reserved. The pure-reducer phase will handle these.
+        if (typeof console !== "undefined") {
+          console.warn("[dispatch] atomic event not yet routed:", event.type);
+        }
+        return;
+    }
+  },
+
+  setSetting: (key, value) => {
+    const s = { ...get().settings, [key]: value };
+    saveSettings(s);
+    set({ settings: s });
+  },
+
+  goToWar: () => {
+    set({ phase: "faction" });
+  },
+
+  goToSquadHub: () => set({ phase: "squad_hub" }),
+  goToSquadLobby: (code) => set({ phase: "squad_lobby", squadCode: code }),
+  leaveSquad: () => set({ squadCode: null, phase: "menu" }),
+
+  goToLoadout: (faction, difficulty, modifiers) => {
+    set({ phase: "loadout", faction, difficulty, modifiers });
+  },
+
+  startNewRun: (loadout) => {
+    const { account, faction, modifiers, difficulty } = get();
+    const ownedDeck = buildLoadoutDeck(loadout);
+    let handSize = computeHandSize(loadout, account.unlockedModules);
+    if (modifiers.includes("atmospheric_spores")) handSize = Math.max(3, handSize - 1);
+    set({
+      phase: "map",
+      loadout,
+      player: freshPlayer(loadout, account.unlockedModules, difficulty),
+      ownedDeck,
+      combat: emptyCombat(),
+      map: generateMap(faction, modifiers),
+      currentNodeIndex: -1,
+      rewardChoices: [],
+      message: "Operation begins. For Super Earth.",
+      pendingPlay: null,
+      handSize,
+      lastRunReward: null,
+    });
+  },
+
+  enterNode: (index) => {
+    const { map, ownedDeck, loadout, handSize, difficulty, modifiers } = get();
+    const node = map[index];
+    if (!node) return;
+    if (node.type === "rest") {
+      set({ phase: "rest", currentNodeIndex: index });
+      return;
+    }
+    const enemies = node.enemyTemplateIds.map((id) => {
+      const e = instantiateEnemy(id, difficulty);
+      if (modifiers.includes("enemy_armor")) e.armor += 1;
+      return e;
+    });
+    const deck = shuffle(ownedDeck);
+    const armor = getArmor(loadout.armorId);
+    const startingBlock = armor.startingBlock;
+    const reqBonus = loadout.boosterId === "hellpod_optimization" ? 2 : 0;
+    let combat: CombatState = {
+      enemies,
+      deck,
+      hand: [],
+      discard: [],
+      exhausted: [],
+      sentries: [],
+      turn: 1,
+      selectedCardIndex: null,
+      log: [
+        `> Node ${index + 1} engaged.`,
+        `> Hostiles: ${enemies.map((e) => e.name).join(", ")}.`,
+      ],
+    };
+    const log = [...combat.log];
+    combat = drawCards(combat, handSize, log);
+    combat.log = log;
+    set((s) => ({
+      phase: "combat",
+      currentNodeIndex: index,
+      combat,
+      pendingPlay: null,
+      player: {
+        ...s.player,
+        requisition: s.player.maxRequisition + reqBonus,
+        block: startingBlock,
+      },
+    }));
+  },
+
+  selectCard: (handIndex) => {
+    set((s) => ({ combat: { ...s.combat, selectedCardIndex: handIndex } }));
+  },
+
+  beginPlayCard: (handIndex, enemyId) => {
+    const state = get();
+    const { combat, player, settings, modifiers } = state;
+    const card = combat.hand[handIndex];
+    if (!card) return;
+    let actualCost = card.cost;
+    if (modifiers.includes("increased_air_sec") && card.type === "eagle") actualCost += 1;
+    if (player.requisition < actualCost) return;
+    if (settings.codeMinigameEnabled) {
+      set({ pendingPlay: { handIndex, enemyId, card } });
+    } else {
+      executePlay(set, get, handIndex, enemyId, 1);
+    }
+  },
+
+  resolvePendingPlay: (multiplier: number) => {
+    const state = get();
+    const pending = state.pendingPlay;
+    if (!pending) return;
+    set({ pendingPlay: null });
+    executePlay(set, get, pending.handIndex, pending.enemyId, multiplier);
+  },
+
+  cancelPendingPlay: () => set({ pendingPlay: null }),
+
+  endTurn: () => {
+    const state = get();
+    let { combat, player } = state;
+    const { loadout, handSize, modifiers: runMods } = state;
+    let enemies = combat.enemies.map((e) => ({ ...e }));
+    let log = [...combat.log];
+    let newPlayer = { ...player };
+    const weapon = getWeapon(loadout.weaponId);
+
+    log.push(`> End of turn ${combat.turn}.`);
+
+    // Sector modifier: Acidic Atmosphere — 1 dmg/turn (bypasses block)
+    if (runMods.includes("acidic_atmosphere")) {
+      newPlayer.hp = Math.max(0, newPlayer.hp - 1);
+      log.push(`  [Acidic Atmosphere] -1 HP.`);
+    }
+
+    // Boss enrage check (run BEFORE enemy actions so they use enraged pattern)
+    enemies = enemies.map((e) => {
+      if (e.isBoss && !e.enraged && e.hp > 0 && e.hp <= e.maxHp / 2 && e.enragedPattern) {
+        log.push(`> ⚠ ${e.enragedMessage ?? `${e.name} ENRAGED.`}`);
+        return {
+          ...e,
+          enraged: true,
+          intents: e.enragedPattern,
+          intentIndex: 0,
+        };
+      }
+      return e;
+    });
+
+    // Primary weapon passive fire
+    {
+      const alive = () => enemies.map((e, i) => ({ e, i })).filter(({ e }) => e.hp > 0);
+      const fireOnce = (idx: number) => {
+        const enemy = enemies[idx];
+        if (!enemy || enemy.hp <= 0) return;
+        let dmg = weapon.damage;
+        let shield = enemy.shield;
+        let hp = enemy.hp;
+        if (shield > 0) {
+          const absorbed = Math.min(shield, dmg);
+          shield -= absorbed;
+          dmg -= absorbed;
+        }
+        if (dmg > 0) {
+          const after = weapon.ignoreArmor ? dmg : Math.max(0, dmg - enemy.armor);
+          hp = Math.max(0, hp - after);
+        }
+        enemies[idx] = { ...enemy, hp, shield };
+      };
+      for (let h = 0; h < weapon.hitsPerTurn; h++) {
+        const a = alive();
+        if (a.length === 0) break;
+        if (weapon.target === "all") {
+          a.forEach(({ i }) => fireOnce(i));
+          break;
+        } else if (weapon.target === "highest_hp") {
+          a.sort((x, y) => y.e.hp - x.e.hp);
+          fireOnce(a[0].i);
+        } else {
+          fireOnce(a[Math.floor(Math.random() * a.length)].i);
+        }
+      }
+      log.push(`  [${weapon.name}] fires.`);
+    }
+
+    // sentry effects
+    const remainingSentries: ActiveSentry[] = [];
+    combat.sentries.forEach((s) => {
+      if (s.turnsLeft <= 0) return;
+      const alive = enemies.map((e, i) => ({ e, i })).filter(({ e }) => e.hp > 0);
+      if (alive.length > 0) {
+        if (s.targetAll) {
+          alive.forEach(({ e, i }) => {
+            const dmg = applyShieldThenArmor(e, s.damage, false, 0);
+            enemies[i] = dmg.enemy;
+          });
+          log.push(`  [${s.name}] hits all for ${s.damage}.`);
+        } else {
+          const pick = alive[Math.floor(Math.random() * alive.length)];
+          const dmg = applyShieldThenArmor(pick.e, s.damage, false, 0);
+          enemies[pick.i] = dmg.enemy;
+          log.push(`  [${s.name}] hits ${pick.e.name} for ${dmg.dealt}.`);
+        }
+      }
+      remainingSentries.push({ ...s, turnsLeft: s.turnsLeft - 1 });
+    });
+
+    // burn ticks (bypasses shield)
+    enemies = enemies.map((e) => {
+      if (e.hp <= 0) return e;
+      if (e.burn > 0) {
+        const newHp = Math.max(0, e.hp - e.burn);
+        log.push(`  ${e.name} burns for ${e.burn} (-> ${newHp} HP).`);
+        return { ...e, hp: newHp, burn: Math.max(0, e.burn - 1) };
+      }
+      return e;
+    });
+
+    const allDeadAfterTick = enemies.every((e) => e.hp <= 0);
+    if (allDeadAfterTick) {
+      log.push(`> Hostiles cleared.`);
+      const node = state.map[state.currentNodeIndex];
+      const isBoss = node.type === "boss";
+      const newCombat: CombatState = {
+        ...combat,
+        enemies,
+        sentries: remainingSentries.filter((s) => s.turnsLeft > 0),
+        log,
+      };
+      if (isBoss) {
+        set({ combat: newCombat });
+        finalizeRun(set, get, true);
+      }
+      else {
+        const choices = getRandomRewardCards(3);
+        set({ combat: newCombat, phase: "reward", rewardChoices: choices });
+      }
+      return;
+    }
+
+    // Localization Confusion booster — skip enemy turn 1
+    const localizationActive =
+      loadout.boosterId === "localization_confusion" && combat.turn === 1;
+    if (localizationActive) {
+      log.push(`  [Localization Confusion] enemies disoriented, skipping action.`);
+    }
+
+    // enemy actions
+    enemies.forEach((e, idx) => {
+      if (e.hp <= 0) return;
+      if (localizationActive) {
+        enemies[idx] = { ...enemies[idx], intentIndex: e.intentIndex + 1 };
+        return;
+      }
+      const intent = e.intents[e.intentIndex % e.intents.length];
+      switch (intent.kind) {
+        case "attack":
+        case "attack_all": {
+          const dmg = intent.damage ?? 0;
+          let remaining = dmg;
+          if (newPlayer.block > 0) {
+            const absorbed = Math.min(newPlayer.block, remaining);
+            newPlayer.block -= absorbed;
+            remaining -= absorbed;
+            if (absorbed > 0)
+              log.push(`  ${e.name} attacks (Block absorbs ${absorbed}).`);
+          }
+          if (remaining > 0) {
+            newPlayer.hp = Math.max(0, newPlayer.hp - remaining);
+            log.push(`  ${e.name} hits for ${remaining}.`);
+          }
+          break;
+        }
+        case "buff": {
+          // Illuminate enemies regen shield, others gain armor
+          if (e.faction === "illuminate" && intent.text.toLowerCase().includes("shield")) {
+            const amt = parseInt(intent.text.match(/\+(\d+)/)?.[1] ?? "3", 10);
+            enemies[idx] = { ...enemies[idx], shield: enemies[idx].shield + amt };
+            log.push(`  ${e.name} reinforces shield (+${amt}).`);
+          } else {
+            const amt = parseInt(intent.text.match(/\+(\d+)/)?.[1] ?? "1", 10);
+            enemies[idx] = { ...enemies[idx], armor: enemies[idx].armor + amt };
+            log.push(`  ${e.name} hardens (Armor +${amt}).`);
+          }
+          break;
+        }
+        case "wait": {
+          log.push(`  ${e.name}: ${intent.text}`);
+          break;
+        }
+        case "armor": {
+          enemies[idx] = { ...enemies[idx], armor: enemies[idx].armor + 2 };
+          log.push(`  ${e.name} (Armor +2).`);
+          break;
+        }
+      }
+      enemies[idx] = { ...enemies[idx], intentIndex: e.intentIndex + 1 };
+    });
+
+    if (newPlayer.hp <= 0) {
+      if (newPlayer.reinforcements > 0) {
+        newPlayer.reinforcements -= 1;
+        newPlayer.hp = Math.floor(newPlayer.maxHp * 0.6);
+        log.push(`> REINFORCEMENT DEPLOYED. (${newPlayer.reinforcements} left)`);
+      } else {
+        log.push(`> Helldiver KIA. Mission failed.`);
+        set({
+          combat: { ...combat, enemies, log, sentries: remainingSentries },
+          player: newPlayer,
+        });
+        finalizeRun(set, get, false);
+        return;
+      }
+    }
+
+    let newCombat: CombatState = {
+      ...combat,
+      enemies,
+      sentries: remainingSentries.filter((s) => s.turnsLeft > 0),
+      turn: combat.turn + 1,
+      log,
+    };
+    newCombat = {
+      ...newCombat,
+      discard: [...newCombat.discard, ...newCombat.hand],
+      hand: [],
+    };
+    newCombat = drawCards(newCombat, handSize, log);
+    newCombat.log = log;
+
+    newPlayer.requisition = newPlayer.maxRequisition;
+    newPlayer.block = 0;
+
+    set({ combat: newCombat, player: newPlayer });
+  },
+
+  takeReward: (card) => {
+    const state = get();
+    const ownedDeck = card ? [...state.ownedDeck, card] : state.ownedDeck;
+    set({ ownedDeck, rewardChoices: [], phase: "map" });
+  },
+
+  takeRest: () => {
+    const state = get();
+    const heal = Math.floor(state.player.maxHp * 0.4);
+    const newHp = Math.min(state.player.maxHp, state.player.hp + heal);
+    const map = state.map.map((n, i) =>
+      i === state.currentNodeIndex ? { ...n, cleared: true } : n
+    );
+    set({
+      player: { ...state.player, hp: newHp },
+      map,
+      phase: "map",
+      message: `Rest stop. Recovered ${heal} HP.`,
+    });
+  },
+
+  proceedAfterReward: () => {
+    const state = get();
+    const map = state.map.map((n, i) =>
+      i === state.currentNodeIndex ? { ...n, cleared: true } : n
+    );
+    set({ map, phase: "map" });
+  },
+
+  goToMenu: () => {
+    set({
+      phase: "menu",
+      player: freshPlayer(),
+      ownedDeck: [],
+      combat: emptyCombat(),
+      map: [],
+      currentNodeIndex: -1,
+      rewardChoices: [],
+      message: "",
+      pendingPlay: null,
+    });
+  },
+}));
+
+export const CRIT_BONUS = CRIT_MULTIPLIER;
+
+// Export a non-method play resolver for the minigame
+export function executePlayDirect(handIndex: number, enemyId?: string, multiplier = 1) {
+  executePlay(useGame.setState, useGame.getState, handIndex, enemyId, multiplier);
+}
+
+// Helper: damage with shield-then-armor priority
+function applyShieldThenArmor(
+  enemy: import("./types").Enemy,
+  baseDmg: number,
+  ignoreArmor: boolean,
+  bonusVsArmor: number
+): { enemy: import("./types").Enemy; dealt: number } {
+  let dmg = baseDmg;
+  if (enemy.armor > 0 && bonusVsArmor) dmg += bonusVsArmor;
+  // shield absorbs first
+  let shield = enemy.shield;
+  let hp = enemy.hp;
+  let dealt = 0;
+  if (shield > 0) {
+    const absorbed = Math.min(shield, dmg);
+    shield -= absorbed;
+    dmg -= absorbed;
+  }
+  if (dmg > 0) {
+    const afterArmor = ignoreArmor ? dmg : Math.max(0, dmg - enemy.armor);
+    hp = Math.max(0, hp - afterArmor);
+    dealt = afterArmor;
+  }
+  return { enemy: { ...enemy, hp, shield }, dealt };
+}
+
+function executePlay(
+  set: (partial: Partial<GameStore> | ((s: GameStore) => Partial<GameStore>)) => void,
+  get: () => GameStore,
+  handIndex: number,
+  enemyId: string | undefined,
+  multiplier: number
+) {
+  const state = get();
+  const { combat, player, account, modifiers: runMods } = state;
+  const card = combat.hand[handIndex];
+  if (!card) return;
+
+  // Sector modifier: Increased Air Security raises Eagle cost
+  let actualCost = card.cost;
+  if (runMods.includes("increased_air_sec") && card.type === "eagle") actualCost += 1;
+  if (player.requisition < actualCost) return;
+
+  let log = [...combat.log];
+  let enemies = combat.enemies.map((e) => ({ ...e }));
+  let newPlayer = { ...player, requisition: player.requisition - actualCost };
+  let sentries = [...combat.sentries];
+  let extraDraws = 0;
+
+  // Module bonuses
+  const mods = account.unlockedModules;
+  let damageBonus = 0;
+  if (card.type === "eagle" && mods.includes("eagle_storm")) damageBonus += 1;
+  if (card.type === "orbital" && mods.includes("orbital_targeting")) damageBonus += 1;
+  if (card.type === "support" && mods.includes("plasma_cutters")) damageBonus += 1;
+  if (mods.includes("ammunition_priming")) multiplier *= 1.05;
+  // Sector modifier: Magnetic Storm reduces orbital damage by 30%
+  if (runMods.includes("magnetic_storm") && card.type === "orbital") multiplier *= 0.7;
+  // Low Visibility: 15% miss for single-target
+  if (runMods.includes("low_visibility") && card.target === "single") {
+    if (Math.random() < 0.15) {
+      log.push(`> ${card.name} called in. ✕ MISS — Low visibility.`);
+      let hand = [...combat.hand];
+      hand.splice(handIndex, 1);
+      const discardArr = [...combat.discard, card];
+      set({
+        combat: {
+          ...combat,
+          hand,
+          discard: discardArr,
+          selectedCardIndex: null,
+          log,
+        },
+        player: newPlayer,
+      });
+      return;
+    }
+  }
+
+  if (multiplier > 1) {
+    log.push(`> ${card.name} called in. ✓ CRIT (+${Math.round((multiplier - 1) * 100)}%)`);
+  } else {
+    log.push(`> ${card.name} called in.`);
+  }
+
+  const eff = card.effect;
+  const m = (n: number) => Math.round(n * multiplier);
+  const md = (n: number) => Math.round(n * multiplier) + (n > 0 ? damageBonus : 0);
+
+  if (eff.heal) {
+    const h = m(eff.heal);
+    newPlayer.hp = Math.min(newPlayer.maxHp, newPlayer.hp + h);
+    log.push(`  Healed ${h} HP.`);
+  }
+  if (eff.block) {
+    newPlayer.block += m(eff.block);
+    log.push(`  Gained ${m(eff.block)} Block.`);
+  }
+  if (eff.gainRequisition) {
+    newPlayer.requisition += eff.gainRequisition;
+    log.push(`  +${eff.gainRequisition} R.`);
+  }
+  if (eff.draw) {
+    extraDraws = eff.draw;
+  }
+
+  const aliveIndices = () => enemies.map((e, i) => ({ e, i })).filter(({ e }) => e.hp > 0);
+
+  const dealTo = (idx: number, base: number) => {
+    const enemy = enemies[idx];
+    if (!enemy || enemy.hp <= 0) return;
+    const result = applyShieldThenArmor(enemy, base, !!eff.ignoreArmor, eff.bonusVsArmor ?? 0);
+    enemies[idx] = result.enemy;
+    const shieldedFor = enemy.shield - enemies[idx].shield;
+    if (shieldedFor > 0 && result.dealt === 0) {
+      log.push(`  ${enemy.name}: shield -${shieldedFor}.`);
+    } else if (shieldedFor > 0) {
+      log.push(`  ${enemy.name}: shield -${shieldedFor}, HP -${result.dealt}.`);
+    } else {
+      log.push(`  ${enemy.name}: -${result.dealt} (${enemies[idx].hp}/${enemy.maxHp}).`);
+    }
+  };
+
+  const stripShieldFrom = (idx: number, amt: number) => {
+    const enemy = enemies[idx];
+    if (!enemy || enemy.shield <= 0) return;
+    const stripped = Math.min(enemy.shield, amt);
+    enemies[idx] = { ...enemy, shield: enemy.shield - stripped };
+    log.push(`  ${enemy.name}: shield stripped ${stripped}.`);
+  };
+
+  if (eff.stripShield) {
+    const amt = m(eff.stripShield);
+    switch (card.target) {
+      case "single": {
+        const idx = enemies.findIndex((e) => e.id === enemyId);
+        if (idx >= 0) stripShieldFrom(idx, amt);
+        break;
+      }
+      case "all": {
+        aliveIndices().forEach(({ i }) => stripShieldFrom(i, amt));
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  if (eff.damage !== undefined) {
+    const baseDmg = md(eff.damage);
+    const hits = eff.damageHits ?? 1;
+    switch (card.target) {
+      case "single": {
+        const target = enemies.findIndex((e) => e.id === enemyId);
+        if (target >= 0) {
+          for (let h = 0; h < hits; h++) {
+            if (eff.chain && h === 0) {
+              const order = aliveIndices().map((x) => x.i);
+              const ordered = [target, ...order.filter((i) => i !== target)].slice(0, eff.chain);
+              ordered.forEach((idx) => {
+                if (eff.stripShield) stripShieldFrom(idx, m(eff.stripShield));
+                dealTo(idx, baseDmg);
+              });
+            } else {
+              dealTo(target, baseDmg);
+            }
+          }
+        }
+        break;
+      }
+      case "all": {
+        for (let h = 0; h < hits; h++) {
+          aliveIndices().forEach(({ i }) => dealTo(i, baseDmg));
+        }
+        break;
+      }
+      case "random": {
+        for (let h = 0; h < hits; h++) {
+          const alive = aliveIndices();
+          if (alive.length === 0) break;
+          const pick = alive[Math.floor(Math.random() * alive.length)];
+          dealTo(pick.i, baseDmg);
+        }
+        break;
+      }
+      case "highest_hp": {
+        const alive = aliveIndices();
+        if (alive.length > 0) {
+          alive.sort((a, b) => b.e.hp - a.e.hp);
+          for (let h = 0; h < hits; h++) dealTo(alive[0].i, baseDmg);
+        }
+        break;
+      }
+      case "self":
+        break;
+    }
+  }
+
+  if (eff.burn) {
+    const b = m(eff.burn);
+    switch (card.target) {
+      case "single": {
+        const idx = enemies.findIndex((e) => e.id === enemyId);
+        if (idx >= 0 && enemies[idx].hp > 0) {
+          enemies[idx] = { ...enemies[idx], burn: enemies[idx].burn + b };
+          log.push(`  ${enemies[idx].name}: +${b} Burn.`);
+        }
+        break;
+      }
+      case "all": {
+        aliveIndices().forEach(({ i }) => {
+          enemies[i] = { ...enemies[i], burn: enemies[i].burn + b };
+        });
+        log.push(`  Burn applied to all (${b}).`);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  if (eff.recurringDamage) {
+    const sentryBonus = mods.includes("sentry_calibration") && card.type === "sentry" ? 1 : 0;
+    const newSentry: ActiveSentry = {
+      id: `sentry_${Math.random().toString(36).slice(2, 8)}`,
+      cardId: card.id,
+      name: card.name,
+      damage: m(eff.recurringDamage.amount) + sentryBonus,
+      turnsLeft: eff.recurringDamage.turns,
+      targetAll: eff.recurringDamage.targetAll ?? false,
+    };
+    sentries.push(newSentry);
+    log.push(
+      `  ${card.name} deployed (${newSentry.turnsLeft}t, ${newSentry.targetAll ? "AoE" : "single"} ${newSentry.damage} dmg).`
+    );
+  }
+
+  if (eff.selfDamage) {
+    newPlayer.hp = Math.max(0, newPlayer.hp - eff.selfDamage);
+    log.push(`  Took ${eff.selfDamage} self damage.`);
+  }
+
+  let hand = [...combat.hand];
+  hand.splice(handIndex, 1);
+  let discard = [...combat.discard];
+  let exhausted = [...combat.exhausted];
+  if (eff.exhaust) exhausted.push(card);
+  else discard.push(card);
+
+  enemies.forEach((e) => { if (e.hp <= 0 && combat.enemies.find(o => o.id === e.id && o.hp > 0)) log.push(`> ${e.name} eliminated.`); });
+
+  let newCombat: CombatState = {
+    ...combat,
+    enemies,
+    hand,
+    discard,
+    exhausted,
+    sentries,
+    selectedCardIndex: null,
+    log,
+  };
+
+  if (extraDraws > 0) {
+    newCombat = drawCards(newCombat, extraDraws, log);
+  }
+
+  const allDead = enemies.every((e) => e.hp <= 0);
+  if (allDead) {
+    log.push(`> Hostiles cleared. Stand by for extraction.`);
+    newCombat = { ...newCombat, log };
+    const node = state.map[state.currentNodeIndex];
+    const isBoss = node.type === "boss";
+    if (isBoss) {
+      set({ combat: newCombat, player: newPlayer });
+      finalizeRun(set, get, true);
+    } else {
+      const choices = getRandomRewardCards(3);
+      set({
+        combat: newCombat,
+        player: newPlayer,
+        phase: "reward",
+        rewardChoices: choices,
+      });
+    }
+    return;
+  }
+
+  set({ combat: newCombat, player: newPlayer });
+}
+
+function finalizeRun(
+  set: (partial: Partial<GameStore>) => void,
+  get: () => GameStore,
+  victory: boolean
+) {
+  const state = get();
+  const nodesCleared = victory
+    ? state.map.length
+    : state.map.filter((n) => n.cleared).length;
+  const reward = calcRunReward({
+    victory,
+    nodesCleared,
+    faction: state.faction,
+    difficulty: state.difficulty,
+  });
+  const updatedAcc1 = applyXp(state.account, reward.xp);
+  const planet = PLANETS[state.faction];
+  const record: RunRecord = {
+    date: Date.now(),
+    faction: state.faction,
+    planet: planet.name,
+    outcome: victory ? "victory" : "defeat",
+    nodesCleared,
+    medalsEarned: reward.medals,
+    xpEarned: reward.xp,
+    difficulty: state.difficulty,
+  };
+  const updatedAcc: Account = {
+    ...updatedAcc1,
+    medals: updatedAcc1.medals + reward.medals,
+    samples: updatedAcc1.samples + reward.samples,
+    requisition: updatedAcc1.requisition + reward.requisition,
+    totalRuns: updatedAcc1.totalRuns + 1,
+    victories: updatedAcc1.victories + (victory ? 1 : 0),
+    history: [record, ...updatedAcc1.history].slice(0, 20),
+  };
+  saveAccount(updatedAcc);
+
+  // Contribute to galactic war state
+  if (state.targetPlanetId) {
+    let war = loadWarState();
+    war = victory
+      ? contributeVictory(war, state.targetPlanetId, state.difficulty)
+      : contributeDefeat(war, state.targetPlanetId, state.difficulty);
+    saveWarState(war);
+  }
+
+  set({
+    account: updatedAcc,
+    lastRunReward: reward,
+    phase: victory ? "victory" : "gameover",
+  });
+}
