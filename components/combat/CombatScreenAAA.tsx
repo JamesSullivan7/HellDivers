@@ -32,13 +32,26 @@ import { sfx } from "@/lib/sfx";
 import { getModifier } from "@/lib/modifiers";
 import { getArmorEffective } from "@/lib/loadout";
 import { HELLDIVER_PORTRAIT } from "@/lib/artManifest";
-import { Enemy } from "@/lib/types";
+import { Card, Enemy } from "@/lib/types";
 import EnemyView from "../EnemyView";
 import BossFrame from "../boss/BossFrame";
 import PlayerHand from "./PlayerHand";
 import StarField from "../StarField";
 import AnimationRunner from "@/systems/animation/AnimationRunner";
 import EnrageCinematic from "../effects/EnrageCinematic";
+import StratagemCard from "../cards/StratagemCard";
+
+/** Path to the centered battlefield backdrop. Place image at this path:
+ *    public/art/backgrounds/battlefield_seaf.png
+ *  If the file is missing, the gradient/grid fallback below still renders cleanly.
+ */
+const BATTLEFIELD_BG = "/art/backgrounds/battlefield_seaf.png";
+
+export interface PlayedCardSnapshot {
+  card: Card;
+  /** Bumped on every play so AnimatePresence retriggers. */
+  key: number;
+}
 
 const COLOR = {
   bg: "#0b0f14",
@@ -60,6 +73,8 @@ interface Props {
   onEnemyClick: (enemyId: string) => void;
   onEndTurn: () => void;
   overlays?: ReactNode;
+  /** Card most recently played — animates to center then fades. */
+  playedCard?: PlayedCardSnapshot | null;
 }
 
 export default function CombatScreenAAA({
@@ -68,6 +83,7 @@ export default function CombatScreenAAA({
   onEnemyClick,
   onEndTurn,
   overlays,
+  playedCard,
 }: Props) {
   const { combat, player, modifiers, difficulty, runBuffs, missionType } = useGame();
 
@@ -113,7 +129,7 @@ export default function CombatScreenAAA({
       />
 
       {/* ── MAIN GRID ── */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] min-h-0 relative z-10">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[360px_1fr_420px] min-h-0 relative z-10">
         {/* LEFT — Player Panel */}
         <PlayerPanel runBuffs={runBuffs} />
 
@@ -121,6 +137,7 @@ export default function CombatScreenAAA({
         <Battlefield
           needsTarget={needsTarget}
           selectedCardIndex={combat.selectedCardIndex}
+          playedCard={playedCard ?? null}
         />
 
         {/* RIGHT — Enemy Stack */}
@@ -466,15 +483,49 @@ function PlayerPanel({ runBuffs }: { runBuffs: any[] }) {
 function Battlefield({
   needsTarget,
   selectedCardIndex,
+  playedCard,
 }: {
   needsTarget: boolean;
   selectedCardIndex: number | null;
+  playedCard: PlayedCardSnapshot | null;
 }) {
   return (
-    <div className="relative flex-1 flex flex-col items-center justify-center p-6 overflow-hidden min-h-[260px]">
+    <div className="relative flex-1 flex flex-col items-center justify-center p-6 overflow-hidden min-h-[320px]">
+      {/* SEAF battle backdrop — main mood-setter */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `url(${BATTLEFIELD_BG})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          opacity: 0.55,
+        }}
+      />
+      {/* Slow parallax breathing on the backdrop */}
+      <motion.div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `url(${BATTLEFIELD_BG})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          opacity: 0.18,
+          mixBlendMode: "screen",
+        }}
+        animate={{ scale: [1, 1.04, 1] }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+      />
+      {/* Darken + tint so the backdrop never fights foreground UI */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(11,15,20,0.55) 0%, rgba(11,15,20,0.35) 40%, rgba(11,15,20,0.85) 100%)",
+        }}
+      />
+
       {/* Battlefield grid lines — very subtle */}
       <div
-        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        className="absolute inset-0 opacity-[0.05] pointer-events-none"
         style={{
           backgroundImage:
             "linear-gradient(rgba(245,197,66,0.5) 1px, transparent 1px), linear-gradient(to right, rgba(245,197,66,0.5) 1px, transparent 1px)",
@@ -482,31 +533,84 @@ function Battlefield({
         }}
       />
 
-      {/* Center crosshair */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="relative w-32 h-32 opacity-20">
-          <span className="absolute top-1/2 -translate-y-1/2 left-0 w-8 h-px" style={{ background: COLOR.accent }} />
-          <span className="absolute top-1/2 -translate-y-1/2 right-0 w-8 h-px" style={{ background: COLOR.accent }} />
-          <span className="absolute left-1/2 -translate-x-1/2 top-0 h-8 w-px" style={{ background: COLOR.accent }} />
-          <span className="absolute left-1/2 -translate-x-1/2 bottom-0 h-8 w-px" style={{ background: COLOR.accent }} />
+      {/* Center crosshair (hidden when a card is playing) */}
+      {!playedCard && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="relative w-32 h-32 opacity-20">
+            <span className="absolute top-1/2 -translate-y-1/2 left-0 w-8 h-px" style={{ background: COLOR.accent }} />
+            <span className="absolute top-1/2 -translate-y-1/2 right-0 w-8 h-px" style={{ background: COLOR.accent }} />
+            <span className="absolute left-1/2 -translate-x-1/2 top-0 h-8 w-px" style={{ background: COLOR.accent }} />
+            <span className="absolute left-1/2 -translate-x-1/2 bottom-0 h-8 w-px" style={{ background: COLOR.accent }} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Pulsing target prompt */}
       <AnimatePresence>
-        {needsTarget && selectedCardIndex !== null && (
+        {needsTarget && selectedCardIndex !== null && !playedCard && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             className="relative z-10 px-6 py-3 border-2 backdrop-blur-sm"
-            style={{ borderColor: COLOR.accent, background: "rgba(245,197,66,0.08)" }}
+            style={{ borderColor: COLOR.accent, background: "rgba(245,197,66,0.12)" }}
           >
             <div className="text-[10px] uppercase tracking-[0.4em] mb-1" style={{ color: COLOR.accent }}>
               ▶ Awaiting Target
             </div>
             <div className="text-sm text-white">
               Click a hostile in the right panel to deploy your stratagem.
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* PLAYED CARD OVERLAY — flies up from the hand to the center */}
+      <AnimatePresence>
+        {playedCard && (
+          <motion.div
+            key={playedCard.key}
+            initial={{ y: 360, scale: 0.55, opacity: 0, rotate: -8 }}
+            animate={{ y: 0, scale: 1.18, opacity: 1, rotate: 0 }}
+            exit={{ y: -120, scale: 1.45, opacity: 0, rotate: 4 }}
+            transition={{ type: "spring", stiffness: 220, damping: 22 }}
+            className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
+          >
+            <div
+              className="relative"
+              style={{
+                filter: "drop-shadow(0 0 50px rgba(245,197,66,0.55)) drop-shadow(0 0 18px rgba(255,255,255,0.25))",
+              }}
+            >
+              {/* Radiating ring */}
+              <motion.div
+                className="absolute inset-0 -m-6 rounded-full pointer-events-none"
+                style={{
+                  border: `2px solid ${COLOR.accent}`,
+                  boxShadow: `0 0 60px ${COLOR.accent}`,
+                }}
+                initial={{ scale: 0.6, opacity: 0.9 }}
+                animate={{ scale: 1.6, opacity: 0 }}
+                transition={{ duration: 1.0, ease: "easeOut" }}
+              />
+              <motion.div
+                className="absolute inset-0 -m-12 rounded-full pointer-events-none"
+                style={{ border: `1px solid ${COLOR.accent}` }}
+                initial={{ scale: 0.8, opacity: 0.6 }}
+                animate={{ scale: 2.2, opacity: 0 }}
+                transition={{ duration: 1.4, ease: "easeOut", delay: 0.1 }}
+              />
+              <StratagemCard card={playedCard.card} affordable />
+              {/* DEPLOYED tag */}
+              <motion.div
+                className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 font-display font-black text-[10px] uppercase tracking-[0.3em] whitespace-nowrap"
+                style={{ background: COLOR.accent, color: COLOR.bg }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.18 }}
+              >
+                ▸ STRATAGEM DEPLOYED ◂
+              </motion.div>
             </div>
           </motion.div>
         )}
@@ -523,7 +627,7 @@ function Battlefield({
       />
 
       {/* Idle text */}
-      {!needsTarget && (
+      {!needsTarget && !playedCard && (
         <div className="text-[10px] uppercase tracking-[0.4em] absolute bottom-3 left-1/2 -translate-x-1/2" style={{ color: COLOR.dim }}>
           ◢ FOR SUPER EARTH ◣
         </div>

@@ -7,14 +7,18 @@
  *   - per-card type SFX cues
  *   - hit-flash + screen-shake feedback when player HP drops
  *   - the stratagem code overlay
+ *   - the "card flies to center" overlay state
  */
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGame } from "@/lib/store";
 import { sfx } from "@/lib/sfx";
+import { Card } from "@/lib/types";
 import StratagemCodeOverlay from "./StratagemCodeOverlay";
-import CombatScreenAAA from "./combat/CombatScreenAAA";
+import CombatScreenAAA, { PlayedCardSnapshot } from "./combat/CombatScreenAAA";
+
+const PLAYED_CARD_HOLD_MS = 1100;
 
 export default function CombatView() {
   const { combat, player, selectCard, beginPlayCard, endTurn } = useGame();
@@ -23,11 +27,10 @@ export default function CombatView() {
     combat.selectedCardIndex !== null ? combat.hand[combat.selectedCardIndex] : null;
   const needsTarget = selected?.target === "single";
 
-  // Hit-flash + screen shake when player HP drops
+  // ── Hit-flash + screen shake when player HP drops ──
   const lastHpRef = useRef(player.hp);
   const [shake, setShake] = useState(0);
   const [flash, setFlash] = useState(0);
-
   useEffect(() => {
     if (player.hp < lastHpRef.current) {
       setShake((n) => n + 1);
@@ -35,6 +38,19 @@ export default function CombatView() {
     }
     lastHpRef.current = player.hp;
   }, [player.hp]);
+
+  // ── Played-card center overlay ──
+  const [playedCard, setPlayedCard] = useState<PlayedCardSnapshot | null>(null);
+  const playKeyRef = useRef(0);
+  const triggerPlayedAnimation = (card: Card) => {
+    playKeyRef.current += 1;
+    setPlayedCard({ card, key: playKeyRef.current });
+  };
+  useEffect(() => {
+    if (!playedCard) return;
+    const t = setTimeout(() => setPlayedCard(null), PLAYED_CARD_HOLD_MS);
+    return () => clearTimeout(t);
+  }, [playedCard]);
 
   useEffect(() => {
     sfx.unlock();
@@ -61,9 +77,12 @@ export default function CombatView() {
       return;
     }
     if (card.target === "single") {
+      // Targeted card — just toggle selection. Animation fires later on enemy click.
       sfx.cardSelect();
       selectCard(combat.selectedCardIndex === idx ? null : idx);
     } else {
+      // Non-targeted — play immediately and fly the card to center.
+      triggerPlayedAnimation(card);
       sfx.cardPlay();
       playSfxForCard(card.type);
       beginPlayCard(idx);
@@ -73,6 +92,7 @@ export default function CombatView() {
   const handleEnemyClick = (enemyId: string) => {
     if (combat.selectedCardIndex === null) return;
     const card = combat.hand[combat.selectedCardIndex];
+    triggerPlayedAnimation(card);
     sfx.cardPlay();
     playSfxForCard(card.type);
     beginPlayCard(combat.selectedCardIndex, enemyId);
@@ -109,6 +129,7 @@ export default function CombatView() {
         onEnemyClick={handleEnemyClick}
         onEndTurn={endTurn}
         overlays={overlays}
+        playedCard={playedCard}
       />
     </motion.div>
   );
