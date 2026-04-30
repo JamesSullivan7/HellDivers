@@ -121,12 +121,40 @@ export function triggerFeedback(input: FeedbackEventInput): FeedbackEvent {
 export const feedback = {
   cardHover: () =>
     triggerFeedback({ type: "card_hover", intensity: "low" }),
-  cardPlay: (cardName: string, cardType: string, intensity: "low" | "medium" | "high" | "critical" = "medium") =>
-    triggerFeedback({
+  cardPlay: (
+    cardName: string,
+    cardType: string,
+    intensity: "low" | "medium" | "high" | "critical" = "medium",
+    cardId?: string,
+  ) => {
+    // Push the snapshot so the center stage flies the card in.
+    if (cardId) {
+      useFeedbackQueue.getState().pushPlayedCard({
+        cardId, cardName, cardType, kind: "play",
+      });
+    }
+    return triggerFeedback({
       type: "card_play",
       intensity,
-      payload: { cardName, cardType, text: `${cardName.toUpperCase()} deployed` },
-    }),
+      payload: { cardName, cardType, cardId, text: `${cardName.toUpperCase()} deployed` },
+    });
+  },
+  /**
+   * Tick — a persistent stratagem (sentry, recurring orbital, etc.) firing on
+   * its scheduled turn. Shows the card on the center stage with a subtler
+   * "ACTIVATING" treatment instead of "DEPLOYED".
+   */
+  cardTick: (cardId: string, cardName: string, cardType: string) => {
+    useFeedbackQueue.getState().pushPlayedCard({
+      cardId, cardName, cardType, kind: "tick",
+    });
+    // Add a compact toast entry — easier to read than the log
+    triggerFeedback({
+      type: "card_play",
+      intensity: "low",
+      payload: { cardName, cardType, cardId, text: `${cardName.toUpperCase()} · ACTIVATING` },
+    });
+  },
   damage: (amount: number, targetName: string, intensity: "low" | "medium" | "high" | "critical" = "medium") =>
     triggerFeedback({
       type: amount >= 18 ? "critical_hit" : "damage_hit",

@@ -4,10 +4,10 @@
  * CombatView — engine wiring shell.
  * The visual layout lives in CombatScreenAAA. This component handles:
  *   - dispatching card clicks / enemy clicks / end turn through the store
- *   - per-card type SFX cues
  *   - hit-flash + screen-shake feedback when player HP drops
  *   - the stratagem code overlay
- *   - the "card flies to center" overlay state
+ *   - subscribing to the global feedback queue's playedCard slot
+ *     (auto-advances when each snapshot's hold expires)
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -16,10 +16,13 @@ import { useGame } from "@/lib/store";
 import { sfx } from "@/lib/sfx";
 import { Card } from "@/lib/types";
 import StratagemCodeOverlay from "./StratagemCodeOverlay";
-import CombatScreenAAA, { PlayedCardSnapshot } from "./combat/CombatScreenAAA";
+import CombatScreenAAA from "./combat/CombatScreenAAA";
 import { feedback } from "@/systems/feedback/FeedbackManager";
+import { useFeedbackQueue } from "@/systems/feedback/feedbackQueue";
 
-const PLAYED_CARD_HOLD_MS = 1100;
+/** Hold durations per snapshot kind (ms). */
+const HOLD_PLAY = 1100;
+const HOLD_TICK = 720;
 
 export default function CombatView() {
   const { combat, player, selectCard, beginPlayCard, endTurn } = useGame();
@@ -40,30 +43,21 @@ export default function CombatView() {
     lastHpRef.current = player.hp;
   }, [player.hp]);
 
-  // ── Played-card center overlay ──
-  const [playedCard, setPlayedCard] = useState<PlayedCardSnapshot | null>(null);
-  const playKeyRef = useRef(0);
-  const triggerPlayedAnimation = (card: Card) => {
-    playKeyRef.current += 1;
-    setPlayedCard({ card, key: playKeyRef.current });
-  };
+  // ── Played-card center overlay ── (now driven by global feedback queue)
+  const playedCard = useFeedbackQueue((s) => s.playedCard);
+  const advancePlayedCard = useFeedbackQueue((s) => s.advancePlayedCard);
   useEffect(() => {
     if (!playedCard) return;
-    const t = setTimeout(() => setPlayedCard(null), PLAYED_CARD_HOLD_MS);
+    const ms = playedCard.kind === "play" ? HOLD_PLAY : HOLD_TICK;
+    const t = setTimeout(advancePlayedCard, ms);
     return () => clearTimeout(t);
-  }, [playedCard]);
+  }, [playedCard, advancePlayedCard]);
 
   useEffect(() => {
     sfx.unlock();
     sfx.combatStart();
     sfx.voice("Engaging hostile contacts. For Super Earth.");
   }, []);
-
-  // SFX is now routed via feedback.cardPlay in the click handlers — kept
-  // here as a no-op for backward-compat in case any path still calls it.
-  const playSfxForCard = (_type: string) => {
-    /* feedback.cardPlay handles this through the sound hook table */
-  };
 
   const cardIntensity = (card: Card): "low" | "medium" | "high" | "critical" => {
     if (card.cost >= 4) return "critical";
@@ -80,13 +74,11 @@ export default function CombatView() {
       return;
     }
     if (card.target === "single") {
-      // Targeted card — just toggle selection. Animation fires later on enemy click.
       sfx.cardSelect();
       selectCard(combat.selectedCardIndex === idx ? null : idx);
     } else {
-      // Non-targeted — play immediately and fly the card to center.
-      triggerPlayedAnimation(card);
-      feedback.cardPlay(card.name, card.type, cardIntensity(card));
+      // Non-targeted — feedback.cardPlay pushes the snapshot AND fires sound + tension + toast.
+      feedback.cardPlay(card.name, card.type, cardIntensity(card), card.id);
       beginPlayCard(idx);
     }
   };
@@ -94,8 +86,7 @@ export default function CombatView() {
   const handleEnemyClick = (enemyId: string) => {
     if (combat.selectedCardIndex === null) return;
     const card = combat.hand[combat.selectedCardIndex];
-    triggerPlayedAnimation(card);
-    feedback.cardPlay(card.name, card.type, cardIntensity(card));
+    feedback.cardPlay(card.name, card.type, cardIntensity(card), card.id);
     beginPlayCard(combat.selectedCardIndex, enemyId);
   };
 

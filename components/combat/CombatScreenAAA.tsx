@@ -33,6 +33,7 @@ import { getModifier } from "@/lib/modifiers";
 import { getArmorEffective } from "@/lib/loadout";
 import { HELLDIVER_PORTRAIT } from "@/lib/artManifest";
 import { Card, Enemy } from "@/lib/types";
+import { getCardById } from "@/lib/cards";
 import EnemyView from "../EnemyView";
 import BossFrame from "../boss/BossFrame";
 import PlayerHand from "./PlayerHand";
@@ -40,6 +41,7 @@ import StarField from "../StarField";
 import AnimationRunner from "@/systems/animation/AnimationRunner";
 import EnrageCinematic from "../effects/EnrageCinematic";
 import StratagemCard from "../cards/StratagemCard";
+import type { PlayedCardSnapshot as QueuePlayedCardSnapshot } from "@/systems/feedback/feedbackQueue";
 
 /** Path to the centered battlefield backdrop. Place image at this path:
  *    public/art/backgrounds/battlefield_seaf.png
@@ -47,11 +49,8 @@ import StratagemCard from "../cards/StratagemCard";
  */
 const BATTLEFIELD_BG = "/art/backgrounds/battlefield_seaf.png";
 
-export interface PlayedCardSnapshot {
-  card: Card;
-  /** Bumped on every play so AnimatePresence retriggers. */
-  key: number;
-}
+/** Re-exported for back-compat with CombatView. */
+export type PlayedCardSnapshot = QueuePlayedCardSnapshot;
 
 const COLOR = {
   bg: "#0b0f14",
@@ -565,55 +564,10 @@ function Battlefield({
         )}
       </AnimatePresence>
 
-      {/* PLAYED CARD OVERLAY — flies up from the hand to the center */}
+      {/* PLAYED CARD OVERLAY — first deploy ("play") flies up dramatically;
+          subsequent ticks ("tick") use a subtler treatment for sentry / DOT activations. */}
       <AnimatePresence>
-        {playedCard && (
-          <motion.div
-            key={playedCard.key}
-            initial={{ y: 360, scale: 0.55, opacity: 0, rotate: -8 }}
-            animate={{ y: 0, scale: 1.18, opacity: 1, rotate: 0 }}
-            exit={{ y: -120, scale: 1.45, opacity: 0, rotate: 4 }}
-            transition={{ type: "spring", stiffness: 220, damping: 22 }}
-            className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
-          >
-            <div
-              className="relative"
-              style={{
-                filter: "drop-shadow(0 0 50px rgba(245,197,66,0.55)) drop-shadow(0 0 18px rgba(255,255,255,0.25))",
-              }}
-            >
-              {/* Radiating ring */}
-              <motion.div
-                className="absolute inset-0 -m-6 rounded-full pointer-events-none"
-                style={{
-                  border: `2px solid ${COLOR.accent}`,
-                  boxShadow: `0 0 60px ${COLOR.accent}`,
-                }}
-                initial={{ scale: 0.6, opacity: 0.9 }}
-                animate={{ scale: 1.6, opacity: 0 }}
-                transition={{ duration: 1.0, ease: "easeOut" }}
-              />
-              <motion.div
-                className="absolute inset-0 -m-12 rounded-full pointer-events-none"
-                style={{ border: `1px solid ${COLOR.accent}` }}
-                initial={{ scale: 0.8, opacity: 0.6 }}
-                animate={{ scale: 2.2, opacity: 0 }}
-                transition={{ duration: 1.4, ease: "easeOut", delay: 0.1 }}
-              />
-              <StratagemCard card={playedCard.card} affordable />
-              {/* DEPLOYED tag */}
-              <motion.div
-                className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 font-display font-black text-[10px] uppercase tracking-[0.3em] whitespace-nowrap"
-                style={{ background: COLOR.accent, color: COLOR.bg }}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.18 }}
-              >
-                ▸ STRATAGEM DEPLOYED ◂
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
+        {playedCard && <PlayedCardLayer snapshot={playedCard} />}
       </AnimatePresence>
 
       {/* Animated horizon — slow ambient sway */}
@@ -633,6 +587,122 @@ function Battlefield({
         </div>
       )}
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  PLAYED-CARD LAYER (deploy + tick)
+//  - kind="play"  : full drama. Springs in from y:360 / scale 0.55 → 1.18,
+//                   double radiating yellow rings, "STRATAGEM DEPLOYED" tag.
+//  - kind="tick"  : subtler. Smaller scale (0.92), single ring at the
+//                   accent's lower opacity, "ACTIVATING" tag, faster exit.
+// ──────────────────────────────────────────────────────────────────────
+function PlayedCardLayer({ snapshot }: { snapshot: PlayedCardSnapshot }) {
+  // Resolve the card from id (queue snapshot is lightweight).
+  let card: Card | null = null;
+  try {
+    card = getCardById(snapshot.cardId);
+  } catch {
+    return null;
+  }
+
+  const isTick = snapshot.kind === "tick";
+  const tagText = isTick ? "▸ ACTIVATING ◂" : "▸ STRATAGEM DEPLOYED ◂";
+  const ringGlow = isTick
+    ? "drop-shadow(0 0 28px rgba(245,197,66,0.4))"
+    : "drop-shadow(0 0 50px rgba(245,197,66,0.55)) drop-shadow(0 0 18px rgba(255,255,255,0.25))";
+
+  return (
+    <motion.div
+      key={snapshot.key}
+      initial={
+        isTick
+          ? { y: -10, scale: 0.7, opacity: 0, rotate: -2 }
+          : { y: 360, scale: 0.55, opacity: 0, rotate: -8 }
+      }
+      animate={
+        isTick
+          ? { y: 0, scale: 0.92, opacity: 1, rotate: 0 }
+          : { y: 0, scale: 1.18, opacity: 1, rotate: 0 }
+      }
+      exit={
+        isTick
+          ? { y: -40, scale: 0.85, opacity: 0 }
+          : { y: -120, scale: 1.45, opacity: 0, rotate: 4 }
+      }
+      transition={{
+        type: "spring",
+        stiffness: isTick ? 280 : 220,
+        damping: isTick ? 26 : 22,
+      }}
+      className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
+    >
+      <div className="relative" style={{ filter: ringGlow }}>
+        {/* Radiating ring(s) — only on play; ticks get one quick subtle ring */}
+        {isTick ? (
+          <motion.div
+            className="absolute inset-0 -m-3 rounded-full pointer-events-none"
+            style={{
+              border: `1px solid ${COLOR.accent}`,
+              boxShadow: `0 0 30px ${COLOR.accent}80`,
+            }}
+            initial={{ scale: 0.85, opacity: 0.7 }}
+            animate={{ scale: 1.25, opacity: 0 }}
+            transition={{ duration: 0.55, ease: "easeOut" }}
+          />
+        ) : (
+          <>
+            <motion.div
+              className="absolute inset-0 -m-6 rounded-full pointer-events-none"
+              style={{
+                border: `2px solid ${COLOR.accent}`,
+                boxShadow: `0 0 60px ${COLOR.accent}`,
+              }}
+              initial={{ scale: 0.6, opacity: 0.9 }}
+              animate={{ scale: 1.6, opacity: 0 }}
+              transition={{ duration: 1.0, ease: "easeOut" }}
+            />
+            <motion.div
+              className="absolute inset-0 -m-12 rounded-full pointer-events-none"
+              style={{ border: `1px solid ${COLOR.accent}` }}
+              initial={{ scale: 0.8, opacity: 0.6 }}
+              animate={{ scale: 2.2, opacity: 0 }}
+              transition={{ duration: 1.4, ease: "easeOut", delay: 0.1 }}
+            />
+          </>
+        )}
+
+        <StratagemCard card={card} affordable />
+
+        {/* Tag */}
+        <motion.div
+          className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 font-display font-black text-[10px] uppercase tracking-[0.3em] whitespace-nowrap"
+          style={{
+            background: isTick ? "rgba(245,197,66,0.85)" : COLOR.accent,
+            color: COLOR.bg,
+            border: isTick ? `1px solid ${COLOR.accent}` : "none",
+          }}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: isTick ? 0.05 : 0.18 }}
+        >
+          {tagText}
+        </motion.div>
+
+        {/* Tick-specific bottom subtitle: which turn the sentry is on */}
+        {isTick && (
+          <motion.div
+            className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-0.5 font-display font-black text-[9px] uppercase tracking-[0.3em] whitespace-nowrap border bg-black/80"
+            style={{ borderColor: COLOR.accent, color: COLOR.accent }}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            ◊ Persistent Stratagem ◊
+          </motion.div>
+        )}
+      </div>
+    </motion.div>
   );
 }
 

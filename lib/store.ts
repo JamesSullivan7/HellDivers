@@ -950,12 +950,14 @@ export const useGame = create<GameStore>((set, get) => ({
       log.push(`  [${weapon.name}] fires.`);
     }
 
-    // sentry effects
+    // sentry effects — each active sentry fires once per turn
     const remainingSentries: ActiveSentry[] = [];
-    combat.sentries.forEach((s) => {
+    combat.sentries.forEach((s, sentryIdx) => {
       if (s.turnsLeft <= 0) return;
       const alive = enemies.map((e, i) => ({ e, i })).filter(({ e }) => e.hp > 0);
+      let didFire = false;
       if (alive.length > 0) {
+        didFire = true;
         if (s.targetAll) {
           alive.forEach(({ e, i }) => {
             const dmg = applyShieldThenArmor(e, s.damage, false, 0);
@@ -967,6 +969,20 @@ export const useGame = create<GameStore>((set, get) => ({
           const dmg = applyShieldThenArmor(pick.e, s.damage, false, 0);
           enemies[pick.i] = dmg.enemy;
           log.push(`  [${s.name}] hits ${pick.e.name} for ${dmg.dealt}.`);
+        }
+      }
+      // Visual + audio "ACTIVATING" feedback — flies the sentry's source card
+      // back to the center stage so the player sees what's doing damage.
+      // Stagger by ~120ms between sentries to avoid stacking.
+      if (didFire) {
+        try {
+          const card = getCardById(s.cardId);
+          window.setTimeout(
+            () => feedback.cardTick(s.cardId, s.name, card.type),
+            sentryIdx * 120,
+          );
+        } catch {
+          /* card lookup failed — skip the visual, log line still shown */
         }
       }
       remainingSentries.push({ ...s, turnsLeft: s.turnsLeft - 1 });
