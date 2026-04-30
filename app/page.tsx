@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useGame } from "@/lib/store";
-import MainMenu from "@/components/MainMenu";
+import HubScreen from "@/components/HubScreen";
 import MapView from "@/components/MapView";
 import CombatView from "@/components/CombatView";
 import RewardScreen from "@/components/RewardScreen";
@@ -38,7 +38,7 @@ export default function Page() {
   let view: React.ReactNode;
   switch (phase) {
     case "menu":
-      view = <MainMenu />;
+      view = <HubScreen />;
       break;
     case "armory":
       view = <ArmoryScreen />;
@@ -89,7 +89,7 @@ export default function Page() {
       view = <EndScreen victory={false} />;
       break;
     default:
-      view = <MainMenu />;
+      view = <HubScreen />;
   }
 
   return (
