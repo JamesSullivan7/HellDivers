@@ -14,6 +14,7 @@ import GalacticWarScreen from "@/components/GalacticWarScreen";
 import LoadoutScreen from "@/components/LoadoutScreen";
 import ArmoryScreen from "@/components/ArmoryScreen";
 import CharacterSheet from "@/components/CharacterSheet";
+import CodexScreen from "@/components/CodexScreen";
 import SquadHub from "@/components/SquadHub";
 import SquadLobby from "@/components/SquadLobby";
 import CoopCombatView from "@/components/CoopCombatView";
@@ -44,6 +45,9 @@ export default function Page() {
       break;
     case "character":
       view = <CharacterSheet />;
+      break;
+    case "codex":
+      view = <CodexScreen />;
       break;
     case "squad_hub":
       view = <SquadHub />;

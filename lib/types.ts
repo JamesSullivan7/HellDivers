@@ -165,6 +165,7 @@ export type GamePhase =
   | "menu"
   | "armory"
   | "character"
+  | "codex"
   | "squad_hub"
   | "squad_lobby"
   | "coop_combat"

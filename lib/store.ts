@@ -194,6 +194,7 @@ interface GameStore {
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
   goToArmory: () => void;
   goToCharacter: () => void;
+  goToCodex: () => void;
   unlockCard: (cardId: string) => boolean;
   unlockModule: (moduleId: string) => boolean;
   unlockCape: (id: string) => boolean;
@@ -344,6 +345,7 @@ export const useGame = create<GameStore>((set, get) => ({
 
   goToArmory: () => set({ phase: "armory" }),
   goToCharacter: () => set({ phase: "character" }),
+  goToCodex: () => set({ phase: "codex" }),
 
   unlockCard: (cardId) => {
     const { account } = get();

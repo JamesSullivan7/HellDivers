@@ -13,7 +13,7 @@ import { xpToLevelUp, getHelldiverRank } from "@/lib/account";
 import { getCape, getTitle } from "@/lib/cosmetics";
 
 export default function MainMenu() {
-  const { goToWar, goToArmory, goToCharacter, goToSquadHub, settings, setSetting, account, resetAccount, setHelldiverName } = useGame();
+  const { goToWar, goToArmory, goToCharacter, goToCodex, goToSquadHub, settings, setSetting, account, resetAccount, setHelldiverName } = useGame();
   const [muted, setMutedState] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -255,6 +255,16 @@ export default function MainMenu() {
             className="w-full bg-helldiver-panel border-2 border-helldiver-steel hover:border-helldiver-yellow hover:text-helldiver-yellow text-helldiver-dim py-3 font-display font-bold uppercase tracking-[0.3em] transition-colors"
           >
             ⌥ Armory · Stratagems & Modules
+          </button>
+
+          <button
+            onClick={() => {
+              sfx.click();
+              goToCodex();
+            }}
+            className="w-full bg-helldiver-panel border-2 border-helldiver-steel hover:border-sky-400 hover:text-sky-400 text-helldiver-dim py-3 font-display font-bold uppercase tracking-[0.3em] transition-colors"
+          >
+            ◈ Codex · Browse All Materiel
           </button>
 
           <button
