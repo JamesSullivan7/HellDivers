@@ -99,72 +99,24 @@ export default function GalacticWarScreen() {
                     <div className="text-[10px] uppercase tracking-[0.3em] text-helldiver-dim mb-2">
                       Sector · {sector}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                       {sectorPlanets.map((planet) => {
                         const isMajor = majorOrder?.targetPlanetIds.includes(planet.id);
                         const isSelected = selectedId === planet.id;
                         const liberated = planet.liberation >= 100;
                         return (
-                          <motion.button
+                          <PlanetTile
                             key={planet.id}
-                            whileHover={{ y: -3, scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
+                            planet={planet}
+                            isMajor={!!isMajor}
+                            isSelected={isSelected}
+                            liberated={liberated}
                             onClick={() => {
                               sfx.click();
                               setSelectedId(planet.id);
                               setSeed(Date.now());
                             }}
-                            className={clsx(
-                              "relative p-3 border-2 text-left bg-gradient-to-b transition-all",
-                              FACTION_BG[planet.faction],
-                              FACTION_COLOR[planet.faction],
-                              isSelected && "ring-2 ring-helldiver-yellow shadow-[0_0_18px_rgba(255, 211, 77,0.5)]"
-                            )}
-                          >
-                            {isMajor && (
-                              <div className="absolute -top-1 -right-1 px-1.5 py-0.5 text-[8px] tracking-widest font-bold bg-helldiver-red text-white border border-helldiver-red">
-                                ★MO
-                              </div>
-                            )}
-                            {liberated && (
-                              <div className="absolute -top-1 -left-1 px-1.5 py-0.5 text-[8px] tracking-widest font-bold bg-emerald-500 text-black border border-emerald-500">
-                                ✓
-                              </div>
-                            )}
-                            <div className="flex items-center gap-1 mb-1">
-                              <FactionIcon faction={planet.faction} className="w-3.5 h-3.5" />
-                              <span className="text-[9px] uppercase tracking-widest text-helldiver-dim">
-                                {planet.faction}
-                              </span>
-                            </div>
-                            <div className="font-display font-black text-sm leading-tight tracking-tight text-white mb-1">
-                              {planet.name.toUpperCase()}
-                            </div>
-                            {planet.biome && (
-                              <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mb-2 truncate">
-                                {planet.biome}
-                              </div>
-                            )}
-
-                            <div className="h-2 bg-black border border-helldiver-steel relative overflow-hidden">
-                              <motion.div
-                                animate={{ width: `${planet.liberation}%` }}
-                                transition={{ type: "spring", stiffness: 100, damping: 25 }}
-                                className={clsx(
-                                  "h-full",
-                                  liberated
-                                    ? "bg-emerald-500"
-                                    : planet.liberation > 60
-                                      ? "bg-helldiver-yellow"
-                                      : "bg-helldiver-orange"
-                                )}
-                              />
-                            </div>
-                            <div className="text-[10px] mt-1 flex items-center justify-between text-helldiver-dim">
-                              <span>{planet.liberation.toFixed(1)}% LIB</span>
-                              {liberated && <span className="text-emerald-400 text-[9px]">FREED</span>}
-                            </div>
-                          </motion.button>
+                          />
                         );
                       })}
                     </div>
@@ -342,5 +294,269 @@ export default function GalacticWarScreen() {
         </div>
       </motion.div>
     </AppShell>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  PLANET TILE — sphere-prominent design with biome-tinted globe + atmosphere
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Biome → surface palette for the planet sphere.
+ * Each entry: [highlightColor, midColor, shadowColor].
+ * Values are tuned so the radial gradient reads as a lit globe.
+ */
+const BIOME_PALETTE: Record<string, [string, string, string]> = {
+  "Sandy Mesa":         ["#f5d090", "#c98a4f", "#5a3618"],
+  "Grassland":          ["#b8d893", "#6ea34a", "#2d4818"],
+  "Tundra":             ["#e6f0f8", "#9bb8c8", "#4a6075"],
+  "Swamp":              ["#9aa674", "#5e6a3f", "#26301a"],
+  "Ashland":            ["#7a6957", "#4a3a2c", "#1a120a"],
+  "Sandy Desert":       ["#f5d090", "#c98a4f", "#5a3618"],
+  "Quake Desert":       ["#e8a070", "#c45a3a", "#6b2410"],
+  "Ionized Grassland":  ["#bfeada", "#7fc4a8", "#2c6a55"],
+  "Ethereal Jungle":    ["#9aa890", "#5e7058", "#2a2640"],
+  "Foggy Swamp":        ["#a8b5a4", "#6f7d6c", "#2d362c"],
+  "Frozen Boneyard":    ["#dde8f0", "#92a3b0", "#4a5a68"],
+  "Shadowed Jungle":    ["#6b8568", "#3a5538", "#10220f"],
+  "Copper Desert":      ["#e8a070", "#c47a3a", "#5a2810"],
+  "Barren Moon":        ["#d8d8d8", "#7a7a7a", "#202020"],
+};
+
+function getBiomePalette(biome: string | undefined): [string, string, string] {
+  if (!biome) return ["#a0a0a0", "#5a5a5a", "#1a1a1a"];
+  return BIOME_PALETTE[biome] ?? ["#a0a0a0", "#5a5a5a", "#1a1a1a"];
+}
+
+const FACTION_HALO: Record<Faction, string> = {
+  terminid: "rgba(255,138,40,0.45)",
+  automaton: "rgba(255,77,77,0.45)",
+  illuminate: "rgba(167,139,250,0.45)",
+};
+
+function PlanetSphere({
+  biome,
+  faction,
+  liberated,
+  size = 56,
+}: {
+  biome: string | undefined;
+  faction: Faction;
+  liberated: boolean;
+  size?: number;
+}) {
+  const [light, mid, shadow] = getBiomePalette(biome);
+  const halo = liberated ? "rgba(52,211,153,0.55)" : FACTION_HALO[faction];
+
+  return (
+    <div
+      className="relative shrink-0"
+      style={{ width: size, height: size }}
+      aria-hidden
+    >
+      {/* Outer atmospheric halo — pulses on liberated worlds */}
+      <motion.div
+        className="absolute inset-0 rounded-full pointer-events-none"
+        style={{
+          boxShadow: `0 0 ${size * 0.6}px ${halo}, 0 0 ${size * 0.25}px ${halo}`,
+        }}
+        animate={
+          liberated
+            ? { opacity: [0.7, 1, 0.7] }
+            : { opacity: 1 }
+        }
+        transition={
+          liberated
+            ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
+            : undefined
+        }
+      />
+
+      {/* Atmosphere ring (thin border of sky color) */}
+      <div
+        className="absolute inset-0 rounded-full pointer-events-none"
+        style={{
+          border: `1px solid ${halo}`,
+          boxShadow: `inset 0 0 ${size * 0.3}px ${halo}`,
+          filter: "blur(0.5px)",
+        }}
+      />
+
+      {/* Planet body — radial gradient with off-center highlight */}
+      <div
+        className="absolute inset-[3px] rounded-full"
+        style={{
+          background: `radial-gradient(circle at 30% 30%, ${light} 0%, ${mid} 38%, ${shadow} 95%)`,
+          boxShadow: `inset -${size * 0.18}px -${size * 0.18}px ${size * 0.3}px rgba(0,0,0,0.65)`,
+        }}
+      />
+
+      {/* Surface texture — faint banding for terrain hint */}
+      <div
+        className="absolute inset-[3px] rounded-full opacity-30 pointer-events-none mix-blend-overlay"
+        style={{
+          background:
+            "repeating-linear-gradient(115deg, rgba(0,0,0,0.18) 0 2px, transparent 2px 6px)",
+        }}
+      />
+
+      {/* Specular highlight — small bright spot */}
+      <div
+        className="absolute rounded-full pointer-events-none"
+        style={{
+          top: "20%",
+          left: "22%",
+          width: size * 0.18,
+          height: size * 0.18,
+          background: `radial-gradient(circle, ${light}cc 0%, transparent 70%)`,
+          filter: "blur(2px)",
+        }}
+      />
+
+      {/* Liberation overlay — faint emerald wash on freed worlds */}
+      {liberated && (
+        <motion.div
+          className="absolute inset-[3px] rounded-full pointer-events-none mix-blend-screen"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 50%, rgba(52,211,153,0.4) 0%, transparent 70%)",
+          }}
+          animate={{ opacity: [0.4, 0.85, 0.4] }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PlanetTile({
+  planet,
+  isMajor,
+  isSelected,
+  liberated,
+  onClick,
+}: {
+  planet: PlanetState;
+  isMajor: boolean;
+  isSelected: boolean;
+  liberated: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <motion.button
+      whileHover={{ y: -3, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={clsx(
+        "relative p-3 pt-2 border-2 text-left bg-gradient-to-b transition-all overflow-hidden",
+        FACTION_BG[planet.faction],
+        FACTION_COLOR[planet.faction],
+        liberated && "shadow-[0_0_22px_rgba(52,211,153,0.35)] border-emerald-400/70",
+        isSelected && "ring-2 ring-helldiver-yellow shadow-[0_0_18px_rgba(255,211,77,0.5)]"
+      )}
+    >
+      {/* Cosmic backdrop — faint radial vignette evoking deep space */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-50"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%)",
+        }}
+      />
+      {/* Tiny starfield pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-30"
+        style={{
+          backgroundImage:
+            "radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.6), transparent), radial-gradient(1px 1px at 78% 42%, rgba(255,255,255,0.5), transparent), radial-gradient(1px 1px at 35% 78%, rgba(255,255,255,0.45), transparent), radial-gradient(1px 1px at 88% 88%, rgba(255,255,255,0.4), transparent)",
+        }}
+      />
+
+      {/* MO badge (top-right) */}
+      {isMajor && (
+        <div className="absolute -top-1 -right-1 px-1.5 py-0.5 text-[8px] tracking-widest font-bold bg-helldiver-red text-white border border-helldiver-red z-10">
+          ★MO
+        </div>
+      )}
+      {/* Liberated check (top-left) */}
+      {liberated && (
+        <div className="absolute -top-1 -left-1 px-1.5 py-0.5 text-[8px] tracking-widest font-bold bg-emerald-500 text-black border border-emerald-500 z-10">
+          ✓
+        </div>
+      )}
+
+      {/* Faction tag */}
+      <div className="relative flex items-center gap-1 mb-1">
+        <FactionIcon faction={planet.faction} className="w-3.5 h-3.5" />
+        <span className="text-[9px] uppercase tracking-widest text-helldiver-dim">
+          {planet.faction}
+        </span>
+      </div>
+
+      {/* Planet sphere — centered hero element */}
+      <div className="relative flex justify-center my-2">
+        <PlanetSphere
+          biome={planet.biome}
+          faction={planet.faction}
+          liberated={liberated}
+          size={64}
+        />
+      </div>
+
+      {/* Name + biome */}
+      <div className="relative font-display font-black text-sm leading-tight tracking-tight text-white text-center mb-0.5">
+        {planet.name.toUpperCase()}
+      </div>
+      {planet.biome && (
+        <div className="relative text-[9px] uppercase tracking-widest text-helldiver-dim mb-2 truncate text-center">
+          {planet.biome}
+        </div>
+      )}
+
+      {/* Liberation bar */}
+      <div className="relative h-2 bg-black/70 border border-helldiver-steel overflow-hidden">
+        <motion.div
+          animate={{ width: `${planet.liberation}%` }}
+          transition={{ type: "spring", stiffness: 100, damping: 25 }}
+          className={clsx(
+            "h-full",
+            liberated
+              ? "bg-emerald-400"
+              : planet.liberation > 60
+                ? "bg-helldiver-yellow"
+                : "bg-helldiver-orange"
+          )}
+        />
+      </div>
+
+      {/* Status row */}
+      <div className="relative text-[10px] mt-1 flex items-center justify-between">
+        <span className="text-helldiver-dim">{planet.liberation.toFixed(1)}% LIB</span>
+        {!liberated && planet.liberation < 100 && (
+          <span className="text-helldiver-dim text-[9px]">
+            ↑{Math.ceil((100 - planet.liberation) / 22)} ops
+          </span>
+        )}
+      </div>
+
+      {/* LIBERATED celebration banner */}
+      {liberated && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 22 }}
+          className="relative mt-1.5 -mx-3 -mb-3 px-3 py-1 bg-gradient-to-r from-emerald-500/30 via-emerald-500/40 to-emerald-500/30 border-t-2 border-emerald-400 text-center"
+        >
+          <motion.div
+            animate={{ opacity: [0.9, 1, 0.9] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+            className="text-[10px] font-display font-black tracking-[0.25em] text-emerald-300 uppercase"
+            style={{ textShadow: "0 0 8px rgba(52,211,153,0.6)" }}
+          >
+            ★ LIBERATED!
+          </motion.div>
+        </motion.div>
+      )}
+    </motion.button>
   );
 }
