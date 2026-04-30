@@ -17,6 +17,7 @@ import { sfx } from "@/lib/sfx";
 import { Card } from "@/lib/types";
 import StratagemCodeOverlay from "./StratagemCodeOverlay";
 import CombatScreenAAA, { PlayedCardSnapshot } from "./combat/CombatScreenAAA";
+import { feedback } from "@/systems/feedback/FeedbackManager";
 
 const PLAYED_CARD_HOLD_MS = 1100;
 
@@ -58,15 +59,17 @@ export default function CombatView() {
     sfx.voice("Engaging hostile contacts. For Super Earth.");
   }, []);
 
-  const playSfxForCard = (type: string) => {
-    setTimeout(() => {
-      if (type === "eagle") sfx.bigExplosion();
-      else if (type === "orbital") sfx.explosion();
-      else if (type === "support") sfx.laser();
-      else if (type === "sentry") sfx.sentryDeploy();
-      else if (type === "backpack") sfx.shield();
-      else sfx.heal();
-    }, 80);
+  // SFX is now routed via feedback.cardPlay in the click handlers — kept
+  // here as a no-op for backward-compat in case any path still calls it.
+  const playSfxForCard = (_type: string) => {
+    /* feedback.cardPlay handles this through the sound hook table */
+  };
+
+  const cardIntensity = (card: Card): "low" | "medium" | "high" | "critical" => {
+    if (card.cost >= 4) return "critical";
+    if (card.cost >= 3) return "high";
+    if (card.cost >= 2) return "medium";
+    return "low";
   };
 
   const handleCardClick = (idx: number) => {
@@ -83,8 +86,7 @@ export default function CombatView() {
     } else {
       // Non-targeted — play immediately and fly the card to center.
       triggerPlayedAnimation(card);
-      sfx.cardPlay();
-      playSfxForCard(card.type);
+      feedback.cardPlay(card.name, card.type, cardIntensity(card));
       beginPlayCard(idx);
     }
   };
@@ -93,8 +95,7 @@ export default function CombatView() {
     if (combat.selectedCardIndex === null) return;
     const card = combat.hand[combat.selectedCardIndex];
     triggerPlayedAnimation(card);
-    sfx.cardPlay();
-    playSfxForCard(card.type);
+    feedback.cardPlay(card.name, card.type, cardIntensity(card));
     beginPlayCard(combat.selectedCardIndex, enemyId);
   };
 
@@ -127,7 +128,10 @@ export default function CombatView() {
         needsTarget={!!needsTarget}
         onCardClick={handleCardClick}
         onEnemyClick={handleEnemyClick}
-        onEndTurn={endTurn}
+        onEndTurn={() => {
+          feedback.endTurn();
+          endTurn();
+        }}
         overlays={overlays}
         playedCard={playedCard}
       />

@@ -63,6 +63,7 @@ import {
   applyMissionBonus,
   type MissionType,
 } from "./missionTypes";
+import { feedback } from "@/systems/feedback/FeedbackManager";
 
 const BASE_HAND_SIZE = 5;
 const MAX_REQUISITION = 4;
@@ -902,6 +903,7 @@ export const useGame = create<GameStore>((set, get) => ({
     enemies = enemies.map((e) => {
       if (e.isBoss && !e.enraged && e.hp > 0 && e.hp <= e.maxHp / 2 && e.enragedPattern) {
         log.push(`> ⚠ ${e.enragedMessage ?? `${e.name} ENRAGED.`}`);
+        feedback.bossEnrage(e.name);
         return {
           ...e,
           enraged: true,
@@ -986,6 +988,9 @@ export const useGame = create<GameStore>((set, get) => ({
       log.push(`> Hostiles cleared.`);
       const node = state.map[state.currentNodeIndex];
       const isBoss = node.type === "boss";
+      if (!isBoss) {
+        feedback.objectiveComplete("Hostiles Cleared", 0);
+      }
       const newCombat: CombatState = {
         ...combat,
         enemies,
@@ -1034,6 +1039,7 @@ export const useGame = create<GameStore>((set, get) => ({
           if (remaining > 0) {
             newPlayer.hp = Math.max(0, newPlayer.hp - remaining);
             log.push(`  ${e.name} hits for ${remaining}.`);
+            feedback.enemyAttack(remaining, e.name);
           }
           break;
         }
@@ -1501,6 +1507,10 @@ function executePlay(
     const node = state.map[state.currentNodeIndex];
     const isBoss = node.type === "boss";
 
+    if (!isBoss) {
+      feedback.objectiveComplete("Hostiles Cleared", 0);
+    }
+
     // Bump elite-kills objective if this was an elite node
     if (node.type === "elite") {
       updatedObjectives = bumpObjective(updatedObjectives, "kill_elites", 1);
@@ -1670,4 +1680,8 @@ function finalizeRun(
       : reward,
     phase: victory ? "victory" : "gameover",
   });
+
+  // Game-feel feedback for the run resolution
+  if (victory) feedback.victory();
+  else feedback.defeat();
 }

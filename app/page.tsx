@@ -22,6 +22,9 @@ import ObjectiveToast from "@/components/ObjectiveToast";
 import TensionProvider from "@/components/tension/TensionProvider";
 import TensionOverlay from "@/components/tension/TensionOverlay";
 import TensionDebugPanel from "@/components/tension/TensionDebugPanel";
+import EventFeedHud from "@/components/hud/EventFeedHud";
+import ImpactFlash from "@/components/vfx/ImpactFlash";
+import ScreenShake from "@/components/vfx/ScreenShake";
 
 const IN_RUN_PHASES = new Set(["map", "combat", "reward", "rest", "event", "shop"]);
 
@@ -97,8 +100,17 @@ export default function Page() {
 
   return (
     <>
-      {view}
+      {/* ScreenShake wraps the entire app so feedback events can shake the world without a remount cost on each shake. */}
+      <ScreenShake>
+        {view}
+      </ScreenShake>
+
       {IN_RUN_PHASES.has(phase) && <ObjectiveToast />}
+
+      {/* Game-feel layer — toast feed + impact flash float above the app. */}
+      <EventFeedHud />
+      <ImpactFlash />
+
       {/* Tension system — provider runs always (no-op outside runs);
           overlay only renders for alert+; debug panel is opt-in. */}
       <TensionProvider />
