@@ -381,4 +381,358 @@ export const sfx = {
     const c = getCtx();
     if (c && c.state === "suspended") c.resume();
   },
+
+  // ─────────────────────────────────────────────────────────────
+  // FACTION AMBIENCE LAYERS
+  //   Each one is a sustained synthesized soundscape for the active
+  //   sector. Auto-mutually-exclusive: starting one stops the previous.
+  // ─────────────────────────────────────────────────────────────
+  factionAmbienceStart: (faction: "terminid" | "automaton" | "illuminate" | "super_earth") => {
+    factionAmbienceStop();
+    activeFactionLoop = faction;
+    switch (faction) {
+      case "terminid": startTerminidAmbience(); break;
+      case "automaton": startAutomatonAmbience(); break;
+      case "illuminate": startIlluminateAmbience(); break;
+      case "super_earth": startSuperEarthAmbience(); break;
+    }
+  },
+  factionAmbienceStop: () => factionAmbienceStop(),
+
+  // ─────────────────────────────────────────────────────────────
+  // ENCOUNTER MOOD LAYERS — sit on top of faction ambience
+  // ─────────────────────────────────────────────────────────────
+  encounterAmbienceStart: (
+    type: "combat" | "civilian" | "risk" | "reward" | "hazard" | "command"
+  ) => {
+    encounterAmbienceStop();
+    activeEncounterLoop = type;
+    switch (type) {
+      case "combat":   startCombatMood(); break;
+      case "civilian": startCivilianMood(); break;
+      case "risk":     startRiskMood(); break;
+      case "reward":   startRewardMood(); break;
+      case "hazard":   startHazardMood(); break;
+      case "command":  startCommandMood(); break;
+    }
+  },
+  encounterAmbienceStop: () => encounterAmbienceStop(),
+
+  // ─────────────────────────────────────────────────────────────
+  // THEMED HOVER ONE-SHOTS — used by EventScreen for risk/reward feel
+  // ─────────────────────────────────────────────────────────────
+  hoverReward: () => {
+    tone({ channel: "ui", freq: 1320, duration: 0.06, type: "sine", volume: 0.05 });
+    tone({ channel: "ui", freq: 1760, duration: 0.06, type: "sine", volume: 0.04, delay: 0.04 });
+  },
+  hoverRisk: () => {
+    tone({ channel: "ui", freq: 220, endFreq: 110, duration: 0.10, type: "sawtooth", volume: 0.06 });
+    noise({ channel: "ui", duration: 0.08, volume: 0.04, lowpass: 600, delay: 0.02 });
+  },
+  hoverNeutral: () => {
+    tone({ channel: "ui", freq: 1100, duration: 0.04, type: "sine", volume: 0.04 });
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // INTENSITY SPIKES — fired periodically while ambience runs
+  // ─────────────────────────────────────────────────────────────
+  /** Distant boom — used as combat-prelude flavor on med/high intensity. */
+  distantBoom: () => {
+    noise({ channel: "ambient", duration: 0.6, volume: 0.10, lowpass: 280 });
+    tone({ channel: "ambient", freq: 50, endFreq: 25, duration: 0.5, type: "sawtooth", volume: 0.06 });
+  },
+  /** Critical-intensity warning chirp. */
+  criticalChirp: () => {
+    tone({ channel: "ui", freq: 1800, duration: 0.04, type: "square", volume: 0.05 });
+    tone({ channel: "ui", freq: 1500, duration: 0.04, type: "square", volume: 0.04, delay: 0.05 });
+  },
 };
+
+// ─────────────────────────────────────────────────────────────
+// FACTION AMBIENCE BUILDERS
+// ─────────────────────────────────────────────────────────────
+let activeFactionLoop: string | null = null;
+let factionTimers: number[] = [];
+
+function clearFactionTimers() {
+  factionTimers.forEach((t) => clearInterval(t));
+  factionTimers = [];
+}
+
+function factionAmbienceStop() {
+  activeFactionLoop = null;
+  clearFactionTimers();
+  stopLoop("faction");
+}
+
+function startTerminidAmbience() {
+  // Wet organic rumble + low pulsing drone. Random chitter spikes on top.
+  startLoop("faction", (c, dest) => {
+    // Low-pass filtered pink-ish noise via repeating noise buffers using oscillator + filter
+    const oscA = c.createOscillator();
+    oscA.type = "sine";
+    oscA.frequency.value = 58;
+    const oscB = c.createOscillator();
+    oscB.type = "sine";
+    oscB.frequency.value = 64; // slow beat with A
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 200;
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.06, c.currentTime + 1.6);
+    oscA.connect(lp);
+    oscB.connect(lp);
+    lp.connect(gain).connect(dest);
+    oscA.start();
+    oscB.start();
+    return { oscs: [oscA, oscB], gains: [gain] };
+  });
+  // Random chitter every 3-7s
+  factionTimers.push(
+    window.setInterval(() => {
+      if (activeFactionLoop !== "terminid") return;
+      // Quick bursts of high-passed noise + tiny chirp tone
+      noise({ channel: "ambient", duration: 0.06 + Math.random() * 0.05, volume: 0.05, highpass: 2200 });
+      tone({ channel: "ambient", freq: 1800 + Math.random() * 600, duration: 0.04, type: "square", volume: 0.025, delay: 0.02 });
+    }, 3000 + Math.random() * 4000)
+  );
+}
+
+function startAutomatonAmbience() {
+  // Deep generator hum + filtered noise (machinery) + occasional servo whir
+  startLoop("faction", (c, dest) => {
+    const oscA = c.createOscillator();
+    oscA.type = "sawtooth";
+    oscA.frequency.value = 70;
+    const oscB = c.createOscillator();
+    oscB.type = "square";
+    oscB.frequency.value = 35;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 220;
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.05, c.currentTime + 1.4);
+    oscA.connect(lp);
+    oscB.connect(lp);
+    lp.connect(gain).connect(dest);
+    oscA.start();
+    oscB.start();
+    return { oscs: [oscA, oscB], gains: [gain] };
+  });
+  factionTimers.push(
+    window.setInterval(() => {
+      if (activeFactionLoop !== "automaton") return;
+      // Servo whir — pitched filter sweep
+      tone({ channel: "ambient", freq: 480, endFreq: 280, duration: 0.18, type: "sawtooth", volume: 0.04 });
+    }, 4500 + Math.random() * 3500)
+  );
+}
+
+function startIlluminateAmbience() {
+  // Harmonic shimmer pad + ethereal high overtones
+  startLoop("faction", (c, dest) => {
+    // Three slightly-detuned sines for harmonic shimmer
+    const oscA = c.createOscillator();
+    oscA.type = "sine";
+    oscA.frequency.value = 138;
+    const oscB = c.createOscillator();
+    oscB.type = "sine";
+    oscB.frequency.value = 207;
+    const oscC = c.createOscillator();
+    oscC.type = "sine";
+    oscC.frequency.value = 415;
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.035, c.currentTime + 1.8);
+    oscA.connect(gain);
+    oscB.connect(gain);
+    oscC.connect(gain);
+    gain.connect(dest);
+    oscA.start();
+    oscB.start();
+    oscC.start();
+    return { oscs: [oscA, oscB, oscC], gains: [gain] };
+  });
+  factionTimers.push(
+    window.setInterval(() => {
+      if (activeFactionLoop !== "illuminate") return;
+      // Energy ping
+      tone({ channel: "ambient", freq: 1480, duration: 0.32, type: "sine", volume: 0.04 });
+      tone({ channel: "ambient", freq: 2218, duration: 0.32, type: "sine", volume: 0.025, delay: 0.04 });
+    }, 5500 + Math.random() * 4000)
+  );
+}
+
+function startSuperEarthAmbience() {
+  // Faint radio static + clean UI hum
+  startLoop("faction", (c, dest) => {
+    const osc = c.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 220;
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.03, c.currentTime + 1.5);
+    osc.connect(gain).connect(dest);
+    osc.start();
+    return { oscs: [osc], gains: [gain] };
+  });
+  factionTimers.push(
+    window.setInterval(() => {
+      if (activeFactionLoop !== "super_earth") return;
+      // Faint radio chirp + static
+      tone({ channel: "ambient", freq: 1200, duration: 0.04, type: "square", volume: 0.03 });
+      noise({ channel: "ambient", duration: 0.10, volume: 0.025, highpass: 2000, delay: 0.05 });
+    }, 6500 + Math.random() * 5000)
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENCOUNTER MOOD BUILDERS
+// ─────────────────────────────────────────────────────────────
+let activeEncounterLoop: string | null = null;
+let encounterTimers: number[] = [];
+
+function clearEncounterTimers() {
+  encounterTimers.forEach((t) => clearInterval(t));
+  encounterTimers = [];
+}
+
+function encounterAmbienceStop() {
+  activeEncounterLoop = null;
+  clearEncounterTimers();
+  stopLoop("encounter");
+}
+
+function startCombatMood() {
+  // Distant booms + mid-range rumble
+  startLoop("encounter", (c, dest) => {
+    const osc = c.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.value = 95;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 180;
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.04, c.currentTime + 1.0);
+    osc.connect(lp).connect(gain).connect(dest);
+    osc.start();
+    return { oscs: [osc], gains: [gain] };
+  });
+  // Distant boom every 5-12s
+  encounterTimers.push(
+    window.setInterval(() => {
+      if (activeEncounterLoop !== "combat") return;
+      sfx.distantBoom();
+    }, 5000 + Math.random() * 7000)
+  );
+}
+
+function startCivilianMood() {
+  // Low murmur + occasional voice-like tone
+  startLoop("encounter", (c, dest) => {
+    const osc = c.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 165;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 350;
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.03, c.currentTime + 1.4);
+    osc.connect(lp).connect(gain).connect(dest);
+    osc.start();
+    return { oscs: [osc], gains: [gain] };
+  });
+}
+
+function startRiskMood() {
+  // Detuned saw drone — uneasy, dissonant
+  startLoop("encounter", (c, dest) => {
+    const oscA = c.createOscillator();
+    oscA.type = "sawtooth";
+    oscA.frequency.value = 130;
+    const oscB = c.createOscillator();
+    oscB.type = "sawtooth";
+    oscB.frequency.value = 134; // slow beat
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 400;
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.035, c.currentTime + 1.5);
+    oscA.connect(lp);
+    oscB.connect(lp);
+    lp.connect(gain).connect(dest);
+    oscA.start();
+    oscB.start();
+    return { oscs: [oscA, oscB], gains: [gain] };
+  });
+}
+
+function startRewardMood() {
+  // Bright clean shimmer
+  startLoop("encounter", (c, dest) => {
+    const oscA = c.createOscillator();
+    oscA.type = "sine";
+    oscA.frequency.value = 523; // C5
+    const oscB = c.createOscillator();
+    oscB.type = "sine";
+    oscB.frequency.value = 784; // G5
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.025, c.currentTime + 1.8);
+    oscA.connect(gain);
+    oscB.connect(gain);
+    gain.connect(dest);
+    oscA.start();
+    oscB.start();
+    return { oscs: [oscA, oscB], gains: [gain] };
+  });
+}
+
+function startHazardMood() {
+  // Sub-bass rumble + scattered noise hits
+  startLoop("encounter", (c, dest) => {
+    const osc = c.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.value = 42;
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.05, c.currentTime + 1.2);
+    osc.connect(gain).connect(dest);
+    osc.start();
+    return { oscs: [osc], gains: [gain] };
+  });
+  // Scattered noise hits every 3-5s
+  encounterTimers.push(
+    window.setInterval(() => {
+      if (activeEncounterLoop !== "hazard") return;
+      noise({ channel: "ambient", duration: 0.18, volume: 0.05, lowpass: 500 });
+    }, 3000 + Math.random() * 2500)
+  );
+}
+
+function startCommandMood() {
+  // Clean sine pulse — controlled, structured
+  startLoop("encounter", (c, dest) => {
+    const osc = c.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 264;
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.025, c.currentTime + 1.2);
+    osc.connect(gain).connect(dest);
+    osc.start();
+    return { oscs: [osc], gains: [gain] };
+  });
+  // Soft data-processing chirp every 4-6s
+  encounterTimers.push(
+    window.setInterval(() => {
+      if (activeEncounterLoop !== "command") return;
+      tone({ channel: "ambient", freq: 1760, duration: 0.04, type: "sine", volume: 0.025 });
+    }, 4000 + Math.random() * 2500)
+  );
+}

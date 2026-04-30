@@ -27,6 +27,7 @@ import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGame } from "@/lib/store";
 import { sfx } from "@/lib/sfx";
+import { audio, initAudioMixer } from "@/lib/audioMixer";
 import { EVENTS, ChoiceEvent, ChoiceOption, EventEffect } from "@/lib/events";
 import {
   getEncounterTheme,
@@ -163,11 +164,28 @@ export default function EventScreen() {
     return getEncounterTheme(eventFaction, event.type ?? "civilian", event.intensity ?? "medium");
   }, [event, faction]);
 
-  // Mount audio cue (faction-tinted via theme.audioBeacon — single sfx for now)
+  // ── Audio: faction + encounter ambience driven by theme ──
   useEffect(() => {
+    initAudioMixer();
     sfx.unlock();
     sfx.beacon();
-  }, []);
+
+    // Start the layered ambience matching this encounter
+    sfx.factionAmbienceStart(theme.faction);
+    sfx.encounterAmbienceStart(theme.type);
+
+    // Intensity-driven warning chirp on critical encounters
+    let spikeTimer: number | null = null;
+    if (theme.intensity === "critical") {
+      spikeTimer = window.setInterval(() => sfx.criticalChirp(), 6500);
+    }
+
+    return () => {
+      sfx.factionAmbienceStop();
+      sfx.encounterAmbienceStop();
+      if (spikeTimer) window.clearInterval(spikeTimer);
+    };
+  }, [theme.faction, theme.type, theme.intensity]);
 
   // Keyboard hotkeys (1 / 2 / 3 …)
   useEffect(() => {
@@ -718,7 +736,11 @@ function DecisionCard({
       onMouseEnter={() => {
         if (anyLocked) return;
         onHover();
-        sfx.click();
+        // Themed hover: reward = bright chime, risk = low distortion, neutral = soft tick
+        const tone = getChoiceTone(choice);
+        if (tone === "reward") sfx.hoverReward();
+        else if (tone === "risk") sfx.hoverRisk();
+        else sfx.hoverNeutral();
       }}
       onMouseLeave={() => {
         setMouseX(null);

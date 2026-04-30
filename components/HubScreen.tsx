@@ -25,6 +25,8 @@ import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGame } from "@/lib/store";
 import { sfx, isMuted, setMuted } from "@/lib/sfx";
+import { initAudioMixer } from "@/lib/audioMixer";
+import AudioSettingsPanel from "./AudioSettingsPanel";
 import {
   ARMORS,
   WEAPONS,
@@ -244,8 +246,10 @@ function HubTopBar({
   const [muted, setMutedState] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(account.helldiverName ?? "");
+  const [audioPanelOpen, setAudioPanelOpen] = useState(false);
 
   useEffect(() => {
+    initAudioMixer();
     setMuted(settings.muted);
     setMutedState(settings.muted);
   }, [settings.muted]);
@@ -385,8 +389,23 @@ function HubTopBar({
             }}
             title="Stratagem code minigame"
           />
+          <SettingChip
+            active={audioPanelOpen}
+            label="🎚"
+            onClick={() => {
+              sfx.unlock();
+              sfx.click();
+              setAudioPanelOpen((v) => !v);
+            }}
+            title="Audio mixer · master + per-layer volumes"
+          />
         </div>
       </div>
+
+      <AudioSettingsPanel
+        open={audioPanelOpen}
+        onClose={() => setAudioPanelOpen(false)}
+      />
 
       {/* Sub-row · XP bar */}
       <div className="px-4 md:px-6 pb-2 flex items-center gap-3">
