@@ -25,6 +25,9 @@ import TensionDebugPanel from "@/components/tension/TensionDebugPanel";
 import EventFeedHud from "@/components/hud/EventFeedHud";
 import ImpactFlash from "@/components/vfx/ImpactFlash";
 import ScreenShake from "@/components/vfx/ScreenShake";
+import PageTransitionProvider from "@/components/transitions/PageTransitionProvider";
+import PageTransitionWrapper from "@/components/transitions/PageTransitionWrapper";
+import TransitionOverlay from "@/components/transitions/TransitionOverlay";
 
 const IN_RUN_PHASES = new Set(["map", "combat", "reward", "rest", "event", "shop"]);
 
@@ -102,7 +105,10 @@ export default function Page() {
     <>
       {/* ScreenShake wraps the entire app so feedback events can shake the world without a remount cost on each shake. */}
       <ScreenShake>
-        {view}
+        {/* PageTransitionWrapper handles AnimatePresence between phase swaps. */}
+        <PageTransitionWrapper>
+          {view}
+        </PageTransitionWrapper>
       </ScreenShake>
 
       {IN_RUN_PHASES.has(phase) && <ObjectiveToast />}
@@ -110,6 +116,10 @@ export default function Page() {
       {/* Game-feel layer — toast feed + impact flash float above the app. */}
       <EventFeedHud />
       <ImpactFlash />
+
+      {/* Transition layer — provider watches phase, overlay renders the visual choreography. */}
+      <PageTransitionProvider />
+      <TransitionOverlay />
 
       {/* Tension system — provider runs always (no-op outside runs);
           overlay only renders for alert+; debug panel is opt-in. */}
