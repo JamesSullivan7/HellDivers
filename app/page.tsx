@@ -25,6 +25,8 @@ import TensionDebugPanel from "@/components/tension/TensionDebugPanel";
 import EventFeedHud from "@/components/hud/EventFeedHud";
 import ImpactFlash from "@/components/vfx/ImpactFlash";
 import ScreenShake from "@/components/vfx/ScreenShake";
+import VFXLayer from "@/components/vfx/VFXLayer";
+import VFXProvider from "@/components/vfx/VFXProvider";
 import PageTransitionProvider from "@/components/transitions/PageTransitionProvider";
 import PageTransitionWrapper from "@/components/transitions/PageTransitionWrapper";
 import TransitionOverlay from "@/components/transitions/TransitionOverlay";
@@ -116,6 +118,10 @@ export default function Page() {
       {/* Game-feel layer — toast feed + impact flash float above the app. */}
       <EventFeedHud />
       <ImpactFlash />
+
+      {/* VFX system — provider bridges feedback events into VFX, layer renders all active effects. */}
+      <VFXProvider />
+      <VFXLayer />
 
       {/* Transition layer — provider watches phase, overlay renders the visual choreography. */}
       <PageTransitionProvider />
