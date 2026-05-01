@@ -61,35 +61,22 @@ export default function HubCommandCenterBackground() {
       {/* z-0  — solid fallback when image hasn't loaded yet / asset missing */}
       <div className="absolute inset-0" style={{ background: "#0a0d12" }} aria-hidden />
 
-      {/* z-10 — hero plate */}
-      <picture aria-hidden>
-        <source
-          media="(max-width: 768px)"
-          srcSet="/art/hub/command_center_mobile.avif"
-          type="image/avif"
-        />
-        <source
-          media="(max-width: 768px)"
-          srcSet="/art/hub/command_center_mobile.webp"
-          type="image/webp"
-        />
-        <source srcSet="/art/hub/command_center.avif" type="image/avif" />
-        <source srcSet="/art/hub/command_center.webp" type="image/webp" />
-        <img
-          src="/art/hub/command_center.jpg"
-          alt=""
-          aria-hidden
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ objectPosition: "center 35%" }}
-          loading="eager"
-          decoding="async"
-          // If the asset 404s, drop opacity to 0 so the solid fallback shows
-          // through with no ugly broken-image icon flash.
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.opacity = "0";
-          }}
-        />
-      </picture>
+      {/* z-10 — hero plate. JPEG-only for now; AVIF/WebP can be added later
+          and re-introduced as <source> entries when they exist on disk. */}
+      <img
+        src="/art/hub/command_center.jpg"
+        alt=""
+        aria-hidden
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ objectPosition: "center 35%" }}
+        loading="eager"
+        decoding="async"
+        onError={(e) => {
+          // If the asset is missing, fade to 0 so the solid #0a0d12 fallback
+          // shows instead of a broken-image icon.
+          (e.currentTarget as HTMLImageElement).style.opacity = "0";
+        }}
+      />
 
       {/* z-20 — UI safe-zone darkening (horizontal + vertical) */}
       <div
