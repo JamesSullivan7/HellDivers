@@ -3,14 +3,13 @@
 import { useState } from "react";
 import clsx from "clsx";
 import { motion } from "framer-motion";
-import { useGame } from "@/lib/store";
 import { sfx } from "@/lib/sfx";
 import { CARD_LIBRARY } from "@/lib/cards";
 import { ENEMY_TEMPLATES } from "@/lib/enemies";
 import { ARMORS, WEAPONS, BOOSTERS } from "@/lib/loadout";
 import { getEnemyArt, getCardArt } from "@/lib/artManifest";
-import StarField from "./StarField";
 import HudFrame from "./HudFrame";
+import HubFrame from "./hub/HubFrame";
 import StratagemCard from "./cards/StratagemCard";
 import { FactionIcon } from "@/lib/icons";
 import { Faction, EnemyTemplate } from "@/lib/types";
@@ -23,7 +22,6 @@ type StratagemFilter = (typeof STRATAGEM_FILTERS)[number];
 type FactionFilter = (typeof FACTION_FILTERS)[number];
 
 export default function CodexScreen() {
-  const { goToMenu } = useGame();
   const [tab, setTab] = useState<Tab>("stratagems");
   const [stratFilter, setStratFilter] = useState<StratagemFilter>("all");
   const [factionFilter, setFactionFilter] = useState<FactionFilter>("all");
@@ -38,34 +36,11 @@ export default function CodexScreen() {
   ];
 
   return (
-    <div className="min-h-screen text-white font-mono p-6 relative">
-      <StarField />
-
-      <div className="max-w-7xl mx-auto relative z-10">
-        {/* Header */}
-        <div className="mb-5 flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.4em] text-helldiver-yellow mb-1">
-              ◢ Super Earth Field Codex · All Approved Materiel ◣
-            </div>
-            <div className="text-3xl font-display font-black tracking-tight">
-              CODEX
-            </div>
-            <div className="text-[10px] text-helldiver-dim uppercase tracking-widest">
-              Browse every Stratagem, Armor, Weapon, Booster, and confirmed Hostile.
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              sfx.click();
-              goToMenu();
-            }}
-            className="px-4 py-2 border-2 border-helldiver-steel text-helldiver-dim hover:border-helldiver-yellow hover:text-helldiver-yellow font-display font-bold uppercase tracking-widest text-xs transition-colors"
-          >
-            ◀ Bridge
-          </button>
-        </div>
-
+    <HubFrame
+      title="Codex"
+      subtitle="Super Earth Field Codex · All Approved Materiel"
+    >
+      <div className="max-w-7xl mx-auto">
         {/* Tabs */}
         <div className="flex flex-wrap items-center gap-1 mb-4">
           {tabs.map((t) => (
@@ -167,7 +142,7 @@ export default function CodexScreen() {
           <EnemyTab faction={factionFilter} onlyMissingArt={showOnlyMissingArt} />
         )}
       </div>
-    </div>
+    </HubFrame>
   );
 }
 

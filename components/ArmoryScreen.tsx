@@ -10,7 +10,7 @@ import { getCardCost, SHIP_MODULES } from "@/lib/account";
 import { CAPES, TITLES } from "@/lib/cosmetics";
 import HudFrame from "./HudFrame";
 import CardView from "./CardView";
-import AppShell from "./shell/AppShell";
+import HubFrame from "./hub/HubFrame";
 import OutfitterPanel from "./OutfitterPanel";
 
 type Tab = "outfitter" | "warbonds" | "modules" | "cosmetics";
@@ -62,20 +62,11 @@ export default function ArmoryScreen() {
   };
 
   return (
-    <AppShell activeNav="armory">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div className="mb-tok-5">
-          <div className="text-[10px] uppercase tracking-[0.4em] text-accent-yellow mb-1">
-            ◢ Destroyer Armory · Acquisitions Division ◣
-          </div>
-          <div className="text-3xl font-display font-black tracking-tight">
-            ARMORY · <span className="text-accent-yellow">SES DEMOCRATIC FLAME</span>
-          </div>
-        </div>
-
+    <HubFrame
+      title="Armory"
+      subtitle="Acquisitions Division · S.E.S. Democratic Flame"
+    >
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         {/* Tabs */}
         <div className="flex items-center justify-center gap-1 mb-5 flex-wrap">
           <button
@@ -383,6 +374,6 @@ export default function ArmoryScreen() {
         </AnimatePresence>
 
       </motion.div>
-    </AppShell>
+    </HubFrame>
   );
 }

@@ -11,7 +11,7 @@ import { loadWarState, listPlanets, PlanetState, WarState } from "@/lib/galactic
 import HudFrame from "./HudFrame";
 import MajorOrderBanner from "./MajorOrderBanner";
 import ActivityTicker from "./ActivityTicker";
-import AppShell from "./shell/AppShell";
+import HubFrame from "./hub/HubFrame";
 import { FactionIcon } from "@/lib/icons";
 
 const DIFF_LABELS: Record<number, string> = {
@@ -72,18 +72,22 @@ export default function GalacticWarScreen() {
   }, [selected, difficulty, seed]);
 
   return (
-    <AppShell activeNav="war">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <div className="text-center mb-5">
-          <div className="text-[10px] uppercase tracking-[0.4em] text-helldiver-yellow mb-1 flex items-center justify-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-blink" />
-            ◢ Galactic War · Sector Command ◣
-          </div>
-          <div className="text-4xl font-display font-black tracking-tight">
-            STRATEGIC <span className="text-helldiver-yellow">DEPLOYMENT MAP</span>
-          </div>
+    <HubFrame
+      title="Strategic Deployment Map"
+      subtitle="Galactic War · Sector Command"
+      badge={
+        <div
+          className="px-3 py-1.5 border flex items-center gap-2"
+          style={{ borderColor: "rgba(16,185,129,0.55)", background: "rgba(16,185,129,0.1)", borderRadius: 1 }}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-[10px] uppercase tracking-[0.3em] font-black text-emerald-400">
+            COMMAND ACTIVE
+          </span>
         </div>
-
+      }
+    >
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         {majorOrder && war && <MajorOrderBanner warState={war} />}
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 mb-5">
@@ -293,7 +297,7 @@ export default function GalacticWarScreen() {
           </div>
         </div>
       </motion.div>
-    </AppShell>
+    </HubFrame>
   );
 }
 

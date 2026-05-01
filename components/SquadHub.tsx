@@ -7,10 +7,10 @@ import { api } from "@/convex/_generated/api";
 import { useGame } from "@/lib/store";
 import { sfx } from "@/lib/sfx";
 import HudFrame from "./HudFrame";
-import AppShell from "./shell/AppShell";
+import HubFrame from "./hub/HubFrame";
 
 export default function SquadHub() {
-  const { account, goToMenu, goToSquadLobby } = useGame();
+  const { account, goToSquadLobby } = useGame();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,24 +59,19 @@ export default function SquadHub() {
   };
 
   return (
-    <AppShell activeNav="squad">
+    <HubFrame
+      title="Form a Squad"
+      subtitle="Squad Operations · Joint Deployment"
+    >
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-2xl mx-auto"
       >
-        <div className="text-center mb-6">
-          <div className="text-[10px] uppercase tracking-[0.4em] text-helldiver-yellow mb-1">
-            ◢ Squad Operations · Joint Deployment ◣
-          </div>
-          <div className="text-4xl font-display font-black tracking-tight mb-2">
-            FORM A <span className="text-helldiver-yellow">SQUAD</span>
-          </div>
-          <div className="text-xs text-gray-400 max-w-xl mx-auto">
-            Up to 4 Helldivers per squad. Live chat, voice comms, and shared planet contributions.
-            Each member runs their own combat — squad coordinates and pushes liberation together.
-          </div>
-        </div>
+        <p className="text-xs text-center mb-6" style={{ color: "rgba(255,255,255,0.55)" }}>
+          Up to 4 Helldivers per squad. Live chat, voice comms, and shared planet contributions.
+          Each member runs their own combat — squad coordinates and pushes liberation together.
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <HudFrame label="Create New Squad" accent="yellow" className="p-5">
@@ -127,6 +122,6 @@ export default function SquadHub() {
         )}
 
       </motion.div>
-    </AppShell>
+    </HubFrame>
   );
 }

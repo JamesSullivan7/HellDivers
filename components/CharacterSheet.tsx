@@ -19,8 +19,8 @@ import {
 } from "@/lib/loadout";
 import { getHelldiverRank, xpToLevelUp, SHIP_MODULES } from "@/lib/account";
 import { CAPES, getCape, getTitle } from "@/lib/cosmetics";
-import StarField from "./StarField";
 import HudFrame from "./HudFrame";
+import HubFrame from "./hub/HubFrame";
 
 const TIER_LABEL: Record<number, string> = { 1: "MK I", 2: "MK II", 3: "MK III" };
 const TIER_COLOR: Record<number, string> = {
@@ -39,7 +39,7 @@ const MAX_REQUISITION = 4;
 const BASE_HAND_SIZE = 5;
 
 export default function CharacterSheet() {
-  const { account, goToMenu, goToArmory } = useGame();
+  const { account, goToArmory } = useGame();
 
   // Players have multiple owned items per slot — let them try-on different gear
   // here without committing to a run. This is a preview-only paper-doll.
@@ -89,42 +89,19 @@ export default function CharacterSheet() {
   const xpPct = Math.min(100, (account.xp / xpNext) * 100);
 
   return (
-    <div className="min-h-screen text-white font-mono p-6 relative">
-      <StarField />
-
-      <div className="max-w-6xl mx-auto relative z-10">
-        {/* Header */}
-        <div className="mb-5 flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.4em] text-helldiver-yellow mb-1">
-              ◢ Helldiver Service Record · Personal Sheet ◣
-            </div>
-            <div className="text-3xl font-display font-black tracking-tight">
-              CHARACTER SHEET
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                sfx.click();
-                goToArmory();
-              }}
-              className="px-4 py-2 border-2 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-black font-display font-bold uppercase tracking-widest text-xs transition-colors"
-            >
-              ⌥ Outfitter
-            </button>
-            <button
-              onClick={() => {
-                sfx.click();
-                goToMenu();
-              }}
-              className="px-4 py-2 border-2 border-helldiver-steel text-helldiver-dim hover:border-helldiver-yellow hover:text-helldiver-yellow font-display font-bold uppercase tracking-widest text-xs transition-colors"
-            >
-              ◀ Bridge
-            </button>
-          </div>
-        </div>
-
+    <HubFrame
+      title="Character Sheet"
+      subtitle="Helldiver Service Record · Personal Sheet"
+      badge={
+        <button
+          onClick={() => { sfx.click(); goToArmory(); }}
+          className="px-4 py-2 border-2 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-black font-display font-bold uppercase tracking-widest text-xs transition-colors"
+        >
+          ⌥ Outfitter
+        </button>
+      }
+    >
+      <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-[300px_1fr_280px] gap-4">
           {/* LEFT — Identity + Rank */}
           <div className="space-y-4">
@@ -315,7 +292,7 @@ export default function CharacterSheet() {
           </div>
         </div>
       </div>
-    </div>
+    </HubFrame>
   );
 }
 
