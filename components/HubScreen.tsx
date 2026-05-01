@@ -324,9 +324,9 @@ function LeftPanel({
         </div>
       </section>
 
-      {/* DASHBOARD — bigger tiles, stronger pop */}
-      <section className="px-3 py-4 flex-1 min-h-0 flex flex-col">
-        <div className="flex items-center justify-between px-2 mb-3">
+      {/* DASHBOARD — bigger tiles, stronger pop, scrolls if it overflows */}
+      <section className="px-3 pt-4 pb-3 flex-1 min-h-0 flex flex-col">
+        <div className="flex items-center justify-between px-2 mb-3 shrink-0">
           <h3
             className="text-[10px] uppercase tracking-[0.4em] font-display font-black"
             style={{ color: C.yellow, textShadow: `0 0 4px ${C.yellow}66` }}
@@ -336,13 +336,29 @@ function LeftPanel({
           <span className="text-[8px] uppercase tracking-[0.3em]" style={{ color: C.textDim }}>5 routes</span>
         </div>
 
-        <nav className="flex flex-col gap-2">
+        {/* Scroll container — pr-2 + -mr-1 so the scrollbar tucks against
+            the panel edge without crowding the tile borders. */}
+        <nav
+          className="flex flex-col gap-2 overflow-y-auto pr-2 -mr-1 hub-dashboard-scroll"
+          style={{ scrollbarWidth: "thin", scrollbarColor: `${C.yellow}55 transparent` }}
+        >
           <DashItem icon="✦" label="Galactic Map"  sub="Sector Deployment"      onClick={onWar} />
           <DashItem icon="◇" label="Loadout"        sub="Equipment · Stratagems" onClick={onLoadout} />
           <DashItem icon="⌥" label="Armory"         sub="Weapons · Stratagems"   onClick={onArmory} />
           <DashItem icon="◊" label="Research"       sub="Codex · Lore"           onClick={onResearch} />
           <DashItem icon="⚙" label="Settings"       sub="Audio · Accessibility"  onClick={onSettings} />
         </nav>
+
+        {/* Webkit scrollbar styling — thin yellow track. */}
+        <style jsx>{`
+          .hub-dashboard-scroll::-webkit-scrollbar { width: 6px; }
+          .hub-dashboard-scroll::-webkit-scrollbar-track { background: transparent; }
+          .hub-dashboard-scroll::-webkit-scrollbar-thumb {
+            background: ${C.yellow}55;
+            border-radius: 3px;
+          }
+          .hub-dashboard-scroll::-webkit-scrollbar-thumb:hover { background: ${C.yellow}88; }
+        `}</style>
       </section>
     </aside>
   );
