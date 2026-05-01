@@ -373,12 +373,23 @@ function CurrencyChip({ glyph, label, value, accent }: { glyph: string; label: s
 // ══════════════════════════════════════════════════════════════════════
 //  LEFT NAV — 5 items + identity card
 // ══════════════════════════════════════════════════════════════════════
-const NAV_ITEMS = [
-  { key: "war",      label: "GALACTIC MAP", sub: "SECTOR DEPLOYMENT", icon: "✦" },
-  { key: "loadout",  label: "LOADOUT",       sub: "EQUIPMENT · STRATAGEMS", icon: "◇" },
-  { key: "armory",   label: "ARMORY",        sub: "WARBONDS · MODULES",     icon: "⌥" },
-  { key: "research", label: "RESEARCH",      sub: "CODEX · LORE",           icon: "◊" },
-  { key: "settings", label: "SETTINGS",      sub: "AUDIO · ACCESSIBILITY",  icon: "⚙" },
+interface NavItemDef {
+  key: string;
+  label: string;
+  sub: string;
+  /** Stratagem-code direction sequence — purely decorative tactical glyph. */
+  code: ReadonlyArray<"U" | "D" | "L" | "R">;
+  /** Optional status — drives the LED color on the button. */
+  status?: "ready" | "new" | "locked";
+  badge?: string;
+}
+
+const NAV_ITEMS: readonly NavItemDef[] = [
+  { key: "war",      label: "GALACTIC MAP", sub: "SECTOR DEPLOYMENT",      code: ["U", "U", "R", "D", "L"], status: "ready" },
+  { key: "loadout",  label: "LOADOUT",       sub: "EQUIPMENT · STRATAGEMS", code: ["D", "R", "U", "U"],      status: "ready" },
+  { key: "armory",   label: "ARMORY",        sub: "WARBONDS · MODULES",     code: ["D", "U", "L", "R"],      status: "new", badge: "NEW" },
+  { key: "research", label: "RESEARCH",      sub: "CODEX · LORE",           code: ["U", "L", "D", "R"],      status: "ready" },
+  { key: "settings", label: "SETTINGS",      sub: "AUDIO · ACCESSIBILITY",  code: ["D", "D", "U", "U"],      status: "ready" },
 ] as const;
 
 function LeftNav({
@@ -394,120 +405,427 @@ function LeftNav({
   const rank = getHelldiverRank(account.level);
   const xpNext = xpToLevelUp(account.level);
   const xpPct = Math.min(100, (account.xp / xpNext) * 100);
+  const serial = useMemo(() => deriveSerial(account.helldiverName ?? "HELLDIVER"), [account.helldiverName]);
 
   return (
     <nav
       className="hidden md:flex flex-col border-r relative overflow-hidden"
-      style={{ borderColor: C.borderSoft, background: "rgba(0,0,0,0.45)" }}
+      style={{
+        borderColor: C.borderSoft,
+        background: `linear-gradient(180deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.62) 100%)`,
+      }}
     >
-      {/* Inner edge glow — gives the nav its "ship-frame" feel */}
+      {/* Top hazard stripe — seals the panel like a ship console bezel */}
+      <NavHazardStripe />
+
+      {/* Inner edge glow on the right */}
       <div
         aria-hidden
-        className="absolute inset-y-0 right-0 w-px"
+        className="absolute inset-y-0 right-0 w-px pointer-events-none"
         style={{ background: `linear-gradient(180deg, transparent, ${C.yellowFaint}, transparent)` }}
       />
+      {/* Vertical "rivet rail" — six little dots evenly spaced */}
+      <RivetRail />
 
-      {/* Nav items */}
-      <ul className="flex-1 flex flex-col gap-1 p-2.5">
-        {NAV_ITEMS.map((item) => (
+      {/* INSIGNIA BLOCK */}
+      <div className="px-4 pt-4 pb-3 relative">
+        <div className="flex items-start gap-3">
+          <HelldiversEmblem size={56} />
+          <div className="flex flex-col leading-none pt-1 min-w-0 flex-1">
+            <span
+              className="text-[15px] font-display font-black tracking-[0.18em]"
+              style={{ color: C.yellow, textShadow: `0 0 6px ${C.yellowGlow}` }}
+            >
+              HELLDIVERS
+            </span>
+            <div className="flex items-center gap-1 mt-1">
+              <span aria-hidden style={{ display: "inline-block", width: 8, height: 1, background: C.yellow }} />
+              <span className="text-[8px] uppercase tracking-[0.4em]" style={{ color: C.textDim }}>STRATAGEM PROTOCOL</span>
+            </div>
+            <span className="text-[7px] uppercase tracking-[0.25em] mt-2" style={{ color: C.textFaint }}>
+              S.E.S. DEMOCRATIC FLAME
+            </span>
+            <span className="text-[7px] uppercase tracking-[0.3em] tabular-nums" style={{ color: C.yellow }}>
+              CV-77 · ACTIVE
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Section header */}
+      <SectionLabel>Command Console</SectionLabel>
+
+      {/* NAV ITEMS */}
+      <ul className="flex flex-col">
+        {NAV_ITEMS.map((item, i) => (
           <li key={item.key}>
             <NavButton
-              icon={item.icon}
-              label={item.label}
-              sub={item.sub}
+              index={i + 1}
+              item={item}
               onClick={handlers[item.key]}
+              showDivider={i < NAV_ITEMS.length - 1}
             />
           </li>
         ))}
       </ul>
 
-      {/* Identity card pinned to bottom */}
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Section header */}
+      <SectionLabel>Helldiver Profile</SectionLabel>
+
+      {/* SERVICE TAG */}
       <div
-        className="m-2.5 p-2.5 border relative"
+        className="m-3 mt-2 p-3 border relative"
         style={{
           borderColor: C.border,
-          background: `linear-gradient(180deg, ${C.panelGlass}, ${C.panelGlassDeep})`,
+          background: `linear-gradient(180deg, ${C.panelGlass} 0%, ${C.panelGlassDeep} 100%)`,
+          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04), 0 6px 18px rgba(0,0,0,0.5)`,
           borderRadius: 1,
         }}
       >
-        <CornerBrackets accent={C.yellow} size={8} />
-        <div className="flex items-center gap-2 mb-2">
+        <CornerBrackets accent={C.yellow} size={9} />
+
+        {/* Top row — rank chevrons */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[7px] uppercase tracking-[0.4em] font-display font-black" style={{ color: C.yellow }}>
+            ◢ ENLISTED
+          </span>
+          <RankChevrons level={account.level} />
+        </div>
+
+        {/* Middle — level tile + identity */}
+        <div className="flex items-center gap-2.5 mb-2">
           <div
-            className="w-9 h-9 flex flex-col items-center justify-center border font-display font-black"
+            className="relative w-12 h-12 flex flex-col items-center justify-center border-2 shrink-0"
             style={{
               borderColor: C.yellow,
-              background: `${C.yellow}10`,
-              color: C.yellow,
+              background: `linear-gradient(135deg, ${C.yellow}28, ${C.yellow}08)`,
+              boxShadow: `0 0 10px ${C.yellowGlow}, inset 0 0 8px ${C.yellow}22`,
               borderRadius: 1,
-              boxShadow: `0 0 8px ${C.yellowGlow}`,
             }}
           >
-            <span className="text-[14px] leading-none tabular-nums">{account.level}</span>
-            <span className="text-[6px] uppercase tracking-widest mt-0.5">{rank.abbr}</span>
+            <span aria-hidden style={{ position: "absolute", top: -1, left: -1, width: 5, height: 5, borderTop: `2px solid ${C.bg0}`, borderLeft: `2px solid ${C.bg0}` }} />
+            <span aria-hidden style={{ position: "absolute", top: -1, right: -1, width: 5, height: 5, borderTop: `2px solid ${C.bg0}`, borderRight: `2px solid ${C.bg0}` }} />
+            <span aria-hidden style={{ position: "absolute", bottom: -1, left: -1, width: 5, height: 5, borderBottom: `2px solid ${C.bg0}`, borderLeft: `2px solid ${C.bg0}` }} />
+            <span aria-hidden style={{ position: "absolute", bottom: -1, right: -1, width: 5, height: 5, borderBottom: `2px solid ${C.bg0}`, borderRight: `2px solid ${C.bg0}` }} />
+            <span className="text-[7px] uppercase tracking-widest" style={{ color: C.textDim }}>LV</span>
+            <span
+              className="text-[20px] font-display font-black tabular-nums leading-none"
+              style={{ color: C.yellow, textShadow: `0 0 8px ${C.yellow}` }}
+            >
+              {account.level}
+            </span>
           </div>
-          <div className="flex flex-col leading-none min-w-0">
+          <div className="flex flex-col leading-none min-w-0 flex-1">
             <span className="text-[7px] uppercase tracking-[0.3em]" style={{ color: C.textDim }}>{rank.title}</span>
-            <span className="text-[11px] font-display font-black tracking-wider truncate mt-0.5" style={{ color: C.yellow }}>
+            <span
+              className="text-[12px] font-display font-black tracking-wider truncate mt-1"
+              style={{ color: C.yellow, textShadow: `0 0 4px ${C.yellow}55` }}
+            >
               {account.helldiverName ?? "HELLDIVER"}
+            </span>
+            <span className="text-[7px] uppercase tracking-[0.3em] tabular-nums mt-1" style={{ color: C.textFaint }}>
+              S/N · {serial}
             </span>
           </div>
         </div>
-        <div className="flex items-center justify-between text-[8px] uppercase tracking-widest mb-1" style={{ color: C.textDim }}>
+
+        {/* XP — tick-marked progress */}
+        <div className="flex items-center justify-between text-[7px] uppercase tracking-[0.3em] mb-1" style={{ color: C.textDim }}>
           <span>EXPERIENCE</span>
-          <span className="tabular-nums">{account.xp}/{xpNext}</span>
+          <span className="tabular-nums" style={{ color: C.yellow }}>
+            {account.xp.toLocaleString()} / {xpNext.toLocaleString()}
+          </span>
         </div>
-        <div className="h-[3px]" style={{ background: "rgba(255,255,255,0.06)" }}>
+        <div className="relative h-[6px] border" style={{ borderColor: C.borderSoft, background: "rgba(255,255,255,0.04)" }}>
           <motion.div
-            className="h-full"
+            className="absolute inset-y-0 left-0"
             initial={false}
             animate={{ width: `${xpPct}%` }}
             transition={{ duration: 0.7, ease: "easeOut" }}
-            style={{ background: `linear-gradient(90deg, ${C.yellow}, ${C.orange})`, boxShadow: `0 0 6px ${C.yellow}` }}
+            style={{
+              background: `linear-gradient(90deg, ${C.yellow}, ${C.orange})`,
+              boxShadow: `0 0 6px ${C.yellow}cc`,
+            }}
           />
+          {/* Tick marks every 10% */}
+          {[10, 20, 30, 40, 50, 60, 70, 80, 90].map((tick) => (
+            <span
+              key={tick}
+              aria-hidden
+              className="absolute top-0 bottom-0"
+              style={{ left: `${tick}%`, width: 1, background: "rgba(0,0,0,0.4)" }}
+            />
+          ))}
         </div>
       </div>
+
+      {/* Bottom hazard stripe */}
+      <NavHazardStripe />
     </nav>
   );
 }
 
-function NavButton({ icon, label, sub, onClick }: { icon: string; label: string; sub: string; onClick: () => void }) {
+// ──────────────────────────────────────────────────────────────────────
+//  LEFT NAV · sub-components
+// ──────────────────────────────────────────────────────────────────────
+
+/** 8px-tall yellow/black diagonal hazard band that seals the nav top + bottom. */
+function NavHazardStripe() {
+  return (
+    <div
+      aria-hidden
+      className="h-2 w-full shrink-0"
+      style={{
+        background: `repeating-linear-gradient(-45deg, ${C.yellow} 0 6px, ${C.bg0} 6px 12px)`,
+        opacity: 0.7,
+      }}
+    />
+  );
+}
+
+/** Vertical column of evenly-spaced rivet dots along the left edge of the nav. */
+function RivetRail() {
+  return (
+    <div aria-hidden className="absolute left-1.5 top-12 bottom-12 flex flex-col justify-around pointer-events-none">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <span
+          key={i}
+          className="block rounded-full"
+          style={{
+            width: 3,
+            height: 3,
+            background: `${C.yellow}55`,
+            boxShadow: `inset 0 0 1px ${C.yellow}, 0 0 3px ${C.yellow}33`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Section divider header — "▸ COMMAND CONSOLE" style label between blocks. */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="px-4 py-1.5 flex items-center gap-2 border-y"
+      style={{ borderColor: C.borderSoft, background: "rgba(0,0,0,0.4)" }}
+    >
+      <span aria-hidden style={{ color: C.yellow, fontSize: 8 }}>▸</span>
+      <span className="text-[8px] uppercase tracking-[0.4em] font-display font-black" style={{ color: C.yellow }}>
+        {children}
+      </span>
+      <span aria-hidden className="flex-1 h-px" style={{ background: `linear-gradient(90deg, ${C.yellowFaint}, transparent)` }} />
+    </div>
+  );
+}
+
+/** Helldivers eagle/star insignia rendered as inline SVG. */
+function HelldiversEmblem({ size = 56 }: { size?: number }) {
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      {/* Outer hex frame */}
+      <svg viewBox="0 0 100 100" width={size} height={size} className="absolute inset-0">
+        <polygon
+          points="50,4 90,27 90,73 50,96 10,73 10,27"
+          fill="rgba(245,197,66,0.06)"
+          stroke={C.yellow}
+          strokeWidth="2.5"
+          style={{ filter: `drop-shadow(0 0 6px ${C.yellow}88)` }}
+        />
+        <polygon
+          points="50,12 82,30 82,70 50,88 18,70 18,30"
+          fill="none"
+          stroke={C.yellowDim}
+          strokeWidth="0.8"
+        />
+        {/* Eagle wings */}
+        <path d="M50 50 L18 38 L26 50 L18 62 Z" fill={C.yellow} opacity="0.9" />
+        <path d="M50 50 L82 38 L74 50 L82 62 Z" fill={C.yellow} opacity="0.9" />
+        {/* Center 5-point star */}
+        <polygon
+          points="50,32 54,44 67,44 56,52 60,64 50,57 40,64 44,52 33,44 46,44"
+          fill={C.yellow}
+          style={{ filter: `drop-shadow(0 0 3px ${C.yellow})` }}
+        />
+        {/* Tail / banner */}
+        <polygon points="46,66 50,76 54,66" fill={C.yellow} opacity="0.85" />
+      </svg>
+      {/* Inner soft glow */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `radial-gradient(circle at 50% 50%, ${C.yellowGlow} 0%, transparent 65%)`,
+          mixBlendMode: "screen",
+        }}
+      />
+    </div>
+  );
+}
+
+/** Three rank chevrons — fill color reflects level tier. */
+function RankChevrons({ level }: { level: number }) {
+  const filled = level >= 30 ? 3 : level >= 12 ? 2 : 1;
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3].map((i) => (
+        <span
+          key={i}
+          aria-hidden
+          className="font-display font-black"
+          style={{
+            color: i <= filled ? C.yellow : "rgba(255,255,255,0.18)",
+            fontSize: 9,
+            lineHeight: 1,
+            textShadow: i <= filled ? `0 0 4px ${C.yellow}88` : undefined,
+          }}
+        >
+          ◢
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Status LED dot for nav buttons — green/yellow/red driven by item.status. */
+function StatusLed({ status }: { status?: NavItemDef["status"] }) {
+  const color = status === "new" ? C.orange : status === "locked" ? C.red : C.green;
+  return (
+    <span
+      aria-hidden
+      className="inline-block rounded-full shrink-0"
+      style={{
+        width: 6,
+        height: 6,
+        background: color,
+        boxShadow: `0 0 6px ${color}, inset 0 0 1px rgba(0,0,0,0.4)`,
+      }}
+    />
+  );
+}
+
+/** Tiny stratagem-code arrow grid — purely decorative tactical glyph row. */
+function StratagemCode({ code }: { code: ReadonlyArray<"U" | "D" | "L" | "R"> }) {
+  const arrow: Record<"U" | "D" | "L" | "R", string> = { U: "▲", D: "▼", L: "◀", R: "▶" };
+  return (
+    <div className="flex items-center gap-0.5">
+      {code.map((dir, i) => (
+        <span
+          key={i}
+          aria-hidden
+          className="font-display"
+          style={{ color: `${C.yellow}88`, fontSize: 7, lineHeight: 1 }}
+        >
+          {arrow[dir]}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Numbered tactical nav button. */
+function NavButton({
+  index, item, onClick, showDivider,
+}: {
+  index: number;
+  item: NavItemDef;
+  onClick: () => void;
+  showDivider: boolean;
+}) {
+  const [hovered, setHovered] = useState(false);
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group w-full text-left px-2.5 py-2 border transition-all duration-200 relative overflow-hidden"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="group w-full text-left relative"
       style={{
-        borderColor: "transparent",
-        background: "transparent",
-        borderRadius: 1,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = C.borderHard;
-        e.currentTarget.style.background = `${C.yellow}0a`;
-        e.currentTarget.style.boxShadow = `inset 4px 0 0 ${C.yellow}, 0 0 14px ${C.yellow}22`;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "transparent";
-        e.currentTarget.style.background = "transparent";
-        e.currentTarget.style.boxShadow = "none";
+        background: hovered ? `linear-gradient(90deg, ${C.yellow}1c, transparent 80%)` : "transparent",
+        boxShadow: hovered ? `inset 4px 0 0 ${C.yellow}, inset 0 0 18px ${C.yellow}11` : "inset 4px 0 0 transparent",
+        transition: "background 200ms ease, box-shadow 200ms ease",
       }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-stretch px-3 py-2.5 gap-2.5">
+        {/* Index column */}
+        <div className="flex flex-col items-center justify-center w-7 shrink-0">
+          <span
+            className="text-[7px] uppercase tracking-widest"
+            style={{ color: hovered ? C.yellow : C.textFaint }}
+          >
+            {String(index).padStart(2, "0")}
+          </span>
+          <StatusLed status={item.status} />
+        </div>
+
+        {/* Vertical rule */}
         <span
-          className="font-display font-black w-4 text-center"
-          style={{ color: C.textDim, fontSize: 14, lineHeight: 1 }}
-        >
-          {icon}
-        </span>
-        <span className="text-[11px] uppercase tracking-[0.2em] font-display font-black" style={{ color: "rgba(255,255,255,0.85)" }}>
-          {label}
-        </span>
+          aria-hidden
+          className="self-stretch w-px"
+          style={{
+            background: hovered ? C.yellowDim : C.borderSoft,
+            boxShadow: hovered ? `0 0 4px ${C.yellow}55` : undefined,
+          }}
+        />
+
+        {/* Body */}
+        <div className="flex-1 min-w-0 flex flex-col leading-tight">
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="text-[12px] uppercase tracking-[0.18em] font-display font-black truncate"
+              style={{ color: hovered ? C.yellow : "rgba(255,255,255,0.92)", textShadow: hovered ? `0 0 4px ${C.yellow}88` : undefined }}
+            >
+              {item.label}
+            </span>
+            {item.badge && (
+              <span
+                className="text-[7px] uppercase tracking-[0.25em] font-black px-1 py-px border shrink-0"
+                style={{ color: C.orange, borderColor: C.orange, background: `${C.orange}14`, borderRadius: 1 }}
+              >
+                {item.badge}
+              </span>
+            )}
+          </div>
+          <span className="text-[8px] uppercase tracking-[0.25em] mt-1" style={{ color: C.textFaint }}>
+            {item.sub}
+          </span>
+          <div className="mt-1.5 flex items-center justify-between gap-2">
+            <StratagemCode code={item.code} />
+            <motion.span
+              aria-hidden
+              animate={{ x: hovered ? 4 : 0, opacity: hovered ? 1 : 0.4 }}
+              transition={{ duration: 0.18 }}
+              className="font-display font-black"
+              style={{ color: C.yellow, fontSize: 11, lineHeight: 1, textShadow: hovered ? `0 0 6px ${C.yellow}` : undefined }}
+            >
+              ▶
+            </motion.span>
+          </div>
+        </div>
       </div>
-      <span className="text-[7px] uppercase tracking-[0.2em] block pl-6 mt-0.5" style={{ color: C.textFaint }}>
-        {sub}
-      </span>
+
+      {/* Bottom divider between items */}
+      {showDivider && (
+        <div
+          aria-hidden
+          className="absolute inset-x-3 bottom-0 h-px"
+          style={{ background: `linear-gradient(90deg, transparent, ${C.borderSoft}, transparent)` }}
+        />
+      )}
     </button>
   );
+}
+
+/** Derive a stable serial number from the callsign for the service tag. */
+function deriveSerial(name: string): string {
+  let h = 5381;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) >>> 0;
+  const a = String(h % 9000 + 1000);
+  const b = String((h >> 8) % 9000 + 1000);
+  return `HD-${a}X-${b.slice(-2)}`;
 }
 
 // ══════════════════════════════════════════════════════════════════════
