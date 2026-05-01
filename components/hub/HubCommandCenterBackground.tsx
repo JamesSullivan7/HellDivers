@@ -28,21 +28,23 @@ import { useReducedMotionSafe } from "@/hooks/useReducedMotionSafe";
 // ──────────────────────────────────────────────────────────────────────
 //  Overlay gradients — single source of truth for the safe zones
 // ──────────────────────────────────────────────────────────────────────
+// Lighter safe-zones — let the bridge cinematic breathe. The minimal UI
+// pass uses far fewer borders/boxes, so we don't need heavy darkening.
 const SAFE_HORIZONTAL =
   "linear-gradient(90deg," +
-  " rgba(10,13,18,0.78) 0%," +
-  " rgba(10,13,18,0.25) 18%," +
-  " rgba(10,13,18,0) 35%," +
-  " rgba(10,13,18,0) 65%," +
-  " rgba(10,13,18,0.40) 80%," +
-  " rgba(10,13,18,0.85) 100%)";
+  " rgba(10,13,18,0.55) 0%," +
+  " rgba(10,13,18,0.15) 12%," +
+  " rgba(10,13,18,0) 25%," +
+  " rgba(10,13,18,0) 75%," +
+  " rgba(10,13,18,0.30) 88%," +
+  " rgba(10,13,18,0.65) 100%)";
 
 const SAFE_VERTICAL =
   "linear-gradient(180deg," +
-  " rgba(10,13,18,0.55) 0%," +
-  " rgba(10,13,18,0) 12%," +
-  " rgba(10,13,18,0) 70%," +
-  " rgba(10,13,18,0.85) 100%)";
+  " rgba(10,13,18,0.40) 0%," +
+  " rgba(10,13,18,0) 10%," +
+  " rgba(10,13,18,0) 72%," +
+  " rgba(10,13,18,0.70) 100%)";
 
 const VIGNETTE =
   "radial-gradient(ellipse 90% 70% at 50% 40%," +
