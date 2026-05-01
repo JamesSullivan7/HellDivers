@@ -18,6 +18,10 @@ import CodexScreen from "@/components/CodexScreen";
 import SquadHub from "@/components/SquadHub";
 import SquadLobby from "@/components/SquadLobby";
 import CoopCombatView from "@/components/CoopCombatView";
+import HistoryScreen from "@/components/HistoryScreen";
+import ShipScreen from "@/components/ShipScreen";
+import DailyRewardsScreen from "@/components/DailyRewardsScreen";
+import ActivityScreen from "@/components/ActivityScreen";
 import ObjectiveToast from "@/components/ObjectiveToast";
 import TensionProvider from "@/components/tension/TensionProvider";
 import TensionOverlay from "@/components/tension/TensionOverlay";
@@ -100,6 +104,18 @@ export default function Page() {
       break;
     case "gameover":
       view = <EndScreen victory={false} />;
+      break;
+    case "history":
+      view = <HistoryScreen />;
+      break;
+    case "ship":
+      view = <ShipScreen />;
+      break;
+    case "daily_rewards":
+      view = <DailyRewardsScreen />;
+      break;
+    case "activity":
+      view = <ActivityScreen />;
       break;
     default:
       view = <HubScreen />;

@@ -205,6 +205,10 @@ interface GameStore {
   goToArmory: () => void;
   goToCharacter: () => void;
   goToCodex: () => void;
+  goToHistory: () => void;
+  goToShip: () => void;
+  goToDailyRewards: () => void;
+  goToActivity: () => void;
   unlockCard: (cardId: string) => boolean;
   unlockModule: (moduleId: string) => boolean;
   unlockCape: (id: string) => boolean;
@@ -356,6 +360,10 @@ export const useGame = create<GameStore>((set, get) => ({
   goToArmory: () => set({ phase: "armory" }),
   goToCharacter: () => set({ phase: "character" }),
   goToCodex: () => set({ phase: "codex" }),
+  goToHistory: () => set({ phase: "history" }),
+  goToShip: () => set({ phase: "ship" }),
+  goToDailyRewards: () => set({ phase: "daily_rewards" }),
+  goToActivity: () => set({ phase: "activity" }),
 
   unlockCard: (cardId) => {
     const { account } = get();

@@ -207,7 +207,12 @@ export type GamePhase =
   | "event"
   | "shop"
   | "gameover"
-  | "victory";
+  | "victory"
+  // Hub-side rooms — accessible from the Hub screen
+  | "history"
+  | "ship"
+  | "daily_rewards"
+  | "activity";
 
 /** Armor weight class drives base passive/silhouette. */
 export type ArmorClass = "scout" | "frontline" | "fortified";
