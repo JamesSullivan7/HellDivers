@@ -25,33 +25,9 @@
 import { motion } from "framer-motion";
 import { useReducedMotionSafe } from "@/hooks/useReducedMotionSafe";
 
-// ──────────────────────────────────────────────────────────────────────
-//  Overlay gradients — single source of truth for the safe zones
-// ──────────────────────────────────────────────────────────────────────
-// Lighter safe-zones — let the bridge cinematic breathe. The minimal UI
-// pass uses far fewer borders/boxes, so we don't need heavy darkening.
-const SAFE_HORIZONTAL =
-  "linear-gradient(90deg," +
-  " rgba(10,13,18,0.55) 0%," +
-  " rgba(10,13,18,0.15) 12%," +
-  " rgba(10,13,18,0) 25%," +
-  " rgba(10,13,18,0) 75%," +
-  " rgba(10,13,18,0.30) 88%," +
-  " rgba(10,13,18,0.65) 100%)";
-
-const SAFE_VERTICAL =
-  "linear-gradient(180deg," +
-  " rgba(10,13,18,0.40) 0%," +
-  " rgba(10,13,18,0) 10%," +
-  " rgba(10,13,18,0) 72%," +
-  " rgba(10,13,18,0.70) 100%)";
-
-const VIGNETTE =
-  "radial-gradient(ellipse 90% 70% at 50% 40%," +
-  " rgba(10,13,18,0) 0%," +
-  " rgba(10,13,18,0) 50%," +
-  " rgba(10,13,18,0.55) 100%)";
-
+// Solid side panels block the bridge edges directly, so safe-zone
+// gradients are no longer needed. Only the scanline pattern remains for
+// the very subtle CRT texture.
 const SCANLINES =
   "repeating-linear-gradient(to bottom, rgba(255,255,255,0.5) 0 1px, transparent 1px 3px)";
 
@@ -80,27 +56,21 @@ export default function HubCommandCenterBackground() {
         }}
       />
 
-      {/* z-20 — UI safe-zone darkening (horizontal + vertical) */}
+      {/* The hub uses solid side panels that sit OVER this background, so
+          the bridge image only shows in the center column. No safe-zone
+          darkening is applied to the cinematic — the player sees it clean.
+          Only a very subtle vignette remains for atmospheric depth. */}
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none"
-        style={{ background: SAFE_HORIZONTAL }}
+        style={{
+          background:
+            "radial-gradient(ellipse 100% 90% at 50% 45%, rgba(10,13,18,0) 0%, rgba(10,13,18,0) 70%, rgba(10,13,18,0.35) 100%)",
+        }}
       />
       <div
         aria-hidden
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: SAFE_VERTICAL }}
-      />
-
-      {/* z-30 — cinematic vignette + subtle scanlines */}
-      <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: VIGNETTE }}
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none opacity-[0.04] mix-blend-overlay"
+        className="absolute inset-0 pointer-events-none opacity-[0.03] mix-blend-overlay"
         style={{ backgroundImage: SCANLINES }}
       />
 

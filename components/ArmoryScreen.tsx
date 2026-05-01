@@ -87,7 +87,7 @@ export default function ArmoryScreen() {
                 : "border-helldiver-steel text-helldiver-dim hover:border-emerald-400 hover:text-emerald-400"
             )}
           >
-            ◇ OUTFITTER
+            ◇ WEAPONS
           </button>
           <button
             onClick={() => { sfx.click(); setTab("warbonds"); }}
@@ -98,7 +98,7 @@ export default function ArmoryScreen() {
                 : "border-helldiver-steel text-helldiver-dim hover:border-helldiver-yellow hover:text-helldiver-yellow"
             )}
           >
-            ◇ WARBONDS
+            ◇ STRATAGEMS
           </button>
           <button
             onClick={() => { sfx.click(); setTab("modules"); }}
