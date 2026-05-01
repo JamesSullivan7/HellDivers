@@ -117,9 +117,11 @@ export default function HubScreen() {
         className="relative z-50 h-full grid"
         style={{
           gridTemplateColumns: "300px minmax(0, 1fr) 340px",
-          gridTemplateRows: "minmax(0, 1fr) 84px",
+          gridTemplateRows: "44px minmax(0, 1fr) 84px",
         }}
       >
+        <TopStrip account={account} feed={feed} />
+
         <LeftPanel
           account={account}
           onWar={() => { sfx.click(); goToWar(); }}
@@ -129,7 +131,7 @@ export default function HubScreen() {
           onSettings={() => { sfx.click(); goToCharacter(); }}
         />
 
-        <CenterStage target={target} difficulty={difficulty} feed={feed} />
+        <CenterStage target={target} difficulty={difficulty} />
 
         <RightPanel
           account={account}
@@ -150,7 +152,84 @@ export default function HubScreen() {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-//  LEFT PANEL — profile, currency, dashboard
+//  TOP STRIP — slim row across all three columns
+//  Holds the resources (currencies) + galactic feed ticker.
+// ══════════════════════════════════════════════════════════════════════
+function TopStrip({ account, feed }: { account: Account; feed: string[] }) {
+  const samples = account.samples + account.rareSamples + account.superSamples;
+  return (
+    <header
+      className="col-span-3 relative flex items-center px-5 gap-4"
+      style={{
+        background: `linear-gradient(180deg, ${C.panel} 0%, ${C.bg0} 100%)`,
+        borderBottom: `1px solid ${C.hairline}`,
+      }}
+    >
+      {/* Hairline yellow accent at the very top */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: `linear-gradient(90deg, transparent, ${C.yellow}, transparent)` }}
+      />
+
+      {/* Galactic feed (left/center) */}
+      <AnimatePresence mode="wait">
+        {feed[0] && (
+          <motion.div
+            key={feed[0]}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="flex flex-1 min-w-0 items-center gap-3"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="text-[10px] uppercase tracking-[0.4em] shrink-0" style={{ color: C.textDim }}>
+              GALACTIC FEED
+            </span>
+            <span className="text-[11px] truncate" style={{ color: C.textMid }}>
+              {feed[0]}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Resources — inline pills, right-aligned */}
+      <div className="flex items-center gap-5 shrink-0">
+        <CurrencyPill glyph="★" label="MEDALS" value={account.medals} accent={C.yellow} />
+        <CurrencyPill glyph="◆" label="SAMPLES" value={samples} accent={C.cyan} />
+        <CurrencyPill glyph="Ⓡ" label="REQ" value={account.requisition} accent={C.orange} />
+      </div>
+    </header>
+  );
+}
+
+function CurrencyPill({ glyph, label, value, accent }: { glyph: string; label: string; value: number; accent: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="font-display font-black"
+        style={{ color: accent, fontSize: 15, lineHeight: 1, textShadow: `0 0 6px ${accent}66` }}
+      >
+        {glyph}
+      </span>
+      <div className="flex flex-col leading-none">
+        <span className="text-[7px] uppercase tracking-widest" style={{ color: C.textDim }}>
+          {label}
+        </span>
+        <span
+          className="font-display font-black tabular-nums mt-0.5"
+          style={{ color: accent, fontSize: 13 }}
+        >
+          {value.toLocaleString()}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  LEFT PANEL — profile + dashboard (Resources moved to TopStrip)
 // ══════════════════════════════════════════════════════════════════════
 function LeftPanel({
   account, onWar, onLoadout, onArmory, onResearch, onSettings,
@@ -162,7 +241,6 @@ function LeftPanel({
   const rank = getHelldiverRank(account.level);
   const xpNext = xpToLevelUp(account.level);
   const xpPct = Math.min(100, (account.xp / xpNext) * 100);
-  const samples = account.samples + account.rareSamples + account.superSamples;
 
   return (
     <aside
@@ -246,54 +324,27 @@ function LeftPanel({
         </div>
       </section>
 
-      {/* CURRENCIES */}
-      <section className="px-5 py-4" style={{ borderBottom: `1px solid ${C.rule}` }}>
-        <h3 className="text-[9px] uppercase tracking-[0.4em] mb-3" style={{ color: C.textDim }}>
-          Resources
-        </h3>
-        <CurrencyRow glyph="★" label="Medals" value={account.medals} accent={C.yellow} />
-        <CurrencyRow glyph="◆" label="Samples" value={samples} accent={C.cyan} />
-        <CurrencyRow glyph="Ⓡ" label="Requisition" value={account.requisition} accent={C.orange} />
-      </section>
-
-      {/* DASHBOARD */}
+      {/* DASHBOARD — bigger tiles, stronger pop */}
       <section className="px-3 py-4 flex-1 min-h-0 flex flex-col">
-        <h3 className="text-[9px] uppercase tracking-[0.4em] px-2 mb-2" style={{ color: C.textDim }}>
-          Dashboard
-        </h3>
-        <nav className="flex flex-col gap-1">
-          <DashItem icon="✦" label="Galactic Map"  sub="Sector deployment"      onClick={onWar} />
-          <DashItem icon="◇" label="Loadout"        sub="Equipment · stratagems" onClick={onLoadout} />
-          <DashItem icon="⌥" label="Armory"         sub="Weapons · stratagems"   onClick={onArmory} />
-          <DashItem icon="◊" label="Research"       sub="Codex · lore"           onClick={onResearch} />
-          <DashItem icon="⚙" label="Settings"       sub="Audio · accessibility"  onClick={onSettings} />
+        <div className="flex items-center justify-between px-2 mb-3">
+          <h3
+            className="text-[10px] uppercase tracking-[0.4em] font-display font-black"
+            style={{ color: C.yellow, textShadow: `0 0 4px ${C.yellow}66` }}
+          >
+            ◆ Dashboard
+          </h3>
+          <span className="text-[8px] uppercase tracking-[0.3em]" style={{ color: C.textDim }}>5 routes</span>
+        </div>
+
+        <nav className="flex flex-col gap-2">
+          <DashItem icon="✦" label="Galactic Map"  sub="Sector Deployment"      onClick={onWar} />
+          <DashItem icon="◇" label="Loadout"        sub="Equipment · Stratagems" onClick={onLoadout} />
+          <DashItem icon="⌥" label="Armory"         sub="Weapons · Stratagems"   onClick={onArmory} />
+          <DashItem icon="◊" label="Research"       sub="Codex · Lore"           onClick={onResearch} />
+          <DashItem icon="⚙" label="Settings"       sub="Audio · Accessibility"  onClick={onSettings} />
         </nav>
       </section>
     </aside>
-  );
-}
-
-function CurrencyRow({ glyph, label, value, accent }: { glyph: string; label: string; value: number; accent: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5">
-      <div className="flex items-center gap-2">
-        <span
-          className="font-display font-black w-5 text-center"
-          style={{ color: accent, fontSize: 16, lineHeight: 1, textShadow: `0 0 6px ${accent}66` }}
-        >
-          {glyph}
-        </span>
-        <span className="text-[11px] uppercase tracking-wider" style={{ color: C.textMid }}>
-          {label}
-        </span>
-      </div>
-      <span
-        className="font-display font-black tabular-nums"
-        style={{ color: accent, fontSize: 14 }}
-      >
-        {value.toLocaleString()}
-      </span>
-    </div>
   );
 }
 
@@ -305,40 +356,70 @@ function DashItem({ icon, label, sub, onClick }: { icon: string; label: string; 
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="w-full flex items-center gap-3 px-2 py-2 transition-all duration-200 text-left"
+      className="w-full flex items-center gap-3 px-3 py-3 text-left relative overflow-hidden"
       style={{
-        background: hovered ? `${C.yellow}10` : "transparent",
-        boxShadow: hovered ? `inset 3px 0 0 ${C.yellow}` : "inset 3px 0 0 transparent",
+        background: hovered
+          ? `linear-gradient(90deg, ${C.yellow}1f 0%, ${C.yellow}06 60%, transparent 100%)`
+          : `linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%)`,
+        border: `1px solid ${hovered ? C.yellow : C.rule}`,
+        boxShadow: hovered
+          ? `inset 4px 0 0 ${C.yellow}, 0 0 12px ${C.yellow}33`
+          : `inset 4px 0 0 transparent`,
         borderRadius: 1,
+        transition: "background 220ms ease, border-color 220ms ease, box-shadow 220ms ease",
       }}
     >
-      <span
-        className="w-7 h-7 flex items-center justify-center shrink-0 transition-colors"
+      {/* Icon tile — bigger, bordered, glows on hover */}
+      <div
+        className="w-10 h-10 flex items-center justify-center shrink-0"
         style={{
-          color: hovered ? C.yellow : C.textMid,
-          fontSize: 15,
-          textShadow: hovered ? `0 0 6px ${C.yellow}88` : undefined,
+          border: `1px solid ${hovered ? C.yellow : `${C.yellow}55`}`,
+          background: hovered ? `${C.yellow}1a` : `${C.yellow}08`,
+          boxShadow: hovered ? `0 0 10px ${C.yellow}66, inset 0 0 6px ${C.yellow}22` : `inset 0 0 4px ${C.yellow}10`,
+          borderRadius: 1,
+          transition: "background 220ms ease, border-color 220ms ease, box-shadow 220ms ease",
         }}
       >
-        {icon}
-      </span>
-      <div className="flex flex-col leading-none min-w-0">
         <span
-          className="text-[11px] uppercase tracking-[0.18em] font-display font-black truncate"
-          style={{ color: hovered ? C.yellow : C.text }}
+          className="font-display font-black leading-none transition-all duration-200"
+          style={{
+            color: C.yellow,
+            fontSize: 18,
+            textShadow: hovered ? `0 0 8px ${C.yellow}` : `0 0 4px ${C.yellow}55`,
+          }}
+        >
+          {icon}
+        </span>
+      </div>
+
+      {/* Labels */}
+      <div className="flex flex-col leading-none min-w-0 flex-1">
+        <span
+          className="text-[13px] uppercase tracking-[0.18em] font-display font-black truncate"
+          style={{
+            color: hovered ? C.yellow : C.text,
+            textShadow: hovered ? `0 0 4px ${C.yellow}66` : undefined,
+            transition: "color 220ms ease",
+          }}
         >
           {label}
         </span>
-        <span className="text-[8px] uppercase tracking-[0.25em] mt-1 truncate" style={{ color: C.textDim }}>
+        <span className="text-[9px] uppercase tracking-[0.25em] mt-1 truncate" style={{ color: C.textDim }}>
           {sub}
         </span>
       </div>
+
+      {/* Right chevron — slides in on hover */}
       <motion.span
         aria-hidden
-        animate={{ x: hovered ? 0 : -3, opacity: hovered ? 1 : 0 }}
-        transition={{ duration: 0.18 }}
-        className="ml-auto font-display font-black"
-        style={{ color: C.yellow, fontSize: 11 }}
+        animate={{ x: hovered ? 0 : -4, opacity: hovered ? 1 : 0.25 }}
+        transition={{ duration: 0.2 }}
+        className="ml-auto font-display font-black shrink-0"
+        style={{
+          color: C.yellow,
+          fontSize: 14,
+          textShadow: hovered ? `0 0 6px ${C.yellow}88` : undefined,
+        }}
       >
         ▶
       </motion.span>
@@ -350,39 +431,13 @@ function DashItem({ icon, label, sub, onClick }: { icon: string; label: string; 
 //  CENTER STAGE — clean cinematic, soft target readout
 // ══════════════════════════════════════════════════════════════════════
 function CenterStage({
-  target, difficulty, feed,
+  target, difficulty,
 }: {
   target: PlanetState | null;
   difficulty: number;
-  feed: string[];
 }) {
   return (
     <section className="row-span-1 relative overflow-hidden flex flex-col">
-      {/* Top-center galactic feed — flat, no frame */}
-      <AnimatePresence mode="wait">
-        {feed[0] && (
-          <motion.div
-            key={feed[0]}
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-            className="absolute top-5 left-1/2 -translate-x-1/2 flex items-center gap-3 z-10 pointer-events-none"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] uppercase tracking-[0.4em]" style={{ color: C.textDim }}>
-              GALACTIC FEED
-            </span>
-            <span
-              className="text-[11px] uppercase tracking-[0.15em]"
-              style={{ color: C.textMid, textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}
-            >
-              {feed[0]}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className="flex-1" />
 
       {/* Bottom-left target readout */}
