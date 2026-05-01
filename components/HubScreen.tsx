@@ -39,7 +39,7 @@ import {
   loadWarState,
   type WarState,
 } from "@/lib/galacticWar";
-import StarField from "./StarField";
+import HubCommandCenterBackground from "./hub/HubCommandCenterBackground";
 
 // ──────────────────────────────────────────────────────────────────────
 //  Color tokens (kept inline — single component file)
@@ -90,7 +90,7 @@ export default function HubScreen() {
 
   return (
     <div className="min-h-screen text-white font-mono relative overflow-hidden" style={{ background: COLOR.bg0 }}>
-      <HubBackground />
+      <HubCommandCenterBackground />
 
       <div className="relative z-10 min-h-screen flex flex-col">
         <TopBar account={account} feed={feed} />
@@ -122,31 +122,7 @@ export default function HubScreen() {
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-//  BACKGROUND
-// ──────────────────────────────────────────────────────────────────────
-function HubBackground() {
-  return (
-    <>
-      <div className="absolute inset-0" style={{ background: COLOR.bg0 }} />
-      <div className="absolute inset-0 opacity-[0.45]"><StarField /></div>
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 50% 18%, rgba(96,196,255,0.07), transparent 60%), radial-gradient(ellipse 100% 70% at 50% 100%, rgba(245,197,66,0.04), transparent 75%)",
-        }}
-      />
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.04] mix-blend-overlay"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(to bottom, rgba(255,255,255,0.5) 0px, rgba(255,255,255,0.5) 1px, transparent 1px, transparent 3px)",
-        }}
-      />
-    </>
-  );
-}
+// Background extracted to components/hub/HubCommandCenterBackground.tsx
 
 // ──────────────────────────────────────────────────────────────────────
 //  TOP BAR  ·  logo · callsign · feed · currencies · icons
