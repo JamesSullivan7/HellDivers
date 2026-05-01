@@ -393,39 +393,39 @@ function CenterStage({
 }
 
 // ──────────────────────────────────────────────────────────────────────
-//  HERO PANEL  · destroyer + ship readiness
+//  HERO PANEL  · translucent title plate over the bridge cinematic
+//  The real bridge art lives in HubCommandCenterBackground (z-10) — this
+//  panel just frames the HUB title, quote, and SES Democratic Flame card
+//  with edge scrims so the text stays readable over the bright center.
 // ──────────────────────────────────────────────────────────────────────
 function HeroPanel({ onDeploy }: { onDeploy: () => void }) {
   return (
     <section
-      className="relative overflow-hidden border"
+      className="relative overflow-hidden"
       style={{
-        borderColor: COLOR.borderSoft,
-        background: "rgba(10,13,18,0.6)",
+        // Hairline border tint instead of a solid plate — lets bridge show through.
+        borderTop: `1px solid ${COLOR.borderSoft}`,
+        borderBottom: `1px solid ${COLOR.borderSoft}`,
         borderRadius: 2,
       }}
     >
-      {/* Background image */}
+      {/* Edge scrims only — leaves the bright center of the bridge visible. */}
       <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: "url('/art/backgrounds/Helldiver background1.webp')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          opacity: 0.45,
-        }}
-      />
-      {/* Vignette / gradient overlay */}
-      <div
-        className="absolute inset-0"
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "linear-gradient(90deg, rgba(10,13,18,0.95) 0%, rgba(10,13,18,0.4) 35%, rgba(10,13,18,0.4) 70%, rgba(10,13,18,0.95) 100%), linear-gradient(180deg, rgba(10,13,18,0.55) 0%, rgba(10,13,18,0.85) 100%)",
+            "linear-gradient(90deg, rgba(10,13,18,0.92) 0%, rgba(10,13,18,0.55) 22%, rgba(10,13,18,0) 42%, rgba(10,13,18,0) 58%, rgba(10,13,18,0.55) 78%, rgba(10,13,18,0.92) 100%)",
         }}
       />
-
-      {/* CSS-rendered destroyer silhouette */}
-      <DestroyerSilhouette />
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(10,13,18,0.4) 0%, rgba(10,13,18,0.15) 30%, rgba(10,13,18,0.15) 70%, rgba(10,13,18,0.4) 100%)",
+        }}
+      />
 
       {/* Foreground content */}
       <div className="relative px-5 md:px-8 py-6 flex items-start justify-between gap-4 min-h-[260px]">
@@ -488,74 +488,8 @@ function HeroPanel({ onDeploy }: { onDeploy: () => void }) {
   );
 }
 
-function DestroyerSilhouette() {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div
-        className="relative"
-        style={{
-          width: "60%",
-          height: "55%",
-          opacity: 0.85,
-        }}
-      >
-        {/* Horizon line */}
-        <div
-          className="absolute left-0 right-0"
-          style={{
-            top: "60%",
-            height: 1,
-            background: `linear-gradient(90deg, transparent, ${COLOR.yellow}55, transparent)`,
-          }}
-        />
-        {/* Hull body */}
-        <div
-          className="absolute"
-          style={{
-            left: "8%",
-            right: "8%",
-            top: "48%",
-            height: "14%",
-            background: "linear-gradient(180deg, #2c3645 0%, #1a2030 60%, #0f1320 100%)",
-            boxShadow: `0 0 24px ${COLOR.yellow}22, inset 0 0 20px rgba(0,0,0,0.6)`,
-            clipPath: "polygon(0 35%, 6% 0, 94% 0, 100% 35%, 100% 100%, 0 100%)",
-          }}
-        />
-        {/* Engine glow */}
-        <div
-          className="absolute"
-          style={{
-            left: "0%",
-            top: "52%",
-            width: "10%",
-            height: "8%",
-            background: `radial-gradient(ellipse, ${COLOR.cyan}aa 0%, ${COLOR.cyan}33 40%, transparent 70%)`,
-            filter: "blur(2px)",
-          }}
-        />
-        {/* Bow lights */}
-        <div
-          className="absolute"
-          style={{
-            right: "5%",
-            top: "55%",
-            width: "8%",
-            height: "5%",
-            background: `radial-gradient(ellipse, ${COLOR.yellow}aa 0%, transparent 70%)`,
-            filter: "blur(1px)",
-          }}
-        />
-        {/* Ship name plate */}
-        <div
-          className="absolute left-1/2 -translate-x-1/2 text-[8px] uppercase tracking-[0.4em] font-display font-black"
-          style={{ top: "53%", color: "rgba(255,255,255,0.35)" }}
-        >
-          SES DEMOCRATIC FLAME
-        </div>
-      </div>
-    </div>
-  );
-}
+// DestroyerSilhouette removed — the real bridge cinematic in
+// HubCommandCenterBackground replaces the CSS-rendered placeholder.
 
 // ──────────────────────────────────────────────────────────────────────
 //  CARDS — Quick Deploy / Campaign / Loadout / Daily
