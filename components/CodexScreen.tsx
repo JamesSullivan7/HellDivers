@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
 import { sfx } from "@/lib/sfx";
@@ -12,7 +12,7 @@ import HudFrame from "./HudFrame";
 import HubFrame from "./hub/HubFrame";
 import StratagemCard from "./cards/StratagemCard";
 import { FactionIcon } from "@/lib/icons";
-import { Armor, Faction, EnemyTemplate, Weapon } from "@/lib/types";
+import { Armor, Faction, EnemyTemplate, Weapon, Booster, Card } from "@/lib/types";
 
 type Tab = "stratagems" | "armors" | "weapons" | "boosters" | "enemies";
 
@@ -147,6 +147,93 @@ export default function CodexScreen() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// CODEX LIGHTBOX — generic click-to-zoom modal used by every tab.
+//
+// Click any card → fixed-position dim/blur backdrop fades in, the card
+// content springs to centre at a larger size. ESC or backdrop-click
+// dismiss. Body scroll is locked while open.
+// ─────────────────────────────────────────────────────────────────────────
+function CodexLightbox({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  // ESC closes + body scroll-lock while open.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open, onClose]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="lightbox"
+          className="fixed inset-0 z-[80] flex items-center justify-center p-6 cursor-zoom-out"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          onClick={onClose}
+          style={{
+            background: "rgba(5,8,13,0.82)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}
+        >
+          {/* Stop propagation so clicks on the card itself don't dismiss */}
+          <motion.div
+            initial={{ scale: 0.82, y: 30, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={{ scale: 0.85, y: 20, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 280, damping: 24 }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative cursor-default"
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="absolute -top-3 -right-3 z-10 w-8 h-8 flex items-center justify-center font-display font-black text-base transition-transform hover:scale-110"
+              style={{
+                background: "#FFC72C",
+                color: "#0A0F14",
+                border: "1px solid #0A0F14",
+                boxShadow: "0 0 16px rgba(255,199,44,0.6)",
+              }}
+            >
+              ×
+            </button>
+            {children}
+          </motion.div>
+
+          {/* Hint footer */}
+          <div
+            className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.4em] font-display font-black"
+            style={{ color: "rgba(255,199,44,0.55)" }}
+          >
+            Click outside · Press ESC to close
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // STRATAGEMS — render the actual game card so you see exactly what
 // players see in combat, including the wired-up art.
 // ─────────────────────────────────────────────────────────────────────────
@@ -159,6 +246,10 @@ function StratagemTab({
 }) {
   let cards = filter === "all" ? CARD_LIBRARY : CARD_LIBRARY.filter((c) => c.type === filter);
   if (onlyMissingArt) cards = cards.filter((c) => !getCardArt(c.id));
+
+  // Click-to-zoom — clicking any compact card opens the full-size card
+  // in a centred lightbox so the player can read every line of effect copy.
+  const [zoomed, setZoomed] = useState<Card | null>(null);
 
   return (
     <HudFrame label={`Stratagems · ${cards.length} of ${CARD_LIBRARY.length}`} accent="yellow" className="p-4">
@@ -175,25 +266,40 @@ function StratagemTab({
               className="relative"
             >
               {/* Index badge */}
-              <div className="absolute -top-1 -left-1 z-10 px-1.5 py-0.5 border border-helldiver-yellow bg-black text-helldiver-yellow text-[9px] font-display font-black tabular-nums">
+              <div className="absolute -top-1 -left-1 z-10 px-1.5 py-0.5 border border-helldiver-yellow bg-black text-helldiver-yellow text-[9px] font-display font-black tabular-nums pointer-events-none">
                 #{indexInLib + 1}
               </div>
               {/* Missing-art badge */}
               {!hasArt && (
-                <div className="absolute -top-1 -right-1 z-10 px-1.5 py-0.5 border border-helldiver-orange bg-black text-helldiver-orange text-[9px] font-display font-black uppercase tracking-widest">
+                <div className="absolute -top-1 -right-1 z-10 px-1.5 py-0.5 border border-helldiver-orange bg-black text-helldiver-orange text-[9px] font-display font-black uppercase tracking-widest pointer-events-none">
                   No Art
                 </div>
               )}
               <StratagemCard
                 card={card}
                 affordable
-                onClick={() => {}}
+                onClick={() => {
+                  sfx.click();
+                  setZoomed(card);
+                }}
                 small
               />
             </motion.div>
           );
         })}
       </div>
+
+      {/* Zoomed card — full-size StratagemCard (280×410) */}
+      <CodexLightbox open={!!zoomed} onClose={() => setZoomed(null)}>
+        {zoomed && (
+          <StratagemCard
+            card={zoomed}
+            affordable
+            onClick={() => {}}
+            size="normal"
+          />
+        )}
+      </CodexLightbox>
     </HudFrame>
   );
 }
@@ -1077,7 +1183,14 @@ const TARGET_GLYPH: Record<Weapon["target"], string> = {
 };
 
 function WeaponTab() {
+  // selectedId still drives the gold-border highlight on the grid;
+  // zoomedId drives the lightbox. They can be the same value (clicking
+  // selects + zooms) but the model keeps them separable in case we want
+  // to add a "browse mode" later that highlights without zooming.
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [zoomedId, setZoomedId] = useState<string | null>(null);
+  const zoomedWeapon = zoomedId ? WEAPONS.find((w) => w.id === zoomedId) ?? null : null;
+  const zoomedIndex = zoomedId ? WEAPONS.findIndex((w) => w.id === zoomedId) + 1 : 0;
 
   return (
     <div
@@ -1131,12 +1244,29 @@ function WeaponTab() {
               selected={selectedId === w.id}
               onClick={() => {
                 sfx.click();
-                setSelectedId((prev) => (prev === w.id ? null : w.id));
+                setSelectedId(w.id);
+                setZoomedId(w.id);
               }}
             />
           ))}
         </div>
       </div>
+
+      {/* Zoomed weapon — render the same card scaled up so every detail is
+          legible. transform: scale keeps the layout pixel-perfect (no
+          re-flow) and matches the design at 196×287 exactly. */}
+      <CodexLightbox open={!!zoomedWeapon} onClose={() => setZoomedId(null)}>
+        {zoomedWeapon && (
+          <div style={{ transform: "scale(2.2)", transformOrigin: "center center" }}>
+            <WeaponCard
+              weapon={zoomedWeapon}
+              index={zoomedIndex}
+              selected
+              onClick={() => {}}
+            />
+          </div>
+        )}
+      </CodexLightbox>
     </div>
   );
 }
@@ -1509,23 +1639,53 @@ function SuperEarthSkull({ className, tint }: { className?: string; tint: string
 // BOOSTERS
 // ─────────────────────────────────────────────────────────────────────────
 function BoosterTab() {
+  const [zoomed, setZoomed] = useState<{ booster: Booster; index: number } | null>(null);
+
   return (
     <HudFrame label={`Boosters · ${BOOSTERS.length}`} accent="yellow" className="p-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {BOOSTERS.map((b, i) => (
-          <DataCard
+          <button
             key={b.id}
-            index={i + 1}
-            id={b.id}
-            name={b.name}
-            subtitle="Booster · Drop-Pod Augment"
-            description={b.description}
-            stats={[]}
-            accent="purple"
-            artUrl={null}
-          />
+            type="button"
+            onClick={() => {
+              sfx.click();
+              setZoomed({ booster: b, index: i + 1 });
+            }}
+            className="text-left transition-transform hover:scale-[1.02] hover:z-10 cursor-zoom-in"
+          >
+            <DataCard
+              index={i + 1}
+              id={b.id}
+              name={b.name}
+              subtitle="Booster · Drop-Pod Augment"
+              description={b.description}
+              stats={[]}
+              accent="purple"
+              artUrl={null}
+            />
+          </button>
         ))}
       </div>
+
+      {/* Zoomed booster — DataCard rendered inside a fixed-width container
+          so the layout doesn't depend on grid context */}
+      <CodexLightbox open={!!zoomed} onClose={() => setZoomed(null)}>
+        {zoomed && (
+          <div style={{ width: 480, fontSize: "1.15rem" }}>
+            <DataCard
+              index={zoomed.index}
+              id={zoomed.booster.id}
+              name={zoomed.booster.name}
+              subtitle="Booster · Drop-Pod Augment"
+              description={zoomed.booster.description}
+              stats={[]}
+              accent="purple"
+              artUrl={null}
+            />
+          </div>
+        )}
+      </CodexLightbox>
     </HudFrame>
   );
 }
@@ -1556,16 +1716,37 @@ function EnemyTab({
   let templates = faction === "all" ? allTemplates : allTemplates.filter((e) => e.faction === faction);
   if (onlyMissingArt) templates = templates.filter((e) => !getEnemyArt(e.id));
 
+  const [zoomed, setZoomed] = useState<{ template: EnemyTemplate; index: number } | null>(null);
+
   return (
     <HudFrame label={`Hostiles · ${templates.length} of ${allTemplates.length}`} accent="yellow" className="p-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
         {templates.map((tpl, i) => {
           const overall = allTemplates.findIndex((t) => t.id === tpl.id);
           return (
-            <EnemyDataCard key={tpl.id} template={tpl} index={overall + 1} />
+            <button
+              key={tpl.id}
+              type="button"
+              onClick={() => {
+                sfx.click();
+                setZoomed({ template: tpl, index: overall + 1 });
+              }}
+              className="text-left transition-transform hover:scale-[1.02] hover:z-10 cursor-zoom-in"
+            >
+              <EnemyDataCard template={tpl} index={overall + 1} />
+            </button>
           );
         })}
       </div>
+
+      {/* Zoomed enemy — fixed width so the portrait gets its full glory */}
+      <CodexLightbox open={!!zoomed} onClose={() => setZoomed(null)}>
+        {zoomed && (
+          <div style={{ width: 460 }}>
+            <EnemyDataCard template={zoomed.template} index={zoomed.index} />
+          </div>
+        )}
+      </CodexLightbox>
     </HudFrame>
   );
 }
