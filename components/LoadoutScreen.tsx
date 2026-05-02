@@ -28,7 +28,7 @@ import CardView from "./CardView";
 import AppShell from "./shell/AppShell";
 import { FactionIcon } from "@/lib/icons";
 import { getArmorArt, getWeaponArt, getBoosterArt } from "@/lib/artManifest";
-import type { Armor } from "@/lib/types";
+import type { Armor, Weapon } from "@/lib/types";
 import type { Account } from "@/lib/account";
 
 type Step = "armor" | "weapon" | "booster" | "stratagems";
@@ -192,79 +192,11 @@ export default function LoadoutScreen() {
           )}
 
           {step === "weapon" && (
-            <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {WEAPONS.map((w) => {
-                  const owned = account.ownedWeapons.includes(w.id);
-                  const tier = account.weaponTiers[w.id] ?? 1;
-                  const eff = owned ? getWeaponEffective(w.id, tier) : w;
-                  return (
-                    <motion.button
-                      key={w.id}
-                      whileHover={owned ? { y: -4 } : {}}
-                      onClick={() => {
-                        if (!owned) {
-                          sfx.alert();
-                          return;
-                        }
-                        sfx.cardSelect();
-                        setWeaponId(w.id);
-                      }}
-                      disabled={!owned}
-                      className={clsx(
-                        "relative p-5 border-2 text-left transition-all bg-helldiver-panel/80",
-                        !owned && "opacity-60 cursor-not-allowed border-helldiver-steel/40",
-                        owned && weaponId === w.id
-                          ? "border-sky-400 shadow-[0_0_24px_rgba(14,165,233,0.4)]"
-                          : owned && "border-helldiver-steel hover:border-sky-400/50"
-                      )}
-                    >
-                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-sky-400 z-10" />
-                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-sky-400 z-10" />
-                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-sky-400 z-10" />
-                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-sky-400 z-10" />
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
-                          Primary Weapon · Auto-Fire
-                        </div>
-                        {owned && <TierBadge tier={tier} />}
-                      </div>
-                      {/* Cinematic weapon portrait — same source as the Codex */}
-                      <WeaponPortrait weaponId={w.id} className="mb-3" />
-                      <div className="font-display font-black text-lg text-sky-400 tracking-tight mb-2">
-                        {w.name.toUpperCase()}
-                      </div>
-                      <div className="text-xs text-gray-300 mb-3 leading-relaxed">{w.description}</div>
-                      <div className="flex gap-3 text-[11px] font-mono">
-                        <div className="px-2 py-1 border border-helldiver-steel">
-                          <span className="text-helldiver-dim">DMG </span>
-                          <span className="text-helldiver-yellow font-bold">{eff.damage}</span>
-                        </div>
-                        <div className="px-2 py-1 border border-helldiver-steel">
-                          <span className="text-helldiver-dim">HITS </span>
-                          <span className="text-helldiver-yellow font-bold">{eff.hitsPerTurn}</span>
-                        </div>
-                        <div className="px-2 py-1 border border-helldiver-steel">
-                          <span className="text-helldiver-dim">TGT </span>
-                          <span className="text-helldiver-yellow font-bold uppercase">{eff.target.replace("_", " ")}</span>
-                        </div>
-                      </div>
-                      {!owned && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[1px]">
-                          <div className="text-3xl mb-1">🔒</div>
-                          <div className="text-[10px] uppercase tracking-widest text-helldiver-red font-bold">Locked</div>
-                          <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mt-1">Visit Outfitter</div>
-                        </div>
-                      )}
-                      {owned && weaponId === w.id && (
-                        <div className="absolute top-9 right-2 text-sky-400 text-xs font-bold">✓ EQUIPPED</div>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-              <ArmoryHint />
-            </div>
+            <WeaponStep
+              account={account}
+              equippedId={weaponId}
+              setEquippedId={setWeaponId}
+            />
           )}
 
           {step === "booster" && (
@@ -999,18 +931,20 @@ function SectionLabel({ tint, children }: { tint: string; children: React.ReactN
 }
 
 function StatRow({
-  label, value, sign, accent,
+  label, value, sign, accent, customDisplay,
 }: {
   label: string;
   value: number;
   sign?: boolean;
   accent: "emerald" | "sky" | "orange";
+  /** Override the rendered value entirely (for non-numeric stats like target type). */
+  customDisplay?: string;
 }) {
   const accentColor =
     accent === "sky" ? "text-sky-400" :
     accent === "orange" ? "text-helldiver-orange" :
     value >= 0 ? "text-emerald-400" : "text-helldiver-red";
-  const display = sign ? `${value >= 0 ? "+" : ""}${value}` : `${value}`;
+  const display = customDisplay ?? (sign ? `${value >= 0 ? "+" : ""}${value}` : `${value}`);
   return (
     <div className="flex items-center justify-between text-[11px] font-mono">
       <span className="text-helldiver-dim uppercase tracking-widest text-[10px]">{label}</span>
@@ -1064,5 +998,362 @@ function ActiveLoadoutBanner({ active, tint }: { active: boolean; tint: string }
     >
       <span className="text-[12px] tracking-[0.42em]">✓ Active Loadout</span>
     </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// WEAPON STEP — same split-screen pattern as ArmorStep:
+// LEFT (35%):  vertical list of compact selectable weapon tiles
+// RIGHT (65%): hero display with full cinematic art, stat block, tactical
+//              profile bars, description, and ACTIVE LOADOUT banner
+// ─────────────────────────────────────────────────────────────────────────
+
+const WEAPON_CLASS_TINT: Record<string, { primary: string; soft: string; label: string; glyph: string }> = {
+  // Tints map by primary visual identity. Computed from target + ignoreArmor.
+  marksman:  { primary: "#60c4ff", soft: "rgba(96,196,255,0.22)",  label: "PRECISION", glyph: "◆" },
+  assault:   { primary: "#FFC72C", soft: "rgba(255,199,44,0.22)",  label: "ASSAULT",   glyph: "▶▶" },
+  area:      { primary: "#ff8a28", soft: "rgba(255,138,40,0.22)",  label: "AREA",      glyph: "✸" },
+  energy:    { primary: "#a855f7", soft: "rgba(168,85,247,0.22)",  label: "PLASMA",    glyph: "◉" },
+};
+
+/** Resolve a weapon's visual class from its mechanical profile. */
+function classifyWeapon(w: Weapon): keyof typeof WEAPON_CLASS_TINT {
+  if (w.target === "all") return "area";
+  if (w.target === "highest_hp" && w.ignoreArmor) return "marksman";
+  // Map a few specific ids to plasma/energy so the colour matches the art
+  if (w.id === "sg8p_punisher_plasma" || w.id === "arc12_blitzer") return "energy";
+  return "assault";
+}
+
+/** Tactical profile derived from raw weapon stats — same pattern as armor. */
+function weaponProfile(w: Weapon) {
+  const power     = clamp(2 + w.damage * 0.9, 1, 10);
+  const tempo     = clamp(2 + w.hitsPerTurn * 2.2, 1, 10);
+  const precision = clamp(
+    (w.target === "highest_hp" ? 6 : w.target === "all" ? 3 : 4) +
+    (w.ignoreArmor ? 3 : 0),
+    1, 10,
+  );
+  return { power: Math.round(power), tempo: Math.round(tempo), precision: Math.round(precision) };
+}
+
+const TARGET_LABEL: Record<Weapon["target"], string> = {
+  highest_hp: "PRIORITY",
+  random:     "SPREAD",
+  all:        "AREA",
+};
+
+function WeaponStep({
+  account,
+  equippedId,
+  setEquippedId,
+}: {
+  account: Account;
+  equippedId: string;
+  setEquippedId: (id: string) => void;
+}) {
+  const [selectedId, setSelectedId] = useState<string>(equippedId);
+  const selected = WEAPONS.find((w) => w.id === selectedId) ?? WEAPONS.find((w) => w.id === equippedId) ?? WEAPONS[0];
+  const selectedTier = account.weaponTiers[selected.id] ?? 1;
+  const selectedOwned = account.ownedWeapons.includes(selected.id);
+  const selectedEff = selectedOwned ? getWeaponEffective(selected.id, selectedTier) : selected;
+  const selectedTint = WEAPON_CLASS_TINT[classifyWeapon(selected)];
+
+  return (
+    <div className="grid gap-4" style={{ gridTemplateColumns: "minmax(320px, 35%) 1fr" }}>
+      {/* LEFT — selector list */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="w-1.5 h-1.5 bg-sky-400 shadow-[0_0_4px_currentColor]" />
+          <h3 className="text-[10px] font-display font-black uppercase tracking-[0.32em] text-sky-400">
+            Primary Armament · {WEAPONS.length} options
+          </h3>
+        </div>
+        <div className="flex flex-col gap-2 overflow-y-auto" style={{ maxHeight: 560 }}>
+          {WEAPONS.map((w) => {
+            const owned = account.ownedWeapons.includes(w.id);
+            const tier = account.weaponTiers[w.id] ?? 1;
+            const eff = owned ? getWeaponEffective(w.id, tier) : w;
+            const tint = WEAPON_CLASS_TINT[classifyWeapon(w)];
+            const isSelected = w.id === selectedId;
+            const isEquipped = w.id === equippedId;
+            return (
+              <WeaponTile
+                key={w.id}
+                weapon={w}
+                eff={eff}
+                owned={owned}
+                tier={tier}
+                tint={tint}
+                isSelected={isSelected}
+                isEquipped={isEquipped}
+                onClick={() => {
+                  if (!owned) {
+                    sfx.alert();
+                    return;
+                  }
+                  sfx.cardSelect();
+                  setSelectedId(w.id);
+                  setEquippedId(w.id);
+                }}
+              />
+            );
+          })}
+        </div>
+        <ArmoryHint />
+      </div>
+
+      {/* RIGHT — hero panel */}
+      <WeaponHeroPanel
+        weapon={selected}
+        eff={selectedEff}
+        tier={selectedTier}
+        owned={selectedOwned}
+        tint={selectedTint}
+        isEquipped={selected.id === equippedId}
+      />
+    </div>
+  );
+}
+
+function WeaponTile({
+  weapon, eff, owned, tier, tint, isSelected, isEquipped, onClick,
+}: {
+  weapon: Weapon;
+  eff: Weapon;
+  owned: boolean;
+  tier: number;
+  tint: { primary: string; soft: string; label: string; glyph: string };
+  isSelected: boolean;
+  isEquipped: boolean;
+  onClick: () => void;
+}) {
+  const art = getWeaponArt(weapon.id);
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={owned ? { x: 3, scale: 1.005 } : {}}
+      whileTap={owned ? { scale: 0.995 } : {}}
+      transition={{ type: "spring", stiffness: 400, damping: 28 }}
+      disabled={!owned}
+      className={clsx(
+        "relative grid grid-cols-[72px_1fr] gap-3 p-2 text-left transition-all",
+        !owned && "opacity-50 cursor-not-allowed",
+      )}
+      style={{
+        background: isSelected
+          ? `linear-gradient(90deg, ${tint.soft}, ${tint.soft}05 60%, transparent)`
+          : "rgba(14,18,24,0.55)",
+        border: `1px solid ${isSelected ? tint.primary : "rgba(255,255,255,0.08)"}`,
+        boxShadow: isSelected
+          ? `inset 4px 0 0 ${tint.primary}, 0 0 18px ${tint.soft}`
+          : isEquipped
+            ? `inset 3px 0 0 ${tint.primary}88`
+            : "none",
+      }}
+    >
+      {/* Thumbnail — object-contain so the full weapon shows even at 72px */}
+      <div
+        className="relative overflow-hidden shrink-0"
+        style={{
+          width: 72, height: 72,
+          border: `1px solid ${tint.primary}33`,
+          background: `linear-gradient(180deg, ${tint.soft}, rgba(0,0,0,0.6))`,
+        }}
+      >
+        {art ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={art} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-contain" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ color: tint.primary, fontSize: 18 }}>
+            {tint.glyph}
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="min-w-0 flex flex-col gap-0.5">
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className="px-1 py-0.5 text-[8px] font-display font-black uppercase tracking-[0.3em] shrink-0"
+              style={{ color: tint.primary, border: `1px solid ${tint.primary}55`, background: `${tint.primary}10` }}
+            >
+              {tint.glyph} {tint.label}
+            </span>
+            {owned && <TierBadge tier={tier} />}
+          </div>
+          {isEquipped && (
+            <span className="text-[8px] font-display font-black uppercase tracking-[0.3em] shrink-0" style={{ color: tint.primary }}>
+              ✓ Active
+            </span>
+          )}
+        </div>
+
+        <div
+          className="font-display font-black uppercase tracking-tight truncate"
+          style={{ color: isSelected ? tint.primary : "rgba(255,255,255,0.92)", fontSize: 13, lineHeight: 1.1 }}
+        >
+          {weapon.name}
+        </div>
+
+        {/* Compact stat summary */}
+        <div className="flex gap-2 text-[10px] font-mono">
+          <span className="text-helldiver-yellow tabular-nums">DMG {eff.damage}</span>
+          <span className="text-helldiver-steel">·</span>
+          <span className="text-white tabular-nums">×{eff.hitsPerTurn}</span>
+          <span className="text-helldiver-steel">·</span>
+          <span className={clsx("tabular-nums", eff.ignoreArmor ? "text-helldiver-yellow" : "text-helldiver-dim")}>
+            {eff.ignoreArmor ? "AP" : TARGET_LABEL[eff.target].slice(0, 3)}
+          </span>
+        </div>
+      </div>
+
+      {/* Locked overlay */}
+      {!owned && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-[1px]">
+          <div className="text-[10px] uppercase tracking-[0.32em] text-helldiver-red font-display font-black">
+            🔒 Locked · Visit Outfitter
+          </div>
+        </div>
+      )}
+    </motion.button>
+  );
+}
+
+function WeaponHeroPanel({
+  weapon, eff, tier, owned, tint, isEquipped,
+}: {
+  weapon: Weapon;
+  eff: Weapon;
+  tier: number;
+  owned: boolean;
+  tint: { primary: string; soft: string; label: string; glyph: string };
+  isEquipped: boolean;
+}) {
+  const art = getWeaponArt(weapon.id);
+  const profile = weaponProfile(weapon);
+
+  return (
+    <div
+      className="relative flex flex-col overflow-hidden"
+      style={{
+        background: `linear-gradient(180deg, rgba(14,18,24,0.92) 0%, rgba(7,11,16,0.92) 100%)`,
+        border: `1px solid ${tint.primary}33`,
+        boxShadow: isEquipped ? `0 0 32px ${tint.soft}, inset 0 0 60px rgba(0,0,0,0.6)` : "0 8px 28px rgba(0,0,0,0.45)",
+      }}
+    >
+      {/* Top hairline */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: `linear-gradient(90deg, transparent, ${tint.primary}, transparent)` }}
+      />
+
+      {/* HERO ART — object-contain so the entire weapon is visible.
+          Larger height (420) than the old 130-tall portrait so the
+          weapon actually has room to render at a meaningful size. */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={weapon.id}
+          initial={{ opacity: 0, scale: 1.03 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="relative w-full overflow-hidden"
+          style={{ height: 420, background: "#070b10" }}
+        >
+          {art ? (
+            <motion.img
+              src={art}
+              alt=""
+              loading="lazy"
+              draggable={false}
+              className="absolute inset-0 w-full h-full object-contain"
+              animate={{ y: [0, -3, 0], scale: [1, 1.015, 1] }}
+              transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-7xl" style={{ color: tint.primary, opacity: 0.3 }}>
+              {tint.glyph}
+            </div>
+          )}
+
+          {/* Class wash — fills letterbox bands with class tint */}
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                `radial-gradient(ellipse 70% 60% at 50% 50%, transparent 35%, ${tint.soft} 100%), linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 45%)`,
+            }}
+          />
+
+          {/* Scanlines */}
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none opacity-[0.06] mix-blend-overlay"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(0deg, rgba(255,255,255,0.5) 0 1px, transparent 1px 4px)",
+            }}
+          />
+
+          {/* Title overlay */}
+          <div className="absolute left-4 right-4 bottom-3 flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <div
+                className="text-[10px] uppercase tracking-[0.4em] font-display font-black mb-1"
+                style={{ color: tint.primary }}
+              >
+                {tint.glyph} {tint.label} · AUTO-FIRE
+              </div>
+              <div
+                className="font-display font-black uppercase tracking-tight leading-none"
+                style={{
+                  color: tint.primary,
+                  fontSize: 26,
+                  textShadow: `0 0 12px ${tint.soft}, 0 2px 4px rgba(0,0,0,0.95)`,
+                }}
+              >
+                {weapon.name}
+              </div>
+            </div>
+            {owned && <TierBadge tier={tier} />}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* INFO STRIP — stat block + tactical profile side-by-side */}
+      <div className="grid grid-cols-2 gap-3 p-4" style={{ borderTop: `1px solid ${tint.primary}22` }}>
+        <div>
+          <SectionLabel tint={tint.primary}>Combat · Stat Block</SectionLabel>
+          <div className="space-y-1.5">
+            <StatRow label="Damage" value={eff.damage} accent="emerald" />
+            <StatRow label="Hits / Turn" value={eff.hitsPerTurn} accent="emerald" />
+            <StatRow label="Targeting" value={0 /* unused */} accent="sky" sign={false} customDisplay={TARGET_LABEL[eff.target]} />
+            {eff.ignoreArmor && <StatRow label="Penetration" value={0} accent="orange" sign={false} customDisplay="ARMOR-PIERCING" />}
+          </div>
+        </div>
+
+        <div>
+          <SectionLabel tint={tint.primary}>Tactical Profile</SectionLabel>
+          <div className="space-y-2">
+            <ProfileBar label="Firepower" value={profile.power} accent={tint.primary} />
+            <ProfileBar label="Tempo" value={profile.tempo} accent={tint.primary} />
+            <ProfileBar label="Precision" value={profile.precision} accent={tint.primary} />
+          </div>
+        </div>
+      </div>
+
+      {/* DESCRIPTION + ACTIVE LOADOUT BANNER */}
+      <div className="px-4 pb-4 flex flex-col gap-3">
+        <p className="text-[12px] text-gray-300 leading-relaxed italic" style={{ borderLeft: `2px solid ${tint.primary}55`, paddingLeft: 10 }}>
+          “{weapon.description}”
+        </p>
+        <ActiveLoadoutBanner active={isEquipped} tint={tint.primary} />
+      </div>
+    </div>
   );
 }
