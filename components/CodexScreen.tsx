@@ -1120,9 +1120,9 @@ function WeaponTab() {
         </span>
       </div>
 
-      {/* Card grid */}
+      {/* Card grid — compact 196×287 cards, matching stratagem grid density */}
       <div className="p-4">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 justify-items-center">
           {WEAPONS.map((w, i) => (
             <WeaponCard
               key={w.id}
@@ -1162,44 +1162,57 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
   const rarity = RARITY_META[meta.rarity];
   const art = getWeaponArt(weapon.id);
   const classTint = CLASS_TINT[meta.weaponClass];
+  // Cap to top 2 keyword chips so a 196px-wide card never wraps to 2 rows
+  const visibleKeywords = meta.keywords.slice(0, 2);
 
   return (
     <motion.button
       type="button"
       onClick={locked ? undefined : onClick}
-      whileHover={locked ? undefined : { y: -2 }}
-      transition={{ duration: 0.18 }}
+      whileHover={locked ? undefined : { y: -3, scale: 1.015 }}
+      whileTap={locked ? undefined : { scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 400, damping: 26 }}
       aria-pressed={selected}
       aria-disabled={locked}
       className={clsx(
-        "group relative text-left w-full overflow-hidden",
+        "group relative text-left overflow-hidden flex flex-col",
         locked ? "cursor-not-allowed" : "cursor-pointer"
       )}
       style={{
+        // Match stratagem compact-card footprint exactly
+        width: 196,
+        height: 287,
         background: `linear-gradient(180deg, ${WEAPON_PALETTE.panel} 0%, ${WEAPON_PALETTE.panelDeep} 100%)`,
         border: `1px solid ${selected ? WEAPON_PALETTE.gold : WEAPON_PALETTE.rule}`,
         boxShadow: selected
-          ? `0 0 0 1px ${WEAPON_PALETTE.gold}, 0 0 30px ${WEAPON_PALETTE.goldFaint}`
-          : "0 6px 24px rgba(0,0,0,0.45)",
+          ? `0 0 0 1px ${WEAPON_PALETTE.gold}, 0 0 24px ${WEAPON_PALETTE.goldFaint}`
+          : "0 4px 14px rgba(0,0,0,0.45)",
         filter: locked ? "saturate(0.2) brightness(0.5)" : undefined,
-        transition: "border-color 200ms ease, box-shadow 200ms ease",
+        transition: "border-color 180ms ease, box-shadow 180ms ease",
       }}
     >
-      {/* Hover accent — gold inner ring + corner brackets */}
+      {/* Corner brackets — match stratagem card visual language */}
+      <span aria-hidden className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l z-10" style={{ borderColor: selected ? WEAPON_PALETTE.gold : WEAPON_PALETTE.goldFaint }} />
+      <span aria-hidden className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r z-10" style={{ borderColor: selected ? WEAPON_PALETTE.gold : WEAPON_PALETTE.goldFaint }} />
+      <span aria-hidden className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b border-l z-10" style={{ borderColor: selected ? WEAPON_PALETTE.gold : WEAPON_PALETTE.goldFaint }} />
+      <span aria-hidden className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r z-10" style={{ borderColor: selected ? WEAPON_PALETTE.gold : WEAPON_PALETTE.goldFaint }} />
+
+      {/* Hover gold ring */}
       {!locked && !selected && (
         <span
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
           style={{
-            boxShadow: `inset 0 0 0 1px ${WEAPON_PALETTE.goldFaint}, 0 0 22px ${WEAPON_PALETTE.goldFaint}`,
+            boxShadow: `inset 0 0 0 1px ${WEAPON_PALETTE.goldFaint}, 0 0 18px ${WEAPON_PALETTE.goldFaint}`,
           }}
         />
       )}
 
-      {/* TOP BAR ── glyph · name · rarity */}
+      {/* TOP BAR — 24px tall · glyph + name + rarity pips */}
       <div
-        className="relative flex items-center gap-2 px-3 h-10"
+        className="relative flex items-center gap-1.5 px-2 shrink-0"
         style={{
+          height: 24,
           borderBottom: `1px solid ${selected ? WEAPON_PALETTE.ruleStrong : WEAPON_PALETTE.rule}`,
           background: selected
             ? `linear-gradient(90deg, ${WEAPON_PALETTE.gold}1a, transparent 70%)`
@@ -1208,30 +1221,34 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
       >
         <span
           aria-hidden
-          className="flex items-center justify-center w-7 h-7 text-[12px] font-black tabular-nums"
+          className="flex items-center justify-center text-[9px] font-black"
           style={{
-            border: `1px solid ${WEAPON_PALETTE.rule}`,
+            width: 16, height: 16,
             color: classTint,
+            border: `1px solid ${WEAPON_PALETTE.rule}`,
             background: WEAPON_PALETTE.panelDeep,
-            boxShadow: `inset 0 0 8px rgba(0,0,0,0.6)`,
           }}
           title={meta.weaponClass}
         >
           {CLASS_GLYPH[meta.weaponClass]}
         </span>
         <h3
-          className="flex-1 font-display font-black uppercase tracking-[0.06em] text-[12px] truncate"
-          style={{ color: selected ? WEAPON_PALETTE.gold : WEAPON_PALETTE.text }}
+          className="flex-1 font-display font-black uppercase tracking-[0.04em] truncate"
+          style={{
+            color: selected ? WEAPON_PALETTE.gold : WEAPON_PALETTE.text,
+            fontSize: 9.5,
+            lineHeight: 1.05,
+          }}
         >
           {weapon.name}
         </h3>
         <RarityPips rarity={meta.rarity} />
       </div>
 
-      {/* ART ── cinematic portrait, full bleed */}
+      {/* ART — fixed 110px tall · cinematic portrait */}
       <div
-        className="relative w-full overflow-hidden"
-        style={{ aspectRatio: "16 / 11", background: WEAPON_PALETTE.panelDeep }}
+        className="relative w-full shrink-0 overflow-hidden"
+        style={{ height: 110, background: WEAPON_PALETTE.panelDeep }}
       >
         {art ? (
           <>
@@ -1241,39 +1258,30 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
               alt=""
               draggable={false}
               loading="lazy"
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
               style={{ display: "block" }}
             />
-            {/* Vignette + bottom darken for type-line legibility */}
             <div
               aria-hidden
               className="absolute inset-0 pointer-events-none"
               style={{
                 background:
-                  "linear-gradient(to top, rgba(5,8,16,0.95) 0%, rgba(5,8,16,0.25) 35%, transparent 60%)",
-              }}
-            />
-            <div
-              aria-hidden
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "radial-gradient(ellipse 80% 70% at 50% 45%, transparent 0%, rgba(0,0,0,0.55) 100%)",
+                  "linear-gradient(to top, rgba(5,8,16,0.95) 0%, rgba(5,8,16,0.2) 35%, transparent 60%)",
               }}
             />
           </>
         ) : (
           <div
             className="absolute inset-0 flex items-center justify-center"
-            style={{ color: WEAPON_PALETTE.textDim, fontSize: 36 }}
+            style={{ color: WEAPON_PALETTE.textDim, fontSize: 28 }}
           >
             {CLASS_GLYPH[meta.weaponClass]}
           </div>
         )}
 
-        {/* Card index — top-left over art */}
+        {/* Index badge */}
         <span
-          className="absolute top-2 left-2 px-1.5 py-0.5 text-[9px] font-display font-black tabular-nums tracking-widest"
+          className="absolute top-1 left-1 px-1 py-px text-[8px] font-display font-black tabular-nums tracking-widest"
           style={{
             color: WEAPON_PALETTE.gold,
             background: "rgba(0,0,0,0.7)",
@@ -1283,26 +1291,25 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
           #{String(index).padStart(2, "0")}
         </span>
 
-        {/* Type-line over the bottom gradient */}
-        <div className="absolute left-3 right-3 bottom-2 flex items-baseline justify-between gap-2">
-          <span
-            className="text-[10px] font-display font-black uppercase tracking-[0.22em]"
-            style={{ color: classTint, textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}
+        {/* Type-line over bottom gradient */}
+        <div className="absolute left-2 right-2 bottom-1">
+          <div
+            className="font-display font-black uppercase truncate"
+            style={{
+              color: classTint,
+              fontSize: 8.5,
+              letterSpacing: "0.16em",
+              textShadow: "0 1px 3px rgba(0,0,0,0.95)",
+            }}
           >
             Primary · {meta.className}
-          </span>
-          <span
-            className="text-[9px] uppercase tracking-[0.28em] tabular-nums"
-            style={{ color: WEAPON_PALETTE.textMid, textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}
-          >
-            {rarity.label}
-          </span>
+          </div>
         </div>
       </div>
 
-      {/* STATS ROW ── three-stat command panel */}
+      {/* STATS ROW — 36px tall · 3 cells */}
       <div
-        className="grid grid-cols-3 gap-px"
+        className="grid grid-cols-3 gap-px shrink-0"
         style={{
           background: WEAPON_PALETTE.rule,
           borderBottom: `1px solid ${WEAPON_PALETTE.rule}`,
@@ -1328,67 +1335,75 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
         />
       </div>
 
-      {/* ABILITY TEXT */}
-      <div className="px-3 pt-2 pb-1">
+      {/* ABILITY + KEYWORDS — flex 1 fill */}
+      <div className="flex-1 flex flex-col px-2 pt-1.5 pb-1 min-h-0">
         <p
-          className="text-[11px] leading-snug"
-          style={{ color: WEAPON_PALETTE.textMid }}
+          className="leading-snug overflow-hidden"
+          style={{
+            color: WEAPON_PALETTE.textMid,
+            fontSize: 9.5,
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+          }}
         >
           {weapon.description}
         </p>
+        {visibleKeywords.length > 0 && (
+          <div className="mt-1 flex gap-1 flex-wrap">
+            {visibleKeywords.map((kw) => (
+              <span
+                key={kw}
+                className="px-1 py-px font-display font-black uppercase whitespace-nowrap"
+                style={{
+                  color: KEYWORD_TINT[kw],
+                  border: `1px solid ${KEYWORD_TINT[kw]}40`,
+                  background: `${KEYWORD_TINT[kw]}10`,
+                  fontSize: 7.5,
+                  letterSpacing: "0.12em",
+                  lineHeight: 1.4,
+                }}
+              >
+                {kw}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* KEYWORD CHIPS */}
-      {meta.keywords.length > 0 && (
-        <div className="px-3 pb-2 flex flex-wrap gap-1">
-          {meta.keywords.map((kw) => (
-            <span
-              key={kw}
-              className="px-1.5 py-0.5 text-[8.5px] font-display font-black uppercase tracking-[0.18em]"
-              style={{
-                color: KEYWORD_TINT[kw],
-                border: `1px solid ${KEYWORD_TINT[kw]}40`,
-                background: `${KEYWORD_TINT[kw]}10`,
-              }}
-            >
-              {kw}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* BOTTOM BAR ── flavor · faction · ID */}
+      {/* BOTTOM BAR — 22px tall · skull · id */}
       <div
-        className="flex items-center gap-2 px-3 py-2"
+        className="flex items-center justify-between gap-1.5 px-2 shrink-0"
         style={{
+          height: 22,
           borderTop: `1px solid ${WEAPON_PALETTE.rule}`,
           background: WEAPON_PALETTE.panelDeep,
         }}
       >
-        <p
-          className="flex-1 text-[9.5px] italic leading-snug truncate"
-          style={{ color: WEAPON_PALETTE.textDim }}
+        <SuperEarthSkull className="w-3 h-3 shrink-0" tint={WEAPON_PALETTE.goldDim} />
+        <span
+          className="flex-1 italic truncate"
+          style={{ color: WEAPON_PALETTE.textDim, fontSize: 8 }}
           title={meta.flavor}
         >
-          “{meta.flavor}”
-        </p>
-        <SuperEarthSkull className="w-4 h-4" tint={WEAPON_PALETTE.goldDim} />
+          {meta.flavor}
+        </span>
         <span
-          className="text-[9px] font-display font-black tabular-nums tracking-widest"
-          style={{ color: WEAPON_PALETTE.goldDim }}
+          className="font-display font-black tabular-nums tracking-widest shrink-0"
+          style={{ color: WEAPON_PALETTE.goldDim, fontSize: 7.5 }}
         >
           {meta.cardId}
         </span>
       </div>
 
-      {/* SELECTED accent — bottom gold rule */}
+      {/* Selected gold rule */}
       {selected && !locked && (
         <span
           aria-hidden
           className="absolute left-0 right-0 bottom-0 h-px"
           style={{
             background: `linear-gradient(90deg, transparent, ${WEAPON_PALETTE.gold}, transparent)`,
-            boxShadow: `0 0 8px ${WEAPON_PALETTE.gold}`,
+            boxShadow: `0 0 6px ${WEAPON_PALETTE.gold}`,
           }}
         />
       )}
@@ -1400,14 +1415,15 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
           style={{ background: "rgba(0,0,0,0.55)" }}
         >
           <span
-            className="px-2 py-1 text-[10px] font-display font-black uppercase tracking-[0.32em]"
+            className="px-1.5 py-0.5 font-display font-black uppercase tracking-[0.28em]"
             style={{
               color: WEAPON_PALETTE.red,
               border: `1px solid ${WEAPON_PALETTE.red}`,
               background: "rgba(0,0,0,0.6)",
+              fontSize: 8.5,
             }}
           >
-            Sealed · Requisition Required
+            Sealed
           </span>
         </div>
       )}
@@ -1446,25 +1462,23 @@ function StatCell({
 }) {
   return (
     <div
-      className="flex flex-col items-center justify-center py-1.5"
-      style={{ background: WEAPON_PALETTE.panel }}
+      className="flex flex-col items-center justify-center"
+      style={{ background: WEAPON_PALETTE.panel, height: 36, paddingTop: 2, paddingBottom: 2 }}
     >
       <span
-        aria-hidden
-        className="text-[11px] leading-none"
-        style={{ color: accent, opacity: 0.85 }}
-      >
-        {glyph}
-      </span>
-      <span
-        className="font-display font-black tabular-nums leading-none mt-1"
-        style={{ color: accent, fontSize: 18 }}
+        className="font-display font-black tabular-nums leading-none"
+        style={{ color: accent, fontSize: 14 }}
       >
         {value}
       </span>
       <span
-        className="text-[8px] font-display font-black uppercase tracking-[0.22em] mt-1"
-        style={{ color: WEAPON_PALETTE.textDim }}
+        className="font-display font-black uppercase mt-0.5 truncate"
+        style={{
+          color: WEAPON_PALETTE.textDim,
+          fontSize: 7,
+          letterSpacing: "0.18em",
+          maxWidth: "100%",
+        }}
       >
         {label}
       </span>
