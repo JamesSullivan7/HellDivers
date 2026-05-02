@@ -177,6 +177,28 @@ export function getWeaponArt(weaponId: string): string | null {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// BOOSTERS — maps booster id → cinematic portrait
+// Drop renders at /public/art/boosters/<id>.jpg.
+// All entries currently point at filenames the user is going to fill in
+// (cards render with a tinted silhouette fallback until then). Bump
+// BOOSTER_VER any time the underlying art is replaced.
+// ──────────────────────────────────────────────────────────────────────
+const BOOSTER_VER = "v=1";
+const BOOSTER_ART: Record<string, string> = {
+  hellpod_optimization:    `${ART_BASE}/boosters/hellpod_optimization.jpg?${BOOSTER_VER}`,
+  vitality_enhancement:    `${ART_BASE}/boosters/vitality_enhancement.jpg?${BOOSTER_VER}`,
+  stamina_enhancement:     `${ART_BASE}/boosters/stamina_enhancement.jpg?${BOOSTER_VER}`,
+  localization_confusion:  `${ART_BASE}/boosters/localization_confusion.jpg?${BOOSTER_VER}`,
+  muscle_enhancement:      `${ART_BASE}/boosters/muscle_enhancement.jpg?${BOOSTER_VER}`,
+  increased_reinforcement: `${ART_BASE}/boosters/increased_reinforcement.jpg?${BOOSTER_VER}`,
+  firebomb_hellpods:       `${ART_BASE}/boosters/firebomb_hellpods.jpg?${BOOSTER_VER}`,
+};
+
+export function getBoosterArt(boosterId: string): string | null {
+  return BOOSTER_ART[boosterId] ?? null;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // MISC
 // ──────────────────────────────────────────────────────────────────────
 export const HELLDIVER_PORTRAIT = `${ART_BASE}/misc/helldiver_portrait.png`;

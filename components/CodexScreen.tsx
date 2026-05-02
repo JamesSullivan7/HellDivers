@@ -7,7 +7,7 @@ import { sfx } from "@/lib/sfx";
 import { CARD_LIBRARY } from "@/lib/cards";
 import { ENEMY_TEMPLATES } from "@/lib/enemies";
 import { ARMORS, WEAPONS, BOOSTERS } from "@/lib/loadout";
-import { getEnemyArt, getCardArt, getArmorArt, getWeaponArt } from "@/lib/artManifest";
+import { getEnemyArt, getCardArt, getArmorArt, getWeaponArt, getBoosterArt } from "@/lib/artManifest";
 import HudFrame from "./HudFrame";
 import HubFrame from "./hub/HubFrame";
 import StratagemCard from "./cards/StratagemCard";
@@ -1585,55 +1585,306 @@ function CenteredStat({
 // ─────────────────────────────────────────────────────────────────────────
 // BOOSTERS
 // ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// BOOSTERS — same 196×287 footprint as Stratagems / Weapons.
+// Each card has a top bar, a full-image area (object-contain so user-supplied
+// art is shown whole), and a smooth combined info panel at the bottom with
+// the category label + description.
+// ─────────────────────────────────────────────────────────────────────────
+
+const BOOSTER_PALETTE = {
+  panel:      "#0E141C",
+  panelDeep:  "#070b10",
+  purple:     "#a855f7",
+  purpleDim:  "rgba(168,85,247,0.7)",
+  purpleFaint:"rgba(168,85,247,0.18)",
+  rule:       "rgba(255,255,255,0.06)",
+  ruleStrong: "rgba(168,85,247,0.35)",
+  text:       "rgba(255,255,255,0.92)",
+  textMid:    "rgba(255,255,255,0.62)",
+  textDim:    "rgba(255,255,255,0.38)",
+} as const;
+
+/** Per-booster category + flavor — keeps the Booster type minimal in lib. */
+const BOOSTER_META: Record<string, { category: string; flavor: string }> = {
+  hellpod_optimization:    { category: "DROP-POD AUGMENT",   flavor: "Pre-loaded resupply caches buy a faster opening tempo." },
+  vitality_enhancement:    { category: "BIOMEDICAL UPLIFT",  flavor: "Standard issue stim regimen — keep the Helldiver upright." },
+  stamina_enhancement:     { category: "NEUROCHEMICAL EDGE", flavor: "Reflex boosters mean one more stratagem in hand each turn." },
+  localization_confusion:  { category: "ELECTRONIC WARFARE", flavor: "First wave of hostiles loses orientation — strike first." },
+  muscle_enhancement:      { category: "EXOSKELETAL BOOST",  flavor: "Reinforced under-plating soaks the opening salvo." },
+  increased_reinforcement: { category: "LOGISTICS BUDGET",   flavor: "Approved by High Command — one extra reinforcement per run." },
+  firebomb_hellpods:       { category: "INCENDIARY DROP",    flavor: "Hellpods touch down hot — every contact starts ignited." },
+};
+
 function BoosterTab() {
-  const [zoomed, setZoomed] = useState<{ booster: Booster; index: number } | null>(null);
+  const [zoomedId, setZoomedId] = useState<string | null>(null);
+  const zoomedBooster = zoomedId ? BOOSTERS.find((b) => b.id === zoomedId) ?? null : null;
+  const zoomedIndex = zoomedId ? BOOSTERS.findIndex((b) => b.id === zoomedId) + 1 : 0;
 
   return (
-    <HudFrame label={`Boosters · ${BOOSTERS.length}`} accent="yellow" className="p-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {BOOSTERS.map((b, i) => (
-          <button
-            key={b.id}
-            type="button"
-            onClick={() => {
-              sfx.click();
-              setZoomed({ booster: b, index: i + 1 });
-            }}
-            className="text-left transition-transform hover:scale-[1.02] hover:z-10 cursor-zoom-in"
+    <div
+      className="relative overflow-hidden"
+      style={{
+        background: `linear-gradient(180deg, ${BOOSTER_PALETTE.panelDeep} 0%, #0A0F14 100%)`,
+        border: `1px solid ${BOOSTER_PALETTE.rule}`,
+      }}
+    >
+      {/* Top hairline */}
+      <div
+        aria-hidden
+        className="absolute top-0 left-0 right-0 h-px"
+        style={{ background: `linear-gradient(90deg, transparent, ${BOOSTER_PALETTE.purple}, transparent)` }}
+      />
+
+      {/* Header strip */}
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: `1px solid ${BOOSTER_PALETTE.rule}` }}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="w-1.5 h-1.5"
+            style={{ background: BOOSTER_PALETTE.purple, boxShadow: `0 0 6px ${BOOSTER_PALETTE.purple}` }}
+          />
+          <h2
+            className="font-display font-black uppercase tracking-[0.32em] text-sm"
+            style={{ color: BOOSTER_PALETTE.purple }}
           >
-            <DataCard
-              index={i + 1}
-              id={b.id}
-              name={b.name}
-              subtitle="Booster · Drop-Pod Augment"
-              description={b.description}
-              stats={[]}
-              accent="purple"
-              artUrl={null}
-            />
-          </button>
-        ))}
+            Drop-Pod Booster Inventory
+          </h2>
+        </div>
+        <span
+          className="text-[10px] uppercase tracking-[0.3em] tabular-nums"
+          style={{ color: BOOSTER_PALETTE.textDim }}
+        >
+          {BOOSTERS.length} catalogued · {BOOSTERS.filter((b) => getBoosterArt(b.id)).length} cinematic
+        </span>
       </div>
 
-      {/* Zoomed booster — DataCard rendered inside a fixed-width container
-          so the layout doesn't depend on grid context */}
-      <CodexLightbox open={!!zoomed} onClose={() => setZoomed(null)}>
-        {zoomed && (
-          <div style={{ width: 480, fontSize: "1.15rem" }}>
-            <DataCard
-              index={zoomed.index}
-              id={zoomed.booster.id}
-              name={zoomed.booster.name}
-              subtitle="Booster · Drop-Pod Augment"
-              description={zoomed.booster.description}
-              stats={[]}
-              accent="purple"
-              artUrl={null}
+      {/* Card grid — same density as Stratagems / Weapons */}
+      <div className="p-4">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 justify-items-center">
+          {BOOSTERS.map((b, i) => (
+            <BoosterCard
+              key={b.id}
+              booster={b}
+              index={i + 1}
+              selected={zoomedId === b.id}
+              onClick={() => {
+                sfx.click();
+                setZoomedId(b.id);
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Zoomed booster — same `zoom: 2.2` trick used by WeaponCard so the
+          glyph and copy stay crisp at the larger size. */}
+      <CodexLightbox open={!!zoomedBooster} onClose={() => setZoomedId(null)}>
+        {zoomedBooster && (
+          <div style={{ zoom: 2.2 }}>
+            <BoosterCard
+              booster={zoomedBooster}
+              index={zoomedIndex}
+              selected
+              onClick={() => {}}
             />
           </div>
         )}
       </CodexLightbox>
-    </HudFrame>
+    </div>
+  );
+}
+
+interface BoosterCardProps {
+  booster: Booster;
+  index: number;
+  selected: boolean;
+  onClick: () => void;
+}
+
+/**
+ * BoosterCard — mirrors the WeaponCard structure exactly:
+ *   TOP BAR -> ART (object-contain, 180px) -> COMBINED INFO PANEL.
+ *
+ * Tinted purple instead of gold so boosters read as their own category.
+ * Boosters don't have numeric stats, so the bottom panel collapses to a
+ * single centered category label + description (still on one shared
+ * panel, no rule between).
+ *
+ * The image area uses a fade-in-on-load + onError-hide pattern so that
+ * IDs whose art file isn't dropped in yet just show the silhouette
+ * fallback without leaving a broken-image icon on the card.
+ */
+function BoosterCard({ booster, index, selected, onClick }: BoosterCardProps) {
+  const meta = BOOSTER_META[booster.id] ?? {
+    category: "DROP-POD AUGMENT",
+    flavor: "",
+  };
+  const art = getBoosterArt(booster.id);
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={{ y: -3, scale: 1.015 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 400, damping: 26 }}
+      aria-pressed={selected}
+      className="group relative text-left overflow-hidden flex flex-col cursor-pointer"
+      style={{
+        width: 196,
+        height: 287,
+        background: `linear-gradient(180deg, ${BOOSTER_PALETTE.panel} 0%, ${BOOSTER_PALETTE.panelDeep} 100%)`,
+        border: `1px solid ${selected ? BOOSTER_PALETTE.purple : BOOSTER_PALETTE.rule}`,
+        boxShadow: selected
+          ? `0 0 0 1px ${BOOSTER_PALETTE.purple}, 0 0 24px ${BOOSTER_PALETTE.purpleFaint}`
+          : "0 4px 14px rgba(0,0,0,0.45)",
+        transition: "border-color 180ms ease, box-shadow 180ms ease",
+      }}
+    >
+      {/* Corner brackets */}
+      <span aria-hidden className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l z-10" style={{ borderColor: selected ? BOOSTER_PALETTE.purple : BOOSTER_PALETTE.purpleFaint }} />
+      <span aria-hidden className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r z-10" style={{ borderColor: selected ? BOOSTER_PALETTE.purple : BOOSTER_PALETTE.purpleFaint }} />
+      <span aria-hidden className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b border-l z-10" style={{ borderColor: selected ? BOOSTER_PALETTE.purple : BOOSTER_PALETTE.purpleFaint }} />
+      <span aria-hidden className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r z-10" style={{ borderColor: selected ? BOOSTER_PALETTE.purple : BOOSTER_PALETTE.purpleFaint }} />
+
+      {/* Hover purple ring */}
+      {!selected && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          style={{
+            boxShadow: `inset 0 0 0 1px ${BOOSTER_PALETTE.purpleFaint}, 0 0 18px ${BOOSTER_PALETTE.purpleFaint}`,
+          }}
+        />
+      )}
+
+      {/* TOP BAR — glyph + name */}
+      <div
+        className="relative flex items-center gap-1.5 px-2 shrink-0"
+        style={{
+          height: 24,
+          borderBottom: `1px solid ${selected ? BOOSTER_PALETTE.ruleStrong : BOOSTER_PALETTE.rule}`,
+          background: selected
+            ? `linear-gradient(90deg, ${BOOSTER_PALETTE.purple}1a, transparent 70%)`
+            : `linear-gradient(90deg, rgba(168,85,247,0.04), transparent 70%)`,
+        }}
+      >
+        <span
+          aria-hidden
+          className="flex items-center justify-center text-[9px] font-black"
+          style={{
+            width: 16, height: 16,
+            color: BOOSTER_PALETTE.purple,
+            border: `1px solid ${BOOSTER_PALETTE.rule}`,
+            background: BOOSTER_PALETTE.panelDeep,
+          }}
+        >
+          ◆
+        </span>
+        <h3
+          className="flex-1 font-display font-black uppercase tracking-[0.04em] truncate"
+          style={{
+            color: selected ? BOOSTER_PALETTE.purple : BOOSTER_PALETTE.text,
+            fontSize: 9.5,
+            lineHeight: 1.05,
+          }}
+        >
+          {booster.name}
+        </h3>
+        <span
+          className="text-[8px] font-display font-black tabular-nums tracking-widest"
+          style={{ color: BOOSTER_PALETTE.purpleDim }}
+        >
+          #{String(index).padStart(2, "0")}
+        </span>
+      </div>
+
+      {/* ART — full booster image, object-contain. Image starts opacity:0
+          and fades in onLoad; onError keeps it hidden so missing files
+          don't show a broken-image icon. The silhouette renders behind. */}
+      <div
+        className="relative w-full shrink-0 overflow-hidden"
+        style={{ height: 180, background: BOOSTER_PALETTE.panelDeep }}
+      >
+        {/* Silhouette fallback — visible whenever the <img> is hidden */}
+        <div
+          aria-hidden
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ color: BOOSTER_PALETTE.purpleFaint, fontSize: 56, lineHeight: 1 }}
+        >
+          ◆
+        </div>
+
+        {art && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={art}
+            alt=""
+            draggable={false}
+            loading="lazy"
+            className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+            style={{ display: "block", opacity: 0, transition: "opacity 320ms ease, transform 300ms ease" }}
+            onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
+          />
+        )}
+
+        {/* Soft handoff into the bottom panel */}
+        <div
+          aria-hidden
+          className="absolute left-0 right-0 bottom-0 h-8 pointer-events-none"
+          style={{
+            background:
+              `linear-gradient(to top, ${BOOSTER_PALETTE.panelDeep} 0%, transparent 100%)`,
+          }}
+        />
+      </div>
+
+      {/* COMBINED INFO PANEL — category label + description, no rule */}
+      <div
+        className="flex-1 flex flex-col px-2 pt-1.5 pb-1.5 min-h-0"
+        style={{ background: BOOSTER_PALETTE.panelDeep }}
+      >
+        <div
+          className="text-center font-display font-black uppercase mb-1.5 shrink-0"
+          style={{
+            color: BOOSTER_PALETTE.purple,
+            fontSize: 8.5,
+            letterSpacing: "0.22em",
+          }}
+        >
+          {meta.category}
+        </div>
+        <p
+          className="leading-snug text-center overflow-hidden"
+          style={{
+            color: BOOSTER_PALETTE.textMid,
+            fontSize: 9.5,
+            display: "-webkit-box",
+            WebkitLineClamp: 4,
+            WebkitBoxOrient: "vertical",
+          }}
+        >
+          {booster.description}
+        </p>
+      </div>
+
+      {/* Selected purple rule */}
+      {selected && (
+        <span
+          aria-hidden
+          className="absolute left-0 right-0 bottom-0 h-px"
+          style={{
+            background: `linear-gradient(90deg, transparent, ${BOOSTER_PALETTE.purple}, transparent)`,
+            boxShadow: `0 0 6px ${BOOSTER_PALETTE.purple}`,
+          }}
+        />
+      )}
+    </motion.button>
   );
 }
 
