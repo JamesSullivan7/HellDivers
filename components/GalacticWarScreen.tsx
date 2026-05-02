@@ -77,6 +77,35 @@ const STATUS_META: Record<LibStatus, { label: string; color: string; bg: string 
   under_attack: { label: "UNDER ATTACK", color: C.red,    bg: "rgba(255,77,77,0.12)" },
 };
 
+const FACTION_META: Record<Faction, { label: string; glyph: string }> = {
+  terminid:   { label: "TERMINIDS",   glyph: "▼" },
+  automaton:  { label: "AUTOMATONS",  glyph: "■" },
+  illuminate: { label: "ILLUMINATE",  glyph: "◆" },
+};
+
+function FactionTag({ faction }: { faction: Faction }) {
+  const meta = FACTION_META[faction];
+  const color = FACTION_COLOR[faction];
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 px-1.5 py-0.5 leading-none"
+      style={{
+        background: `${color}1a`,
+        border: `1px solid ${color}55`,
+        borderRadius: 1,
+      }}
+    >
+      <span style={{ color, fontSize: 9, lineHeight: 1, textShadow: `0 0 4px ${color}88` }}>{meta.glyph}</span>
+      <span
+        className="text-[8px] uppercase tracking-[0.3em] font-display font-black"
+        style={{ color }}
+      >
+        {meta.label}
+      </span>
+    </div>
+  );
+}
+
 // ──────────────────────────────────────────────────────────────────────
 //  ROOT
 // ──────────────────────────────────────────────────────────────────────
@@ -437,9 +466,10 @@ function PlanetTheaterCard({
         transition: "border-color 200ms ease, box-shadow 200ms ease",
       }}
     >
-      {/* Top-bar: name + biome */}
+      {/* Top-bar: faction designation + name + biome */}
       <div className="px-3 pt-3 pb-2 relative">
-        <div className="flex items-center gap-2 mb-1">
+        <FactionTag faction={planet.faction} />
+        <div className="flex items-center gap-2 mt-1.5 mb-0.5">
           {isMajor && (
             <span style={{ color: C.yellow, fontSize: 10, lineHeight: 1, textShadow: `0 0 4px ${C.yellow}88` }}>★</span>
           )}
@@ -538,6 +568,23 @@ function getBiomePalette(biome: string | undefined): [string, string, string] {
   return BIOME_PALETTE[biome] ?? ["#a0a0a0", "#5a5a5a", "#1a1a1a"];
 }
 
+/**
+ * PLANET SPHERE — composite render.
+ *
+ * Layers (back → front):
+ *   1. Outer faction halo glow (animated on liberated worlds)
+ *   2. CSS-rendered globe (biome-tinted gradient) — the FALLBACK that
+ *      always shows even if the faction image is missing
+ *   3. Faction image overlay (terminid/automaton/illuminate.jpg) — the
+ *      hero visual, dominates when present. Drops to opacity 0 on 404.
+ *   4. Atmosphere ring + specular highlight + liberation pulse
+ *
+ * Drop the faction images at:
+ *   /public/art/factions/terminid.jpg    (green)
+ *   /public/art/factions/automaton.jpg   (red)
+ *   /public/art/factions/illuminate.jpg  (purple)
+ * and they'll auto-load.
+ */
 function PlanetSphere({
   biome, faction, liberated, size = 56,
 }: {
@@ -548,15 +595,43 @@ function PlanetSphere({
 }) {
   const [light, mid, shadow] = getBiomePalette(biome);
   const halo = liberated ? "rgba(34,197,94,0.55)" : FACTION_HALO[faction];
+  const factionImg = `/art/factions/${faction}.jpg`;
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }} aria-hidden>
+      {/* 1. Outer halo (pulses on liberated) */}
       <motion.div
         className="absolute inset-0 rounded-full pointer-events-none"
         style={{ boxShadow: `0 0 ${size * 0.6}px ${halo}, 0 0 ${size * 0.25}px ${halo}` }}
         animate={liberated ? { opacity: [0.7, 1, 0.7] } : { opacity: 1 }}
         transition={liberated ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : undefined}
       />
+
+      {/* 2. CSS globe fallback — always renders so missing images degrade gracefully */}
+      <div
+        className="absolute inset-[3px] rounded-full overflow-hidden"
+        style={{
+          background: `radial-gradient(circle at 30% 30%, ${light} 0%, ${mid} 38%, ${shadow} 95%)`,
+          boxShadow: `inset -${size * 0.18}px -${size * 0.18}px ${size * 0.3}px rgba(0,0,0,0.65)`,
+        }}
+      >
+        {/* 3. Faction image overlay — hero visual */}
+        <img
+          src={factionImg}
+          alt=""
+          aria-hidden
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+          style={{ display: "block" }}
+          onError={(e) => {
+            // No faction image yet — hide so the CSS globe shows through.
+            (e.currentTarget as HTMLImageElement).style.opacity = "0";
+          }}
+        />
+      </div>
+
+      {/* 4a. Atmosphere ring (above the planet body) */}
       <div
         className="absolute inset-0 rounded-full pointer-events-none"
         style={{
@@ -565,28 +640,27 @@ function PlanetSphere({
           filter: "blur(0.5px)",
         }}
       />
+
+      {/* 4b. Subtle banding for terrain hint (overlay on the image) */}
       <div
-        className="absolute inset-[3px] rounded-full"
-        style={{
-          background: `radial-gradient(circle at 30% 30%, ${light} 0%, ${mid} 38%, ${shadow} 95%)`,
-          boxShadow: `inset -${size * 0.18}px -${size * 0.18}px ${size * 0.3}px rgba(0,0,0,0.65)`,
-        }}
-      />
-      <div
-        className="absolute inset-[3px] rounded-full opacity-30 pointer-events-none mix-blend-overlay"
+        className="absolute inset-[3px] rounded-full opacity-20 pointer-events-none mix-blend-overlay"
         style={{ background: "repeating-linear-gradient(115deg, rgba(0,0,0,0.18) 0 2px, transparent 2px 6px)" }}
       />
+
+      {/* 4c. Specular highlight */}
       <div
         className="absolute rounded-full pointer-events-none"
         style={{
-          top: "20%",
-          left: "22%",
-          width: size * 0.18,
-          height: size * 0.18,
-          background: `radial-gradient(circle, ${light}cc 0%, transparent 70%)`,
+          top: "18%",
+          left: "20%",
+          width: size * 0.16,
+          height: size * 0.16,
+          background: `radial-gradient(circle, rgba(255,255,255,0.5) 0%, transparent 70%)`,
           filter: "blur(2px)",
         }}
       />
+
+      {/* 4d. Liberation pulse — emerald wash on freed worlds */}
       {liberated && (
         <motion.div
           className="absolute inset-[3px] rounded-full pointer-events-none mix-blend-screen"
@@ -683,16 +757,17 @@ function SelectedPlanetPanel({ selected }: { selected: PlanetState | null }) {
             className="px-3 py-3 flex flex-col gap-3"
           >
             <div className="flex items-center gap-3">
-              <PlanetSphere biome={selected.biome} faction={selected.faction} liberated={selected.liberation >= 100} size={52} />
-              <div className="flex flex-col leading-tight min-w-0 flex-1">
+              <PlanetSphere biome={selected.biome} faction={selected.faction} liberated={selected.liberation >= 100} size={64} />
+              <div className="flex flex-col leading-tight min-w-0 flex-1 gap-1">
+                <FactionTag faction={selected.faction} />
                 <span
-                  className="text-[14px] font-display font-black tracking-[0.16em] uppercase truncate"
+                  className="text-[14px] font-display font-black tracking-[0.16em] uppercase truncate mt-0.5"
                   style={{ color: C.text }}
                 >
                   {selected.name}
                 </span>
-                <span className="text-[9px] uppercase tracking-[0.25em] mt-1" style={{ color: C.textDim }}>
-                  {selected.biome ?? "Unknown"}
+                <span className="text-[9px] uppercase tracking-[0.25em]" style={{ color: C.textDim }}>
+                  {selected.biome ?? "Unknown"} · {selected.sector} sector
                 </span>
               </div>
             </div>
