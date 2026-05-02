@@ -124,6 +124,25 @@ export function getCardArt(cardId: string): string | null {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// ARMORS — maps armor id → full-body Helldiver portrait
+// Drop renders at /public/art/armors/<id>.jpg and they auto-populate
+// the codex armor showcase. Missing files fall back to a silhouette
+// placeholder in the UI.
+// ──────────────────────────────────────────────────────────────────────
+const ARMOR_ART: Record<string, string> = {
+  scout: `${ART_BASE}/armors/scout.jpg`,
+  frontline: `${ART_BASE}/armors/frontline.jpg`,
+  fortified: `${ART_BASE}/armors/fortified.jpg`,
+  champion: `${ART_BASE}/armors/champion.jpg`,
+  ground_breaker: `${ART_BASE}/armors/ground_breaker.jpg`,
+  hard_liner: `${ART_BASE}/armors/hard_liner.jpg`,
+};
+
+export function getArmorArt(armorId: string): string | null {
+  return ARMOR_ART[armorId] ?? null;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // MISC
 // ──────────────────────────────────────────────────────────────────────
 export const HELLDIVER_PORTRAIT = `${ART_BASE}/misc/helldiver_portrait.png`;
