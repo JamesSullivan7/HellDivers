@@ -980,35 +980,28 @@ function EnemyDataCard({ template, index }: { template: EnemyTemplate; index: nu
         </div>
       )}
 
-      {/* Portrait — full image, never cropped (4:5 to match source cards) */}
-      <div
-        className="relative w-full"
-        style={{
-          aspectRatio: "4 / 5",
-          background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))",
-        }}
-      >
-        {art ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={art}
-            alt={template.name}
-            loading="lazy"
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              objectPosition: "center",
-            }}
-          />
-        ) : (
-          <div className={clsx("absolute inset-0 flex items-center justify-center", FACTION_TEXT[template.faction])}>
-            <FactionIcon faction={template.faction} className="w-16 h-16 opacity-80" />
-          </div>
-        )}
-      </div>
+      {/* Portrait — full source card displayed (image dictates height) */}
+      {art ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={art}
+          alt={template.name}
+          loading="lazy"
+          style={{
+            display: "block",
+            width: "100%",
+            height: "auto",
+            background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))",
+          }}
+        />
+      ) : (
+        <div
+          className={clsx("relative w-full flex items-center justify-center", FACTION_TEXT[template.faction])}
+          style={{ aspectRatio: "4 / 5", background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))" }}
+        >
+          <FactionIcon faction={template.faction} className="w-16 h-16 opacity-80" />
+        </div>
+      )}
 
       {/* Header */}
       <div className="px-3 py-2 border-y border-helldiver-steel/40">
@@ -1119,35 +1112,28 @@ function DataCard({
           No Art
         </div>
       )}
-      {/* Art slot — full image displayed (4:5 aspect to match source portraits) */}
-      <div
-        className="relative w-full"
-        style={{
-          aspectRatio: "4 / 5",
-          background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))",
-        }}
-      >
-        {artUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={artUrl}
-            alt={name}
-            loading="lazy"
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              objectPosition: "center",
-            }}
-          />
-        ) : (
-          <div className={clsx("absolute inset-0 flex items-center justify-center text-3xl opacity-30 font-display font-black", ACCENT_TEXT[accent])}>
-            ◇◇◇
-          </div>
-        )}
-      </div>
+      {/* Art slot — full source card displayed (image dictates height) */}
+      {artUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={artUrl}
+          alt={name}
+          loading="lazy"
+          style={{
+            display: "block",
+            width: "100%",
+            height: "auto",
+            background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))",
+          }}
+        />
+      ) : (
+        <div
+          className={clsx("relative w-full flex items-center justify-center text-3xl opacity-30 font-display font-black", ACCENT_TEXT[accent])}
+          style={{ aspectRatio: "4 / 5", background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))" }}
+        >
+          ◇◇◇
+        </div>
+      )}
       <div className="px-3 py-2 border-y border-helldiver-steel/40">
         <div className="text-[9px] uppercase tracking-widest text-helldiver-dim">{subtitle}</div>
         <div className={clsx("font-display font-black text-base tracking-tight leading-tight", ACCENT_TEXT[accent])}>
