@@ -1191,11 +1191,8 @@ const TARGET_LABEL: Record<Weapon["target"], string> = {
   random:     "SPREAD",
   all:        "AREA",
 };
-const TARGET_GLYPH: Record<Weapon["target"], string> = {
-  highest_hp: "◎",
-  random:     "✦",
-  all:        "▤",
-};
+// TARGET_GLYPH removed - the redesigned stat row uses just label/value
+// pairs without a leading glyph (cleaner look in the combined info panel).
 
 function WeaponTab() {
   // selectedId still drives the gold-border highlight on the grid;
@@ -1307,8 +1304,6 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
   const rarity = RARITY_META[meta.rarity];
   const art = getWeaponArt(weapon.id);
   const classTint = CLASS_TINT[meta.weaponClass];
-  // Cap to top 2 keyword chips so a 196px-wide card never wraps to 2 rows
-  const visibleKeywords = meta.keywords.slice(0, 2);
 
   return (
     <motion.button
@@ -1390,10 +1385,12 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
         <RarityPips rarity={meta.rarity} />
       </div>
 
-      {/* ART — fixed 110px tall · cinematic portrait */}
+      {/* ART — full weapon image, taller than before, object-contain so the
+          *whole* image is visible (no cropping). Padded with a dark inner
+          surround that blends into the bottom panel for a smooth handoff. */}
       <div
         className="relative w-full shrink-0 overflow-hidden"
-        style={{ height: 110, background: WEAPON_PALETTE.panelDeep }}
+        style={{ height: 180, background: WEAPON_PALETTE.panelDeep }}
       >
         {art ? (
           <>
@@ -1403,30 +1400,22 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
               alt=""
               draggable={false}
               loading="lazy"
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+              className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.03]"
               style={{ display: "block" }}
-            />
-            <div
-              aria-hidden
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "linear-gradient(to top, rgba(5,8,16,0.95) 0%, rgba(5,8,16,0.2) 35%, transparent 60%)",
-              }}
             />
           </>
         ) : (
           <div
             className="absolute inset-0 flex items-center justify-center"
-            style={{ color: WEAPON_PALETTE.textDim, fontSize: 28 }}
+            style={{ color: WEAPON_PALETTE.textDim, fontSize: 36 }}
           >
             {CLASS_GLYPH[meta.weaponClass]}
           </div>
         )}
 
-        {/* Index badge */}
+        {/* Index badge — top-left, small */}
         <span
-          className="absolute top-1 left-1 px-1 py-px text-[8px] font-display font-black tabular-nums tracking-widest"
+          className="absolute top-1 left-1 px-1 py-px text-[8px] font-display font-black tabular-nums tracking-widest z-10"
           style={{
             color: WEAPON_PALETTE.gold,
             background: "rgba(0,0,0,0.7)",
@@ -1436,54 +1425,57 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
           #{String(index).padStart(2, "0")}
         </span>
 
-        {/* Type-line over bottom gradient */}
-        <div className="absolute left-2 right-2 bottom-1">
-          <div
-            className="font-display font-black uppercase truncate"
-            style={{
-              color: classTint,
-              fontSize: 8.5,
-              letterSpacing: "0.16em",
-              textShadow: "0 1px 3px rgba(0,0,0,0.95)",
-            }}
-          >
-            Primary · {meta.className}
-          </div>
-        </div>
+        {/* Smooth handoff to the bottom panel — soft dark gradient at the
+            very bottom of the image so the panel below appears to flow up
+            from the artwork rather than being a separate slab. */}
+        <div
+          aria-hidden
+          className="absolute left-0 right-0 bottom-0 h-8 pointer-events-none"
+          style={{
+            background:
+              `linear-gradient(to top, ${WEAPON_PALETTE.panelDeep} 0%, transparent 100%)`,
+          }}
+        />
       </div>
 
-      {/* STATS ROW — 36px tall · 3 cells */}
+      {/* COMBINED INFO PANEL — stats centered + description, no separator
+          between them so the stats feel like part of the description block.
+          This is the "smooth" combined section the user asked for. */}
       <div
-        className="grid grid-cols-3 gap-px shrink-0"
-        style={{
-          background: WEAPON_PALETTE.rule,
-          borderBottom: `1px solid ${WEAPON_PALETTE.rule}`,
-        }}
+        className="flex-1 flex flex-col px-2 pt-1.5 pb-1.5 min-h-0"
+        style={{ background: WEAPON_PALETTE.panelDeep }}
       >
-        <StatCell
-          label="DMG"
-          value={String(weapon.damage)}
-          glyph="✦"
-          accent={WEAPON_PALETTE.gold}
-        />
-        <StatCell
-          label="HITS"
-          value={String(weapon.hitsPerTurn)}
-          glyph="≡"
-          accent={WEAPON_PALETTE.text}
-        />
-        <StatCell
-          label={TARGET_LABEL[weapon.target]}
-          value={weapon.ignoreArmor ? "AP" : "—"}
-          glyph={TARGET_GLYPH[weapon.target]}
-          accent={weapon.ignoreArmor ? WEAPON_PALETTE.gold : WEAPON_PALETTE.text}
-        />
-      </div>
+        {/* Stats row — three big numerics centered */}
+        <div className="grid grid-cols-3 items-end shrink-0 mb-1.5">
+          <CenteredStat
+            label="DMG"
+            value={String(weapon.damage)}
+            accent={WEAPON_PALETTE.gold}
+          />
+          <CenteredStat
+            label="HITS"
+            value={String(weapon.hitsPerTurn)}
+            accent={WEAPON_PALETTE.text}
+          />
+          <CenteredStat
+            // Short 3-char value + a single label line — fits cleanly in
+            // the 1/3 column. AP-piercing weapons get a gold value tint
+            // and "TGT · AP" suffix.
+            label={weapon.ignoreArmor ? "TGT · AP" : "TGT"}
+            value={
+              weapon.target === "highest_hp"
+                ? "PRI"
+                : weapon.target === "random"
+                  ? "SPR"
+                  : "AOE"
+            }
+            accent={weapon.ignoreArmor ? WEAPON_PALETTE.gold : WEAPON_PALETTE.text}
+          />
+        </div>
 
-      {/* ABILITY + KEYWORDS — flex 1 fill */}
-      <div className="flex-1 flex flex-col px-2 pt-1.5 pb-1 min-h-0">
+        {/* Description — flows directly under stats with no rule between */}
         <p
-          className="leading-snug overflow-hidden"
+          className="leading-snug text-center overflow-hidden"
           style={{
             color: WEAPON_PALETTE.textMid,
             fontSize: 9.5,
@@ -1494,51 +1486,6 @@ function WeaponCard({ weapon, index, selected, onClick, locked = false }: Weapon
         >
           {weapon.description}
         </p>
-        {visibleKeywords.length > 0 && (
-          <div className="mt-1 flex gap-1 flex-wrap">
-            {visibleKeywords.map((kw) => (
-              <span
-                key={kw}
-                className="px-1 py-px font-display font-black uppercase whitespace-nowrap"
-                style={{
-                  color: KEYWORD_TINT[kw],
-                  border: `1px solid ${KEYWORD_TINT[kw]}40`,
-                  background: `${KEYWORD_TINT[kw]}10`,
-                  fontSize: 7.5,
-                  letterSpacing: "0.12em",
-                  lineHeight: 1.4,
-                }}
-              >
-                {kw}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* BOTTOM BAR — 22px tall · skull · id */}
-      <div
-        className="flex items-center justify-between gap-1.5 px-2 shrink-0"
-        style={{
-          height: 22,
-          borderTop: `1px solid ${WEAPON_PALETTE.rule}`,
-          background: WEAPON_PALETTE.panelDeep,
-        }}
-      >
-        <SuperEarthSkull className="w-3 h-3 shrink-0" tint={WEAPON_PALETTE.goldDim} />
-        <span
-          className="flex-1 italic truncate"
-          style={{ color: WEAPON_PALETTE.textDim, fontSize: 8 }}
-          title={meta.flavor}
-        >
-          {meta.flavor}
-        </span>
-        <span
-          className="font-display font-black tabular-nums tracking-widest shrink-0"
-          style={{ color: WEAPON_PALETTE.goldDim, fontSize: 7.5 }}
-        >
-          {meta.cardId}
-        </span>
       </div>
 
       {/* Selected gold rule */}
@@ -1594,25 +1541,26 @@ function RarityPips({ rarity }: { rarity: WeaponRarity }) {
   );
 }
 
-function StatCell({
+/**
+ * CenteredStat — used in the new combined info panel under the image.
+ * Three of these sit horizontally and share the same panel background as
+ * the description below them, giving the "smooth" combined feel the user
+ * asked for (no rule between the stats and the description).
+ */
+function CenteredStat({
   label,
   value,
-  glyph,
   accent,
 }: {
   label: string;
   value: string;
-  glyph: string;
   accent: string;
 }) {
   return (
-    <div
-      className="flex flex-col items-center justify-center"
-      style={{ background: WEAPON_PALETTE.panel, height: 36, paddingTop: 2, paddingBottom: 2 }}
-    >
+    <div className="flex flex-col items-center justify-end">
       <span
         className="font-display font-black tabular-nums leading-none"
-        style={{ color: accent, fontSize: 14 }}
+        style={{ color: accent, fontSize: 18 }}
       >
         {value}
       </span>
@@ -1631,24 +1579,8 @@ function StatCell({
   );
 }
 
-function SuperEarthSkull({ className, tint }: { className?: string; tint: string }) {
-  return (
-    <svg
-      viewBox="0 0 32 32"
-      className={className}
-      aria-hidden
-      fill="none"
-      stroke={tint}
-      strokeWidth={1.4}
-    >
-      <circle cx="16" cy="14" r="7" />
-      <rect x="12" y="20" width="8" height="3" />
-      <circle cx="13" cy="14" r="1.4" fill={tint} stroke="none" />
-      <circle cx="19" cy="14" r="1.4" fill={tint} stroke="none" />
-      <line x1="16" y1="16" x2="16" y2="18" />
-    </svg>
-  );
-}
+// SuperEarthSkull removed — the bottom flavor strip that hosted it was
+// dropped to make room for the combined stats + description panel.
 
 // ─────────────────────────────────────────────────────────────────────────
 // BOOSTERS
