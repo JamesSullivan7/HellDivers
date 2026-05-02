@@ -354,19 +354,21 @@ function EnemyDataCard({ template, index }: { template: EnemyTemplate; index: nu
         </div>
       )}
 
-      {/* Portrait */}
-      <div className="relative h-44 overflow-hidden">
+      {/* Portrait — full image, never cropped */}
+      <div
+        className="relative aspect-[4/5] overflow-hidden flex items-center justify-center"
+        style={{ background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))" }}
+      >
         {art ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={art} alt="" className="absolute inset-0 w-full h-full object-cover object-top" loading="lazy" />
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: "linear-gradient(to bottom, transparent 55%, rgba(0,0,0,0.75))" }}
-            />
-          </>
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={art}
+            alt={template.name}
+            className="w-full h-full object-contain"
+            loading="lazy"
+          />
         ) : (
-          <div className={clsx("absolute inset-0 flex items-center justify-center", FACTION_TEXT[template.faction])}>
+          <div className={clsx("flex items-center justify-center", FACTION_TEXT[template.faction])}>
             <FactionIcon faction={template.faction} className="w-16 h-16 opacity-80" />
           </div>
         )}
@@ -481,11 +483,14 @@ function DataCard({
           No Art
         </div>
       )}
-      {/* Art slot — placeholder block until armor/weapon art is wired */}
-      <div className="h-24 bg-gradient-to-b from-black/40 to-transparent flex items-center justify-center">
+      {/* Art slot — full image displayed (4:5 aspect to match source portraits) */}
+      <div
+        className="relative aspect-[4/5] flex items-center justify-center overflow-hidden"
+        style={{ background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))" }}
+      >
         {artUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={artUrl} alt="" className="w-full h-full object-cover" />
+          <img src={artUrl} alt={name} className="w-full h-full object-contain" loading="lazy" />
         ) : (
           <div className={clsx("text-3xl opacity-30 font-display font-black", ACCENT_TEXT[accent])}>
             ◇◇◇
