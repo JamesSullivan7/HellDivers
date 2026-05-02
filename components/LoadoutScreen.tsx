@@ -870,7 +870,10 @@ function ArmorHeroPanel({
         style={{ background: `linear-gradient(90deg, transparent, ${tint.primary}, transparent)` }}
       />
 
-      {/* HERO ART — animated parallax */}
+      {/* HERO ART — animated parallax. object-contain so the entire armor
+          portrait is visible head-to-toe (no waist-up crop). Height is
+          bumped to 420 so the figure renders at a meaningful size; the
+          class wash + radial gradient below softens any side letterboxing. */}
       <AnimatePresence mode="wait">
         <motion.div
           key={armor.id}
@@ -879,7 +882,7 @@ function ArmorHeroPanel({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
           className="relative w-full overflow-hidden"
-          style={{ height: 280, background: "#070b10" }}
+          style={{ height: 420, background: "#070b10" }}
         >
           {art ? (
             <motion.img
@@ -887,7 +890,8 @@ function ArmorHeroPanel({
               alt=""
               loading="lazy"
               draggable={false}
-              className="absolute inset-0 w-full h-full object-cover object-top"
+              className="absolute inset-0 w-full h-full object-contain"
+              style={{ objectPosition: "center top" }}
               animate={{ y: [0, -4, 0], scale: [1, 1.02, 1] }}
               transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -897,13 +901,16 @@ function ArmorHeroPanel({
             </div>
           )}
 
-          {/* Class wash — light blue / gold / heavy orange */}
+          {/* Class wash — fills the side letterbox bands with a class-tinted
+              gradient (light blue / gold / heavy orange) so contained images
+              don't leave plain black slivers on either side. The radial
+              focus stays centered on the figure. */}
           <div
             aria-hidden
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                `radial-gradient(ellipse 60% 50% at 50% 30%, ${tint.soft} 0%, transparent 60%), linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 45%)`,
+                `radial-gradient(ellipse 70% 60% at 50% 35%, transparent 35%, ${tint.soft} 100%), linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 45%)`,
             }}
           />
 
