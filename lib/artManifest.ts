@@ -116,7 +116,7 @@ const CARD_ART: Record<string, string> = {
   util_resupply: `${ART_BASE}/stratagems/resupply.png`,
   util_reinforce: `${ART_BASE}/stratagems/reinforce.png`,
   util_shield_relay: `${ART_BASE}/stratagems/fx12_shield_generator_relay.png`,
-  // util_stim — no dedicated art.
+  util_stim: `${ART_BASE}/stratagems/stim.jpg`,
 };
 
 export function getCardArt(cardId: string): string | null {
