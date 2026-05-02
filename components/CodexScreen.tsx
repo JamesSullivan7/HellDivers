@@ -36,13 +36,16 @@ export default function CodexScreen() {
   ];
 
   return (
-    <HubFrame
-      title="Codex"
-      subtitle="Super Earth Field Codex · All Approved Materiel"
-    >
-      <div className="max-w-7xl mx-auto">
+    <HubFrame title="Codex">
+      {/*
+        h-full + flex-col so the active-tab area can claim the
+        full remaining height. Tabs and filters stay fixed-size.
+        ArmorTab in particular uses flex-1 + min-h-0 so it fits
+        one viewport without page-scroll.
+      */}
+      <div className="max-w-7xl mx-auto h-full flex flex-col">
         {/* Tabs */}
-        <div className="flex flex-wrap items-center gap-1 mb-4">
+        <div className="flex flex-wrap items-center gap-1 mb-3 shrink-0">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -70,7 +73,7 @@ export default function CodexScreen() {
 
         {/* Sub-filters per tab */}
         {tab === "stratagems" && (
-          <div className="flex flex-wrap items-center gap-1 mb-3">
+          <div className="flex flex-wrap items-center gap-1 mb-3 shrink-0">
             {STRATAGEM_FILTERS.map((f) => (
               <button
                 key={f}
@@ -101,7 +104,7 @@ export default function CodexScreen() {
         )}
 
         {tab === "enemies" && (
-          <div className="flex flex-wrap items-center gap-1 mb-3">
+          <div className="flex flex-wrap items-center gap-1 mb-3 shrink-0">
             {FACTION_FILTERS.map((f) => (
               <button
                 key={f}
@@ -131,16 +134,21 @@ export default function CodexScreen() {
           </div>
         )}
 
-        {/* Tab content */}
-        {tab === "stratagems" && (
-          <StratagemTab filter={stratFilter} onlyMissingArt={showOnlyMissingArt} />
-        )}
-        {tab === "armors" && <ArmorTab />}
-        {tab === "weapons" && <WeaponTab />}
-        {tab === "boosters" && <BoosterTab />}
-        {tab === "enemies" && (
-          <EnemyTab faction={factionFilter} onlyMissingArt={showOnlyMissingArt} />
-        )}
+        {/* Tab content — flex-1 + min-h-0 lets the inner tab claim the
+            full remaining height. Tabs that should fit one viewport
+            (ArmorTab) use h-full inside; tabs that scroll a long grid
+            (Stratagems / Weapons / Enemies) wrap their own scroll. */}
+        <div className="flex-1 min-h-0">
+          {tab === "stratagems" && (
+            <StratagemTab filter={stratFilter} onlyMissingArt={showOnlyMissingArt} />
+          )}
+          {tab === "armors" && <ArmorTab />}
+          {tab === "weapons" && <WeaponTab />}
+          {tab === "boosters" && <BoosterTab />}
+          {tab === "enemies" && (
+            <EnemyTab faction={factionFilter} onlyMissingArt={showOnlyMissingArt} />
+          )}
+        </div>
       </div>
     </HubFrame>
   );
@@ -363,7 +371,9 @@ function ArmorTab() {
 
   return (
     <div
-      className="relative overflow-hidden"
+      // h-full + flex-col + min-h-0 so the 3-zone grid claims the full
+      // remaining viewport height. No page-scroll on the armor page.
+      className="relative overflow-hidden h-full flex flex-col"
       style={{
         background: `linear-gradient(180deg, ${ARMOR_PALETTE.panel} 0%, ${ARMOR_PALETTE.bg} 100%)`,
         border: `1px solid ${ARMOR_PALETTE.rule}`,
@@ -385,9 +395,9 @@ function ArmorTab() {
         }}
       />
 
-      {/* Section header */}
+      {/* Section header — fixed-height so the grid below absorbs the rest */}
       <header
-        className="px-4 py-2.5 flex items-center justify-between"
+        className="px-4 py-2 flex items-center justify-between shrink-0"
         style={{ borderBottom: `1px solid ${ARMOR_PALETTE.rule}` }}
       >
         <div className="flex items-center gap-2">
@@ -404,8 +414,14 @@ function ArmorTab() {
         </span>
       </header>
 
-      {/* 3-zone main grid */}
-      <div className="grid" style={{ gridTemplateColumns: "240px minmax(0,1fr) 320px" }}>
+      {/* 3-zone main grid — flex-1 to fill the remaining viewport height.
+          Each column scrolls internally if its content exceeds the bounds.
+          The redundant ArmorComparisonStrip was removed (its picker
+          duplicates the left ArmorList). */}
+      <div
+        className="grid flex-1 min-h-0"
+        style={{ gridTemplateColumns: "240px minmax(0,1fr) 320px" }}
+      >
         {/* LEFT — armor list */}
         <ArmorList armors={ARMORS} selectedId={selectedId} onSelect={setSelectedId} />
 
@@ -415,9 +431,6 @@ function ArmorTab() {
         {/* RIGHT — stats + perk + tactical */}
         <ArmorDetailRail armor={selected} />
       </div>
-
-      {/* BOTTOM — comparison strip */}
-      <ArmorComparisonStrip armors={ARMORS} selectedId={selectedId} onSelect={setSelectedId} />
     </div>
   );
 }
@@ -429,7 +442,7 @@ function ArmorList({
 }) {
   return (
     <nav
-      className="flex flex-col"
+      className="flex flex-col overflow-y-auto min-h-0"
       style={{ borderRight: `1px solid ${ARMOR_PALETTE.rule}` }}
     >
       {armors.map((a) => {
@@ -526,9 +539,11 @@ function ArmorHero({ armor }: { armor: Armor }) {
   const art = getArmorArt(armor.id);
   return (
     <div
-      className="relative overflow-hidden"
+      // h-full so the hero fills the grid cell exactly; minHeight removed
+      // because we now want the hero to *shrink* on shorter viewports
+      // rather than force the page to scroll.
+      className="relative overflow-hidden h-full"
       style={{
-        minHeight: 480,
         background: `radial-gradient(ellipse at 50% 30%, rgba(255,199,44,0.06) 0%, transparent 65%), linear-gradient(180deg, #0d141d, #050810)`,
       }}
     >
@@ -720,7 +735,7 @@ function ArmorDetailRail({ armor }: { armor: Armor }) {
 
   return (
     <div
-      className="flex flex-col"
+      className="flex flex-col overflow-y-auto min-h-0"
       style={{ borderLeft: `1px solid ${ARMOR_PALETTE.rule}` }}
     >
       {/* STATS BLOCK */}

@@ -75,17 +75,26 @@ export default function HubFrame({
     >
       {!hideBridge && <HubCommandCenterBackground />}
 
+      {/* Layout is now just TopStrip + content. The big "CODEX / SUPER EARTH
+          FIELD CODEX" title block was removed from every framed page (it
+          was ~85px of pure chrome). The page title is slotted into the top
+          strip instead so it costs ~0px of vertical real estate. */}
       <div
         className="relative z-50 h-full grid"
-        style={{ gridTemplateRows: "44px auto minmax(0, 1fr)" }}
+        style={{ gridTemplateRows: "44px minmax(0, 1fr)" }}
       >
-        <FrameTopStrip account={account} onBack={() => { sfx.click(); goToMenu(); }} />
-        <FrameTitleBlock title={title} subtitle={subtitle} accent={accent} badge={badge} />
+        <FrameTopStrip
+          account={account}
+          onBack={() => { sfx.click(); goToMenu(); }}
+          pageTitle={title}
+          pageAccent={accent}
+          pageBadge={badge}
+        />
 
         <main
           className={clsx(
             "relative overflow-y-auto hub-frame-scroll",
-            dense ? "px-6 py-4" : "px-8 py-6",
+            dense ? "px-6 py-3" : "px-8 py-4",
             className,
           )}
           style={{
@@ -115,14 +124,28 @@ export default function HubFrame({
 }
 
 // ──────────────────────────────────────────────────────────────────────
-//  Top strip — back button on left, identity + currencies on right
+//  Top strip — back button on left, identity + currencies on right.
+//  Page title is now shown inline here (replaces the big title block
+//  that used to live below this strip).
 // ──────────────────────────────────────────────────────────────────────
-function FrameTopStrip({ account, onBack }: { account: Account; onBack: () => void }) {
+function FrameTopStrip({
+  account,
+  onBack,
+  pageTitle,
+  pageAccent,
+  pageBadge,
+}: {
+  account: Account;
+  onBack: () => void;
+  pageTitle: string;
+  pageAccent: string;
+  pageBadge?: React.ReactNode;
+}) {
   const rank = getHelldiverRank(account.level);
   const samples = account.samples + account.rareSamples + account.superSamples;
   return (
     <header
-      className="relative flex items-center px-5 gap-4"
+      className="relative flex items-center px-4 gap-3"
       style={{
         background: `linear-gradient(180deg, ${C.panel} 0%, ${C.bg0} 100%)`,
         borderBottom: `1px solid ${C.hairline}`,
@@ -138,7 +161,7 @@ function FrameTopStrip({ account, onBack }: { account: Account; onBack: () => vo
       <button
         type="button"
         onClick={onBack}
-        className="flex items-center gap-2 px-3 py-1.5 transition-all"
+        className="flex items-center gap-2 px-3 py-1.5 transition-all shrink-0"
         style={{
           border: `1px solid ${C.rule}`,
           borderRadius: 1,
@@ -161,31 +184,39 @@ function FrameTopStrip({ account, onBack }: { account: Account; onBack: () => vo
         </span>
       </button>
 
-      {/* Wordmark */}
+      {/* Wordmark — abbreviated to make room for the page title */}
       <span
-        className="hidden md:inline font-display font-black tracking-[0.22em]"
-        style={{ color: C.yellow, fontSize: 13 }}
+        className="hidden lg:inline font-display font-black tracking-[0.22em] shrink-0"
+        style={{ color: C.yellow, fontSize: 12 }}
       >
         HELLDIVERS
       </span>
-      <span className="hidden md:inline text-[9px] uppercase tracking-[0.4em]" style={{ color: C.textDim }}>
-        STRATAGEM PROTOCOL
-      </span>
+      <span aria-hidden className="hidden lg:inline w-px h-4" style={{ background: C.rule }} />
+
+      {/* PAGE TITLE — inline, no separate block. Adds the page identity
+          without burning ~85px of vertical real estate. */}
+      <h1
+        className="font-display font-black tracking-[0.22em] truncate"
+        style={{ color: pageAccent, fontSize: 14, textShadow: `0 0 6px ${pageAccent}55` }}
+      >
+        {pageTitle.toUpperCase()}
+      </h1>
+      {pageBadge && <div className="shrink-0">{pageBadge}</div>}
 
       <div className="flex-1" />
 
       {/* Identity */}
-      <div className="hidden md:flex flex-col leading-none text-right">
+      <div className="hidden md:flex flex-col leading-none text-right shrink-0">
         <span className="text-[8px] uppercase tracking-[0.3em]" style={{ color: C.textDim }}>
           {rank.title}
         </span>
-        <span className="text-[12px] font-display font-black tracking-wider mt-1" style={{ color: C.yellow }}>
+        <span className="text-[11px] font-display font-black tracking-wider mt-0.5" style={{ color: C.yellow }}>
           {account.helldiverName ?? "HELLDIVER"}
         </span>
       </div>
 
       {/* Currencies */}
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-4 shrink-0">
         <CurrencyPill glyph="★" label="MEDALS" value={account.medals} accent={C.yellow} />
         <CurrencyPill glyph="◆" label="SAMPLES" value={samples} accent={C.cyan} />
         <CurrencyPill glyph="Ⓡ" label="REQ" value={account.requisition} accent={C.orange} />
@@ -213,51 +244,9 @@ function CurrencyPill({ glyph, label, value, accent }: { glyph: string; label: s
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-//  Title block — heading + subtitle + optional badge
-// ──────────────────────────────────────────────────────────────────────
-function FrameTitleBlock({
-  title, subtitle, accent, badge,
-}: { title: string; subtitle?: string; accent: string; badge?: React.ReactNode }) {
-  return (
-    <div
-      className="relative px-8 py-5"
-      style={{
-        background: `linear-gradient(180deg, ${C.panel} 0%, rgba(14,18,24,0.65) 100%)`,
-        borderBottom: `1px solid ${C.hairline}`,
-      }}
-    >
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <motion.h1
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.32 }}
-            className="font-display font-black tracking-[0.16em]"
-            style={{ color: accent, fontSize: 28, textShadow: `0 0 8px ${accent}55` }}
-          >
-            {title.toUpperCase()}
-          </motion.h1>
-          {subtitle && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.32, delay: 0.08 }}
-              className="text-[10px] uppercase tracking-[0.4em] mt-2"
-              style={{ color: C.textDim }}
-            >
-              {subtitle}
-            </motion.p>
-          )}
-        </div>
-        {badge && <div className="shrink-0">{badge}</div>}
-      </div>
-
-      {/* Underline */}
-      <div className="absolute bottom-0 left-8 right-8 h-px" style={{ background: `linear-gradient(90deg, ${accent}, transparent 60%)` }} />
-    </div>
-  );
-}
+// FrameTitleBlock removed — title is now rendered inline inside
+// FrameTopStrip. Saves ~85px of vertical space on every framed page
+// and lets the actual content claim the full viewport height.
 
 // ──────────────────────────────────────────────────────────────────────
 //  Themed atoms — re-exported for use inside framed rooms
