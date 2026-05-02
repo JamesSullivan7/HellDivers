@@ -359,7 +359,7 @@ function EnemyDataCard({ template, index }: { template: EnemyTemplate; index: nu
         {art ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={art} alt="" className="absolute inset-0 w-full h-full object-cover object-center" loading="lazy" />
+            <img src={art} alt="" className="absolute inset-0 w-full h-full object-cover object-top" loading="lazy" />
             <div
               className="absolute inset-0 pointer-events-none"
               style={{ background: "linear-gradient(to bottom, transparent 55%, rgba(0,0,0,0.75))" }}

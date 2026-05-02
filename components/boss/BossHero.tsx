@@ -62,7 +62,7 @@ export default function BossHero({ templateId, faction, enraged }: Props) {
           <img
             src={art}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover object-center"
+            className="absolute inset-0 w-full h-full object-cover object-top"
             draggable={false}
             loading="lazy"
           />
