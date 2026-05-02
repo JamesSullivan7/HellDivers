@@ -129,13 +129,16 @@ export function getCardArt(cardId: string): string | null {
 // the codex armor showcase. Missing files fall back to a silhouette
 // placeholder in the UI.
 // ──────────────────────────────────────────────────────────────────────
+// Cache buster: bump when we replace the underlying art so browsers
+// + Vercel's CDN don't serve a stale copy at the same filename.
+const ARMOR_VER = "v=2";
 const ARMOR_ART: Record<string, string> = {
-  scout: `${ART_BASE}/armors/scout.jpg`,
-  frontline: `${ART_BASE}/armors/frontline.jpg`,
-  fortified: `${ART_BASE}/armors/fortified.jpg`,
-  champion: `${ART_BASE}/armors/champion.jpg`,
-  ground_breaker: `${ART_BASE}/armors/ground_breaker.jpg`,
-  hard_liner: `${ART_BASE}/armors/hard_liner.jpg`,
+  scout: `${ART_BASE}/armors/scout.jpg?${ARMOR_VER}`,
+  frontline: `${ART_BASE}/armors/frontline.jpg?${ARMOR_VER}`,
+  fortified: `${ART_BASE}/armors/fortified.jpg?${ARMOR_VER}`,
+  champion: `${ART_BASE}/armors/champion.jpg?${ARMOR_VER}`,
+  ground_breaker: `${ART_BASE}/armors/ground_breaker.jpg?${ARMOR_VER}`,
+  hard_liner: `${ART_BASE}/armors/hard_liner.jpg?${ARMOR_VER}`,
 };
 
 export function getArmorArt(armorId: string): string | null {
