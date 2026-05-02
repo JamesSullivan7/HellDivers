@@ -21,10 +21,13 @@ const ENEMY_ART: Record<string, string> = {
   bile_titan: `${ART_BASE}/enemies/bile_titan.png`,
   impaler: `${ART_BASE}/enemies/impaler.png`,
   dragonroach: `${ART_BASE}/enemies/dragonroach.png`,
+  bile_spewer: `${ART_BASE}/enemies/bile_spewer.png`,
+  brood_commander: `${ART_BASE}/enemies/brood_commander.png`,
   // Automatons
   trooper: `${ART_BASE}/enemies/trooper.png`,
   devastator: `${ART_BASE}/enemies/devastator.png`,
   hulk: `${ART_BASE}/enemies/hulk.png`,
+  berserker: `${ART_BASE}/enemies/berserker.png`,
   factory_strider: `${ART_BASE}/enemies/factory_strider.png`,
   tank: `${ART_BASE}/enemies/annihilator_tank.png`,
   scout_strider: `${ART_BASE}/enemies/scout_strider.png`,
@@ -52,9 +55,10 @@ const CARD_ART: Record<string, string> = {
   orbital_napalm: `${ART_BASE}/stratagems/orbital_napalm_barrage.png`,
   orbital_smoke: `${ART_BASE}/stratagems/orbital_smoke_strike.png`,
   orbital_at_mines: `${ART_BASE}/stratagems/md17_anti_tank_mines.png`,
-  // (orbital_precision / orbital_gatling / orbital_walking / orbital_gas
-  //  intentionally fall back to icon — keeps a visual distinction for
-  //  the no-art utility orbitals.)
+  orbital_precision: `${ART_BASE}/stratagems/orbital_precision.png`,
+  orbital_gatling: `${ART_BASE}/stratagems/orbital_gatling.png`,
+  orbital_gas: `${ART_BASE}/stratagems/orbital_gas.png`,
+  orbital_walking: `${ART_BASE}/stratagems/orbital_walking_barrage.png`,
 
   // ── EAGLE ──
   eagle_airstrike: `${ART_BASE}/stratagems/eagle_airstrike.png`,
@@ -98,8 +102,9 @@ const CARD_ART: Record<string, string> = {
   support_airburst: `${ART_BASE}/stratagems/airburst_rocket_launcher.png`,
   support_breaching_hammer: `${ART_BASE}/stratagems/breaching_hammer.png`,
   support_exosuit: `${ART_BASE}/stratagems/exo55_breakthrough_exosuit.png`,
-  // (support_quasar / support_spear / support_hellbomb fall back to icon —
-  //  the visually-similar art got promoted to its own dedicated card.)
+  support_quasar: `${ART_BASE}/stratagems/quasar_cannon.png`,
+  support_spear: `${ART_BASE}/stratagems/spear.png`,
+  support_hellbomb: `${ART_BASE}/stratagems/hellbomb.png`,
 
   // ── BACKPACKS / UTILITY ──
   util_shield: `${ART_BASE}/stratagems/sh32_shield_generator_pack.png`,
@@ -108,7 +113,10 @@ const CARD_ART: Record<string, string> = {
   util_guard_dog: `${ART_BASE}/stratagems/ar23_guard_dog.png`,
   util_las_rover: `${ART_BASE}/stratagems/las5_rover.png`,
   util_jump_pack: `${ART_BASE}/stratagems/lift850_jump_pack.png`,
-  // util_resupply / util_stim / util_reinforce — no dedicated art.
+  util_resupply: `${ART_BASE}/stratagems/resupply.png`,
+  util_reinforce: `${ART_BASE}/stratagems/reinforce.png`,
+  util_shield_relay: `${ART_BASE}/stratagems/fx12_shield_generator_relay.png`,
+  // util_stim — no dedicated art.
 };
 
 export function getCardArt(cardId: string): string | null {

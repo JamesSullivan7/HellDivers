@@ -198,21 +198,21 @@ const HARVESTER: EnemyBehaviorProfile = {
   priorityRules: [],
 };
 
-const MONOLITH: EnemyBehaviorProfile = {
-  enemyId: "monolith",
+const LEVIATHAN: EnemyBehaviorProfile = {
+  enemyId: "leviathan",
   faction: "illuminate",
   archetype: "boss",
-  flavor: "Crescent Monolith — phase-shifting reality engine. Enrages at 50%.",
+  flavor: "Leviathan — Illuminate mothership. Tractor-beams + plasma bombardment. Enrages at 50%.",
   baseIntents: [
-    ri({ id: "mn_anni", type: "attack", label: "ANNIHILATE", description: "Reality-tearing single-target lance.", damage: 14, target: "player", isInterruptible: false, telegraphTurns: 0, severity: "critical" }),
-    ri({ id: "mn_tear", type: "multi_attack", label: "REALITY TEAR", description: "Phase-shift wave hits the squad.", damage: 7, hits: 1, target: "all_players", isInterruptible: false, telegraphTurns: 0, severity: "high" }),
-    ri({ id: "mn_phase", type: "shield", label: "PHASE SHIELD", description: "Phases out partially. +8 shield.", target: "self", isInterruptible: true, telegraphTurns: 0 }),
-    ri({ id: "mn_lance", type: "attack", label: "LANCE", description: "Energy lance.", damage: 10, target: "player", isInterruptible: false, telegraphTurns: 0, severity: "high" }),
+    ri({ id: "lv_beam", type: "attack", label: "TRACTOR BEAM", description: "Locks a Helldiver in a void-tractor and crushes them.", damage: 13, target: "player", isInterruptible: false, telegraphTurns: 0, severity: "critical" }),
+    ri({ id: "lv_bomb", type: "multi_attack", label: "PLASMA BOMBARDMENT", description: "Saturating plasma rain on the entire squad.", damage: 8, hits: 1, target: "all_players", isInterruptible: false, telegraphTurns: 0, severity: "high" }),
+    ri({ id: "lv_shield", type: "shield", label: "VOID SHIELD", description: "Phase-cycles its void shield. +8 shield.", target: "self", isInterruptible: true, telegraphTurns: 0 }),
+    ri({ id: "lv_lance", type: "attack", label: "LANCE VOLLEY", description: "Volley of phase-lances.", damage: 11, target: "player", isInterruptible: false, telegraphTurns: 0, severity: "high" }),
   ],
   enragedPattern: [
-    ri({ id: "mn_lance_e", type: "attack", label: "REALITY LANCE", description: "Reality lance — devastating.", damage: 18, target: "player", isInterruptible: false, telegraphTurns: 0, severity: "critical" }),
-    ri({ id: "mn_wave", type: "multi_attack", label: "PHASE WAVE", description: "Phase wave consumes the squad.", damage: 12, hits: 1, target: "all_players", isInterruptible: false, telegraphTurns: 0, severity: "critical" }),
-    ri({ id: "mn_phase_e", type: "shield", label: "PHASE SHIELD+", description: "Reinforced phase shield. +12 shield.", target: "self", isInterruptible: true, telegraphTurns: 0 }),
+    ri({ id: "lv_anni", type: "attack", label: "ANNIHILATION BEAM", description: "Reactor-overload main beam — devastating.", damage: 18, target: "player", isInterruptible: false, telegraphTurns: 0, severity: "critical" }),
+    ri({ id: "lv_orbital", type: "multi_attack", label: "ORBITAL STRIKE", description: "Orbital plasma strike sweeps the squad.", damage: 12, hits: 1, target: "all_players", isInterruptible: false, telegraphTurns: 0, severity: "critical" }),
+    ri({ id: "lv_shield_e", type: "shield", label: "VOID SHIELD+", description: "Reinforced void shield. +12 shield.", target: "self", isInterruptible: true, telegraphTurns: 0 }),
   ],
   priorityRules: [],
 };
@@ -232,7 +232,7 @@ export const ENEMY_BEHAVIOR_PROFILES: Record<string, EnemyBehaviorProfile> = {
   // Illuminate
   overseer: OVERSEER,
   harvester: HARVESTER,
-  monolith: MONOLITH,
+  leviathan: LEVIATHAN,
 };
 
 export function getBehaviorProfile(templateId: string): EnemyBehaviorProfile | undefined {

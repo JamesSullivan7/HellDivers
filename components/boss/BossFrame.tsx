@@ -21,13 +21,13 @@ interface FloatingNumber {
 const PER_BOSS_BORDER: Record<string, string> = {
   bile_titan: "border-faction-terminid",
   factory_strider: "border-faction-automaton",
-  monolith: "border-faction-illuminate",
+  leviathan: "border-faction-illuminate",
 };
 
 const PER_BOSS_GLOW: Record<string, string> = {
   bile_titan: "shadow-glow-green",
   factory_strider: "shadow-glow-red",
-  monolith: "shadow-glow-purple",
+  leviathan: "shadow-glow-purple",
 };
 
 interface Props {

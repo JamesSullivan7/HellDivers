@@ -102,6 +102,8 @@ export const ENEMIES: Record<string, EnemyTemplate> = {
   charger: { id: "charger", name: "Charger", hp: 32, armor: 3, faction: "terminid", intents: [{ kind: "wait", text: "Winding up..." }, { kind: "attack", damage: 12, text: "Charge! 12" }, { kind: "attack", damage: 5, text: "Stomp 5" }] },
   bile_spewer: { id: "bile_spewer", name: "Bile Spewer", hp: 18, armor: 0, faction: "terminid", intents: [{ kind: "attack_all", damage: 3, text: "Bile — All 3" }, { kind: "attack", damage: 5, text: "Spit 5" }] },
   stalker: { id: "stalker", name: "Stalker", hp: 16, armor: 0, faction: "terminid", intents: [{ kind: "attack", damage: 7, text: "Ambush 7" }, { kind: "wait", text: "Cloaking..." }] },
+  impaler: { id: "impaler", name: "Impaler", hp: 36, armor: 2, faction: "terminid", intents: [{ kind: "wait", text: "Burrowing..." }, { kind: "attack_all", damage: 4, text: "Tentacle Strike — All 4" }, { kind: "attack", damage: 9, text: "Impale 9" }, { kind: "buff", text: "Carapace (+1 Armor)" }] },
+  dragonroach: { id: "dragonroach", name: "Dragonroach", hp: 28, armor: 1, faction: "terminid", intents: [{ kind: "attack", damage: 7, text: "Dive Strike 7" }, { kind: "attack_all", damage: 3, text: "Acid Spew — All 3" }, { kind: "attack", damage: 5, text: "Slash 5" }] },
   bile_titan: {
     id: "bile_titan", name: "Bile Titan", hp: 80, armor: 4, faction: "terminid", isBoss: true,
     intents: [{ kind: "attack", damage: 12, text: "Stomp 12" }, { kind: "attack_all", damage: 6, text: "Bile Geyser — All 6" }, { kind: "buff", text: "Carapace (Armor +2)" }, { kind: "attack", damage: 14, text: "Crush 14" }],
@@ -109,7 +111,7 @@ export const ENEMIES: Record<string, EnemyTemplate> = {
     enragedIntents: [{ kind: "attack", damage: 18, text: "Frenzy! 18" }, { kind: "attack_all", damage: 10, text: "Bile Wave — All 10" }, { kind: "attack", damage: 16, text: "Crush! 16" }],
   },
   trooper: { id: "trooper", name: "Automaton Trooper", hp: 8, armor: 0, faction: "automaton", intents: [{ kind: "attack", damage: 3, text: "Rifle 3" }, { kind: "attack", damage: 2, text: "Burst 2" }] },
-  raider: { id: "raider", name: "Raider", hp: 12, armor: 0, faction: "automaton", intents: [{ kind: "attack", damage: 5, text: "Volley 5" }, { kind: "attack_all", damage: 2, text: "Suppress All 2" }] },
+  scout_strider: { id: "scout_strider", name: "Scout Strider", hp: 16, armor: 1, faction: "automaton", intents: [{ kind: "attack", damage: 5, text: "MG Burst 5" }, { kind: "attack_all", damage: 2, text: "Suppress — All 2" }, { kind: "buff", text: "Plating (+1 Armor)" }] },
   devastator: { id: "devastator", name: "Devastator", hp: 20, armor: 2, faction: "automaton", intents: [{ kind: "attack", damage: 6, text: "Mortar 6" }, { kind: "buff", text: "Armor +1" }, { kind: "attack", damage: 4, text: "Burst 4" }] },
   berserker: { id: "berserker", name: "Berserker", hp: 24, armor: 1, faction: "automaton", intents: [{ kind: "attack", damage: 8, text: "Chainsaw 8" }, { kind: "attack", damage: 5, text: "Slam 5" }] },
   hulk: { id: "hulk", name: "Hulk Scorcher", hp: 38, armor: 4, faction: "automaton", intents: [{ kind: "attack_all", damage: 5, text: "Flamer — All 5" }, { kind: "attack", damage: 8, text: "Stomp 8" }, { kind: "wait", text: "Charging..." }] },
@@ -123,13 +125,12 @@ export const ENEMIES: Record<string, EnemyTemplate> = {
   voteless: { id: "voteless", name: "Voteless", hp: 7, armor: 0, faction: "illuminate", intents: [{ kind: "attack", damage: 2, text: "Swarm 2" }, { kind: "attack", damage: 3, text: "Claw 3" }] },
   watcher: { id: "watcher", name: "Watcher", hp: 10, armor: 0, shield: 4, faction: "illuminate", intents: [{ kind: "attack", damage: 3, text: "Beacon 3" }, { kind: "wait", text: "Calling reinforcements..." }] },
   overseer: { id: "overseer", name: "Overseer", hp: 18, armor: 1, shield: 6, faction: "illuminate", intents: [{ kind: "attack", damage: 5, text: "Plasma 5" }, { kind: "buff", text: "Shielding (+3 Shield)" }, { kind: "attack_all", damage: 3, text: "Pulse — All 3" }] },
-  elevated_overseer: { id: "elevated_overseer", name: "Elevated Overseer", hp: 28, armor: 1, shield: 10, faction: "illuminate", intents: [{ kind: "attack", damage: 7, text: "Lance 7" }, { kind: "attack_all", damage: 4, text: "Shockwave — All 4" }, { kind: "buff", text: "Reinforce Shield (+5)" }] },
   harvester: { id: "harvester", name: "Harvester", hp: 42, armor: 2, shield: 8, faction: "illuminate", intents: [{ kind: "attack_all", damage: 5, text: "Beam Sweep — All 5" }, { kind: "attack", damage: 10, text: "Plasma Cannon 10" }, { kind: "wait", text: "Charging..." }] },
-  monolith: {
-    id: "monolith", name: "Crescent Monolith", hp: 90, armor: 3, shield: 20, faction: "illuminate", isBoss: true,
-    intents: [{ kind: "attack", damage: 14, text: "Annihilate 14" }, { kind: "attack_all", damage: 7, text: "Reality Tear — All 7" }, { kind: "buff", text: "Phase Shield (+8)" }, { kind: "attack", damage: 10, text: "Lance 10" }],
-    enragedMessage: "MONOLITH PHASE-SHIFT.",
-    enragedIntents: [{ kind: "attack", damage: 18, text: "Reality Lance 18" }, { kind: "attack_all", damage: 12, text: "Phase Wave — All 12" }, { kind: "buff", text: "Phase Shield (+12)" }],
+  leviathan: {
+    id: "leviathan", name: "Leviathan", hp: 95, armor: 3, shield: 18, faction: "illuminate", isBoss: true,
+    intents: [{ kind: "attack", damage: 13, text: "Tractor Beam 13" }, { kind: "attack_all", damage: 8, text: "Plasma Bombardment — All 8" }, { kind: "buff", text: "Void Shield (+8)" }, { kind: "attack", damage: 11, text: "Lance Volley 11" }],
+    enragedMessage: "LEVIATHAN BREACH. ALL HANDS — BRACE.",
+    enragedIntents: [{ kind: "attack", damage: 18, text: "Annihilation Beam 18" }, { kind: "attack_all", damage: 12, text: "Orbital Strike — All 12" }, { kind: "buff", text: "Void Shield (+12)" }],
   },
 };
 
@@ -149,12 +150,12 @@ export const FACTION_MAPS: Record<string, Array<{ type: string; enemies: string[
   ],
   automaton: [
     { type: "combat", enemies: ["trooper", "trooper"] },
-    { type: "combat", enemies: ["trooper", "raider"] },
-    { type: "combat", enemies: ["raider", "raider", "trooper"] },
+    { type: "combat", enemies: ["trooper", "scout_strider"] },
+    { type: "combat", enemies: ["scout_strider", "scout_strider", "trooper"] },
     { type: "elite", enemies: ["devastator", "trooper"] },
     { type: "rest", enemies: [] },
     { type: "combat", enemies: ["berserker", "trooper"] },
-    { type: "combat", enemies: ["devastator", "raider"] },
+    { type: "combat", enemies: ["devastator", "scout_strider"] },
     { type: "elite", enemies: ["hulk"] },
     { type: "combat", enemies: ["devastator", "berserker"] },
     { type: "rest", enemies: [] },
@@ -168,10 +169,10 @@ export const FACTION_MAPS: Record<string, Array<{ type: string; enemies: string[
     { type: "rest", enemies: [] },
     { type: "combat", enemies: ["overseer", "voteless"] },
     { type: "combat", enemies: ["watcher", "watcher", "voteless"] },
-    { type: "elite", enemies: ["elevated_overseer"] },
+    { type: "elite", enemies: ["overseer", "watcher"] },
     { type: "combat", enemies: ["harvester"] },
     { type: "rest", enemies: [] },
-    { type: "boss", enemies: ["monolith"] },
+    { type: "boss", enemies: ["leviathan"] },
   ],
 };
 

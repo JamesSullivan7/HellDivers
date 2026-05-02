@@ -44,7 +44,7 @@ const ROUTE: TierSpec[] = [
 const FACTION_BOSS: Record<Faction, string> = {
   terminid: "bile_titan",
   automaton: "factory_strider",
-  illuminate: "monolith",
+  illuminate: "leviathan",
 };
 
 const FACTION_FILLER: Record<Faction, string> = {
@@ -67,14 +67,14 @@ const FACTION_COMBAT_POOLS: Record<Faction, string[][]> = {
   ],
   automaton: [
     ["trooper", "trooper"],
-    ["trooper", "raider"],
-    ["raider", "raider"],
-    ["raider", "raider", "trooper"],
-    ["devastator", "raider"],
+    ["trooper", "scout_strider"],
+    ["scout_strider", "scout_strider"],
+    ["scout_strider", "scout_strider", "trooper"],
+    ["devastator", "scout_strider"],
     ["berserker", "trooper"],
     ["devastator", "berserker"],
     ["scout_strider", "trooper"],
-    ["scout_strider", "raider", "trooper"],
+    ["scout_strider", "trooper", "trooper"],
   ],
   illuminate: [
     ["voteless", "voteless"],
@@ -103,10 +103,9 @@ const FACTION_ELITE_POOLS: Record<Faction, string[][]> = {
   ],
   illuminate: [
     ["overseer"],
-    ["elevated_overseer"],
+    ["overseer", "watcher"],
     ["harvester"],
-    ["leviathan"],
-    ["leviathan", "voteless"],
+    ["overseer", "voteless", "voteless"],
   ],
 };
 

@@ -20,9 +20,11 @@ interface Props {
   faction: Faction;
   /** Enemy template id — used to look up the portrait. */
   templateId?: string;
+  /** Enemy display name — overlaid on the portrait. */
+  name?: string;
 }
 
-export default function EnemyImage({ faction, templateId }: Props) {
+export default function EnemyImage({ faction, templateId, name }: Props) {
   const art = templateId ? getEnemyArt(templateId) : null;
 
   return (
@@ -34,24 +36,17 @@ export default function EnemyImage({ faction, templateId }: Props) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={art}
-            alt=""
+            alt={name ?? ""}
             className="absolute inset-0 w-full h-full object-cover object-center"
             draggable={false}
             loading="lazy"
           />
-          {/* Faction-tinted edge wash to keep portraits cohesive with the card */}
+          {/* Bottom darken so the name strip stays legible */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                "linear-gradient(to right, transparent 55%, rgba(0,0,0,0.55))",
-            }}
-          />
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "linear-gradient(to top, rgba(0,0,0,0.55), transparent 40%)",
+                "linear-gradient(to top, rgba(0,0,0,0.85), transparent 40%)",
             }}
           />
         </>
@@ -65,10 +60,26 @@ export default function EnemyImage({ faction, templateId }: Props) {
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                "linear-gradient(to right, transparent 60%, rgba(0,0,0,0.7))",
+                "linear-gradient(to top, rgba(0,0,0,0.85), transparent 40%)",
             }}
           />
         </>
+      )}
+
+      {/* Name overlay (bottom strip) */}
+      {name && (
+        <div className="absolute inset-x-0 bottom-0 px-2 pb-1 pt-2 pointer-events-none">
+          <div
+            className="font-display font-black uppercase text-text-primary truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]"
+            style={{
+              fontSize: "11px",
+              letterSpacing: "0.08em",
+              textShadow: "0 0 6px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,0.95)",
+            }}
+          >
+            {name}
+          </div>
+        </div>
       )}
     </div>
   );

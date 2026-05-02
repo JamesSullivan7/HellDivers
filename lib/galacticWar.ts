@@ -312,7 +312,7 @@ const KILL_PHRASES = [
   "earned the Iron Sword medal",
   "achieved 100% objective rate",
   "dropped a Hellbomb on a Factory Strider",
-  "soloed a Crescent Monolith",
+  "soloed a Leviathan",
   "executed a perfect stratagem combo",
   "liberated 5 nodes in record time",
 ];

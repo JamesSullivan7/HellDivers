@@ -87,7 +87,7 @@ export default function StratagemCard({
       ) : (
         <>
           <CardHeader name={card.name} cost={card.cost} affordable={affordable} />
-          <CardImage type={card.type} cardId={card.id} />
+          <CardImage type={card.type} cardId={card.id} name={card.name} />
           <CardTags card={card} />
           <CardDescription text={card.description} />
           <div className="flex-1" />
@@ -103,7 +103,7 @@ function CompactLayout({ card, affordable }: { card: Card; affordable: boolean }
   return (
     <div className="flex flex-col h-full">
       <CardHeader name={card.name} cost={card.cost} affordable={affordable} />
-      <CardImage type={card.type} cardId={card.id} small />
+      <CardImage type={card.type} cardId={card.id} name={card.name} small />
       <CardTags card={card} />
       <div
         className="px-tok-3 text-text-secondary text-[11px] leading-snug overflow-hidden flex-1"

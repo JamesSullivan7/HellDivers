@@ -90,8 +90,8 @@ const FLAVOR: Record<NodeType, Record<Faction, string[]>> = {
       "A tower of plate steel rises out of the dust. The march of feet shakes the ground.",
     ],
     illuminate: [
-      "A monolith hums in a tongue you don't speak. The air crystallizes.",
-      "Black geometry impossible to look at directly. Engage.",
+      "A Leviathan mothership darkens the sky. Tractor-beam columns scour the ground.",
+      "The horizon ripples with phase-shield light. The leviathan is here.",
     ],
   } as any,
   cache: { terminid: [], automaton: [], illuminate: [] } as any,

@@ -4,11 +4,12 @@ import { motion } from "framer-motion";
 import clsx from "clsx";
 import { Faction } from "@/lib/types";
 import { FactionIcon } from "@/lib/icons";
+import { getEnemyArt } from "@/lib/artManifest";
 
 const FACTION_GLOW: Record<string, string> = {
   bile_titan: "from-faction-terminid/30 via-bg-tertiary to-bg-secondary",
   factory_strider: "from-faction-automaton/35 via-bg-tertiary to-bg-secondary",
-  monolith: "from-faction-illuminate/35 via-bg-tertiary to-bg-secondary",
+  leviathan: "from-faction-illuminate/35 via-bg-tertiary to-bg-secondary",
 };
 
 const FACTION_TEXT: Record<Faction, string> = {
@@ -25,6 +26,7 @@ interface Props {
 
 export default function BossHero({ templateId, faction, enraged }: Props) {
   const bgClass = FACTION_GLOW[templateId] ?? "from-bg-secondary to-bg-tertiary";
+  const art = getEnemyArt(templateId);
 
   return (
     <div
@@ -34,12 +36,15 @@ export default function BossHero({ templateId, faction, enraged }: Props) {
       )}
       style={{ height: "220px" }}
     >
-      {/* Drift parallax silhouette placeholder */}
+      {/* Boss portrait artwork (full bleed) with parallax drift */}
       <motion.div
         className={clsx(
-          "absolute inset-0 flex items-center justify-center",
-          FACTION_TEXT[faction],
-          "drop-shadow-[0_0_36px_currentColor]"
+          "absolute inset-0",
+          !art && [
+            "flex items-center justify-center",
+            FACTION_TEXT[faction],
+            "drop-shadow-[0_0_36px_currentColor]",
+          ]
         )}
         animate={
           enraged
@@ -52,7 +57,18 @@ export default function BossHero({ templateId, faction, enraged }: Props) {
             : { duration: 6, repeat: Infinity, ease: "easeInOut" }
         }
       >
-        <FactionIcon faction={faction} className="w-40 h-40" />
+        {art ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={art}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-center"
+            draggable={false}
+            loading="lazy"
+          />
+        ) : (
+          <FactionIcon faction={faction} className="w-40 h-40" />
+        )}
       </motion.div>
 
       {/* Tactical scanline overlay */}
