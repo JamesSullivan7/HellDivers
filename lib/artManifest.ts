@@ -131,7 +131,7 @@ export function getCardArt(cardId: string): string | null {
 // ──────────────────────────────────────────────────────────────────────
 // Cache buster: bump when we replace the underlying art so browsers
 // + Vercel's CDN don't serve a stale copy at the same filename.
-const ARMOR_VER = "v=2";
+const ARMOR_VER = "v=3";
 const ARMOR_ART: Record<string, string> = {
   scout: `${ART_BASE}/armors/scout.jpg?${ARMOR_VER}`,
   frontline: `${ART_BASE}/armors/frontline.jpg?${ARMOR_VER}`,
@@ -148,26 +148,28 @@ export function getArmorArt(armorId: string): string | null {
 // ──────────────────────────────────────────────────────────────────────
 // PRIMARY WEAPONS — maps weapon id → cinematic portrait
 // Drop renders at /public/art/weapons/<id>.jpg.
+// Cache buster: bump WEAPON_VER any time the underlying art is replaced.
 // ──────────────────────────────────────────────────────────────────────
+const WEAPON_VER = "v=1";
 const WEAPON_ART: Record<string, string> = {
   // Assault / rifles
-  ar2_coyote:                 `${ART_BASE}/weapons/ar2_coyote.jpg`,
-  ar23p_liberator_penetrator: `${ART_BASE}/weapons/ar23p_liberator_penetrator.jpg`,
-  r2124_constitution:         `${ART_BASE}/weapons/r2124_constitution.jpg`,
+  ar2_coyote:                 `${ART_BASE}/weapons/ar2_coyote.jpg?${WEAPON_VER}`,
+  ar23p_liberator_penetrator: `${ART_BASE}/weapons/ar23p_liberator_penetrator.jpg?${WEAPON_VER}`,
+  r2124_constitution:         `${ART_BASE}/weapons/r2124_constitution.jpg?${WEAPON_VER}`,
   // DMR / sniper
-  r6_deadeye:                 `${ART_BASE}/weapons/r6_deadeye.jpg`,
+  r6_deadeye:                 `${ART_BASE}/weapons/r6_deadeye.jpg?${WEAPON_VER}`,
   // Explosive
-  r36_eruptor:                `${ART_BASE}/weapons/r36_eruptor.jpg`,
-  jar5_dominator:             `${ART_BASE}/weapons/jar5_dominator.jpg`,
-  cb9_exploding_crossbow:     `${ART_BASE}/weapons/cb9_exploding_crossbow.jpg`,
+  r36_eruptor:                `${ART_BASE}/weapons/r36_eruptor.jpg?${WEAPON_VER}`,
+  jar5_dominator:             `${ART_BASE}/weapons/jar5_dominator.jpg?${WEAPON_VER}`,
+  cb9_exploding_crossbow:     `${ART_BASE}/weapons/cb9_exploding_crossbow.jpg?${WEAPON_VER}`,
   // Energy / plasma / arc
-  sg8p_punisher_plasma:       `${ART_BASE}/weapons/sg8p_punisher_plasma.jpg`,
-  arc12_blitzer:              `${ART_BASE}/weapons/arc12_blitzer.jpg`,
+  sg8p_punisher_plasma:       `${ART_BASE}/weapons/sg8p_punisher_plasma.jpg?${WEAPON_VER}`,
+  arc12_blitzer:              `${ART_BASE}/weapons/arc12_blitzer.jpg?${WEAPON_VER}`,
   // Shotguns
-  sg20_halt:                  `${ART_BASE}/weapons/sg20_halt.jpg`,
-  sg451_cookout:              `${ART_BASE}/weapons/sg451_cookout.jpg`,
+  sg20_halt:                  `${ART_BASE}/weapons/sg20_halt.jpg?${WEAPON_VER}`,
+  sg451_cookout:              `${ART_BASE}/weapons/sg451_cookout.jpg?${WEAPON_VER}`,
   // Adaptive / special
-  vg70_variable:              `${ART_BASE}/weapons/vg70_variable.jpg`,
+  vg70_variable:              `${ART_BASE}/weapons/vg70_variable.jpg?${WEAPON_VER}`,
 };
 
 export function getWeaponArt(weaponId: string): string | null {
