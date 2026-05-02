@@ -20,6 +20,7 @@ import {
 } from "@/lib/loadout";
 import HudFrame from "./HudFrame";
 import { Armor, Weapon, Booster } from "@/lib/types";
+import { getWeaponArt } from "@/lib/artManifest";
 
 const TIER_LABEL: Record<number, string> = {
   1: "MK I",
@@ -302,20 +303,59 @@ function WeaponCard({
   const eff = getWeaponEffective(weapon.id, tier);
   const isMaxTier = tier >= MAX_TIER;
   const upCost = isMaxTier ? Infinity : weaponUpgradeCost(tier);
+  const art = getWeaponArt(weapon.id);
+  const targetShort =
+    weapon.target === "highest_hp" ? "PRI"
+    : weapon.target === "random"   ? "SPR"
+    : "AOE";
   return (
     <ItemFrame owned={owned} tier={tier} itemName="Primary Weapon · Auto-Fire">
+      {/* Cinematic art — same source the Codex uses, full image via
+          object-contain with a soft handoff into the info panel below */}
+      <div
+        className="relative w-full overflow-hidden mb-2 mt-1"
+        style={{ height: 150, background: "rgba(7,11,16,0.85)", border: "1px solid rgba(96,165,250,0.18)" }}
+      >
+        {art ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={art}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-helldiver-yellow/30 text-3xl">▶▶</div>
+        )}
+        {/* Soft dark gradient at bottom — visually connects to the panel below */}
+        <div
+          aria-hidden
+          className="absolute left-0 right-0 bottom-0 h-8 pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 100%)" }}
+        />
+      </div>
+
+      {/* Name */}
       <div className="font-display font-black text-base tracking-tight text-white mb-2 leading-tight">
         {weapon.name}
       </div>
-      <div className="text-[10px] text-gray-300 leading-snug mb-3 italic">
+
+      {/* Combined stats + description panel — stats centered above
+          description, no rule between (matches Codex card design). */}
+      <div className="grid grid-cols-3 items-end mb-1.5">
+        <CenteredStat label="DMG" value={`${eff.damage}`} accent="yellow" />
+        <CenteredStat label="HITS" value={`${eff.hitsPerTurn}`} accent="white" />
+        <CenteredStat
+          label={eff.ignoreArmor ? "TGT · AP" : "TGT"}
+          value={targetShort}
+          accent={eff.ignoreArmor ? "yellow" : "white"}
+        />
+      </div>
+      <div className="text-[10.5px] text-gray-300 leading-snug mb-3 italic text-center px-1">
         {weapon.description}
       </div>
-      <div className="space-y-1 mb-3 border-t border-helldiver-steel/40 pt-2">
-        <StatLine label="Damage" value={`${eff.damage}`} accent />
-        <StatLine label="Hits / Turn" value={`${eff.hitsPerTurn}`} />
-        <StatLine label="Targeting" value={eff.target.toUpperCase()} />
-        {eff.ignoreArmor && <StatLine label="Special" value="IGNORES ARMOR" accent />}
-      </div>
+
       <ActionButtons
         owned={owned}
         isMaxTier={isMaxTier}
@@ -329,6 +369,32 @@ function WeaponCard({
         onUpgrade={onUpgrade}
       />
     </ItemFrame>
+  );
+}
+
+/** Big-numeric stat used inside the redesigned Outfitter weapon card. */
+function CenteredStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent: "yellow" | "white";
+}) {
+  const color = accent === "yellow" ? "text-helldiver-yellow" : "text-white";
+  return (
+    <div className="flex flex-col items-center justify-end">
+      <span className={clsx("font-display font-black tabular-nums leading-none", color)} style={{ fontSize: 18 }}>
+        {value}
+      </span>
+      <span
+        className="font-display font-black uppercase mt-0.5 truncate text-helldiver-dim"
+        style={{ fontSize: 7, letterSpacing: "0.18em", maxWidth: "100%" }}
+      >
+        {label}
+      </span>
+    </div>
   );
 }
 

@@ -131,7 +131,6 @@ export default function HubScreen() {
     war:        () => { sfx.click(); goToWar(); },
     loadout:    () => { sfx.click(); goToCharacter(); },
     armory:     () => { sfx.click(); goToArmory(); },
-    stratagems: () => { sfx.click(); goToCodex(); },
     squad:      () => { sfx.click(); goToSquadHub(); },
     history:    () => { sfx.click(); goToHistory(); },
     codex:      () => { sfx.click(); goToCodex(); },
@@ -345,23 +344,25 @@ function XpRail({ account }: { account: Account }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-//  LEFT NAV — 8 items, matching the mockup
+//  LEFT NAV — 7 items (was 8; STRATAGEMS dropped, see NAV_ITEMS comment)
 // ══════════════════════════════════════════════════════════════════════
 type NavHandlers = {
   hub: () => void; war: () => void; loadout: () => void; armory: () => void;
-  stratagems: () => void; squad: () => void; history: () => void; codex: () => void;
+  squad: () => void; history: () => void; codex: () => void;
   ship: () => void; rewards: () => void; activity: () => void; deploy: () => void;
 };
 
+// STRATAGEMS entry removed — it routed to goToCodex() identically to
+// CODEX, so the rail had two buttons leading to the same screen. Codex
+// is the canonical browse-all-materiel destination.
 const NAV_ITEMS = [
-  { key: "hub",        icon: "◈", label: "HUB",        sub: "COMMAND CENTER",      active: true  },
-  { key: "war",        icon: "✦", label: "WAR MAP",    sub: "SECTOR DEPLOYMENT",   active: false },
-  { key: "loadout",    icon: "◇", label: "LOADOUT",    sub: "EQUIPMENT + PAPER DOLL", active: false },
-  { key: "armory",     icon: "⌥", label: "ARMORY",     sub: "WEAPONS · MODULES",   active: false },
-  { key: "stratagems", icon: "◊", label: "STRATAGEMS", sub: "BROWSE ALL MATERIEL", active: false },
-  { key: "squad",      icon: "◐", label: "SQUAD",      sub: "FORM OR JOIN",        active: false },
-  { key: "history",    icon: "◑", label: "HISTORY",    sub: "MISSION RECORD",      active: false },
-  { key: "codex",      icon: "▣", label: "CODEX",      sub: "LORE + DATABASE",     active: false },
+  { key: "hub",     icon: "◈", label: "HUB",     sub: "COMMAND CENTER",         active: true  },
+  { key: "war",     icon: "✦", label: "WAR MAP", sub: "SECTOR DEPLOYMENT",      active: false },
+  { key: "loadout", icon: "◇", label: "LOADOUT", sub: "EQUIPMENT + PAPER DOLL", active: false },
+  { key: "armory",  icon: "⌥", label: "ARMORY",  sub: "WEAPONS · MODULES",      active: false },
+  { key: "squad",   icon: "◐", label: "SQUAD",   sub: "FORM OR JOIN",           active: false },
+  { key: "history", icon: "◑", label: "HISTORY", sub: "MISSION RECORD",         active: false },
+  { key: "codex",   icon: "▣", label: "CODEX",   sub: "LORE + DATABASE",        active: false },
 ] as const;
 
 function LeftNav({ nav }: { nav: NavHandlers }) {
