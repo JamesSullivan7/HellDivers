@@ -1003,38 +1003,30 @@ function EnemyDataCard({ template, index }: { template: EnemyTemplate; index: nu
         </div>
       )}
 
-      {/* Header */}
-      <div className="px-3 py-2 border-y border-helldiver-steel/40">
-        <div className={clsx("text-[10px] uppercase tracking-widest font-bold", FACTION_TEXT[template.faction])}>
-          {template.faction}
+      {/* Compact data strip — image stays the hero, this is just reference data */}
+      <div className="px-2.5 py-1.5 border-t border-helldiver-steel/40 bg-black/60">
+        {/* Stats row — single tight line */}
+        <div className="flex items-center gap-2 text-[10px] tabular-nums font-mono mb-1">
+          <span className="text-helldiver-dim uppercase tracking-widest text-[8px]">HP</span>
+          <span className="text-emerald-400 font-bold">{template.hp}</span>
+          <span className="text-helldiver-steel">·</span>
+          <span className="text-helldiver-dim uppercase tracking-widest text-[8px]">ARM</span>
+          <span className="text-helldiver-orange font-bold">{template.armor}</span>
+          <span className="text-helldiver-steel">·</span>
+          <span className="text-helldiver-dim uppercase tracking-widest text-[8px]">SHD</span>
+          <span className="text-sky-400 font-bold">{template.shield ?? 0}</span>
         </div>
-        <div className="font-display font-black text-base tracking-tight text-white leading-tight">
-          {template.name}
-        </div>
-        <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mt-0.5 font-mono">
-          {template.id}
-        </div>
-      </div>
 
-      {/* Stats */}
-      <div className="px-3 py-2 grid grid-cols-3 gap-1 text-[11px] border-b border-helldiver-steel/40">
-        <Stat label="HP" value={`${template.hp}`} color="text-emerald-400" />
-        <Stat label="Armor" value={`${template.armor}`} color="text-helldiver-orange" />
-        <Stat label="Shield" value={`${template.shield ?? 0}`} color="text-sky-400" />
-      </div>
-
-      {/* Intent pattern */}
-      <div className="px-3 py-2">
-        <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mb-1">Combat Pattern</div>
-        <div className="space-y-0.5">
+        {/* Compact combat pattern */}
+        <div className="space-y-px">
           {template.intentPattern.map((it, i) => (
-            <div key={i} className="text-[10px] flex items-center justify-between gap-2">
-              <span className="text-gray-300 truncate">
+            <div key={i} className="text-[9px] flex items-center justify-between gap-2 leading-tight">
+              <span className="text-gray-400 truncate">
                 {i + 1}. {it.text}
               </span>
               {(it.kind === "attack" || it.kind === "attack_all") && it.damage !== undefined && (
                 <span className={clsx(
-                  "text-[10px] tabular-nums font-bold whitespace-nowrap",
+                  "text-[9px] tabular-nums font-bold whitespace-nowrap",
                   it.kind === "attack_all" ? "text-helldiver-red" : "text-helldiver-orange"
                 )}>
                   {it.kind === "attack_all" ? "AoE " : ""}{it.damage}
@@ -1046,16 +1038,16 @@ function EnemyDataCard({ template, index }: { template: EnemyTemplate; index: nu
 
         {/* Enraged pattern for bosses */}
         {template.enragedPattern && (
-          <div className="mt-2 pt-2 border-t border-helldiver-red/40">
-            <div className="text-[9px] uppercase tracking-widest text-helldiver-red font-bold mb-1">
-              ⚠ Enraged Pattern
+          <div className="mt-1 pt-1 border-t border-helldiver-red/40">
+            <div className="text-[8px] uppercase tracking-widest text-helldiver-red font-bold mb-0.5">
+              ⚠ Enraged
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-px">
               {template.enragedPattern.map((it, i) => (
-                <div key={i} className="text-[10px] flex items-center justify-between gap-2">
+                <div key={i} className="text-[9px] flex items-center justify-between gap-2 leading-tight">
                   <span className="text-helldiver-red/90 truncate">{i + 1}. {it.text}</span>
                   {(it.kind === "attack" || it.kind === "attack_all") && it.damage !== undefined && (
-                    <span className="text-[10px] tabular-nums font-bold text-helldiver-red whitespace-nowrap">
+                    <span className="text-[9px] tabular-nums font-bold text-helldiver-red whitespace-nowrap">
                       {it.kind === "attack_all" ? "AoE " : ""}{it.damage}
                     </span>
                   )}
