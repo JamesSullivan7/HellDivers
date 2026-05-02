@@ -16,9 +16,9 @@ export default function PlayerHand({ onCardClick }: Props) {
     selected !== null ? combat.hand[selected]?.target === "single" : false;
 
   return (
-    <div className="border-t border-accent-yellow/30 bg-bg-tertiary/40 backdrop-blur-sm">
-      <div className="px-tok-4 py-tok-2 flex items-center justify-between text-[10px] tracking-[0.25em] uppercase font-mono">
-        <div className="text-text-dim flex gap-tok-3">
+    <div className="border-t border-accent-yellow/30 bg-bg-tertiary/40 backdrop-blur-sm shrink-0">
+      <div className="px-tok-3 py-1 flex items-center justify-between text-[9px] tracking-[0.25em] uppercase font-mono leading-none">
+        <div className="text-text-dim flex gap-tok-2">
           <span>Hand <span className="text-text-primary font-bold">{combat.hand.length}</span></span>
           <span className="text-border-strong">|</span>
           <span>Deck <span className="text-text-primary font-bold">{combat.deck.length}</span></span>
@@ -32,12 +32,12 @@ export default function PlayerHand({ onCardClick }: Props) {
           )}
         </div>
         {selected !== null && needsTarget && (
-          <div className="text-accent-yellow font-display font-bold animate-blink">
+          <div className="text-accent-yellow font-display font-bold animate-blink text-[9px]">
             ▶ SELECT TARGET
           </div>
         )}
       </div>
-      <div className="hand-strip pb-tok-3 pt-tok-2">
+      <div className="hand-strip pb-1.5 pt-1">
         <AnimatePresence>
           {combat.hand.map((card, idx) => (
             <motion.div

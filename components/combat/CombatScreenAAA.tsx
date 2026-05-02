@@ -104,7 +104,10 @@ export default function CombatScreenAAA({
 
   return (
     <div
-      className="min-h-screen flex flex-col text-white font-mono relative overflow-hidden"
+      // h-screen + overflow-hidden = the combat UI is *strictly* one viewport,
+      // and any overflow inside (long enemy list, long buff list) scrolls
+      // inside its own column instead of pushing the hand below the fold.
+      className="h-screen flex flex-col text-white font-mono relative overflow-hidden"
       style={{ background: COLOR.bg }}
     >
       <CombatBackground hasBoss={hasBoss} />
@@ -127,8 +130,12 @@ export default function CombatScreenAAA({
         missionType={missionType}
       />
 
-      {/* ── MAIN GRID ── */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[360px_1fr_420px] min-h-0 relative z-10">
+      {/* ── MAIN GRID ──
+          min-h-0 + side-panel overflow-y-auto means tall content scrolls
+          INSIDE its column. Narrower columns (288 / 1fr / 340) give the
+          battlefield more horizontal room and reduce the visual dead-space
+          the user flagged. */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[288px_1fr_340px] min-h-0 relative z-10">
         {/* LEFT — Player Panel */}
         <PlayerPanel runBuffs={runBuffs} />
 
@@ -228,27 +235,27 @@ function CombatTopBar({
       className="border-b backdrop-blur-md relative z-20"
       style={{ borderColor: COLOR.border, background: "rgba(17,24,33,0.85)" }}
     >
-      <div className="px-4 md:px-6 py-2 flex items-center gap-4 flex-wrap min-h-[56px]">
+      <div className="px-3 md:px-4 py-1 flex items-center gap-3 flex-wrap min-h-[40px]">
         {/* Turn */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: COLOR.dim }}>Turn</span>
           <motion.span
             key={turn}
             initial={{ scale: 1.3, color: COLOR.accent }}
             animate={{ scale: 1, color: COLOR.text }}
             transition={{ duration: 0.4 }}
-            className="font-display font-black text-2xl tabular-nums"
+            className="font-display font-black text-lg tabular-nums leading-none"
           >
             {String(turn).padStart(2, "0")}
           </motion.span>
         </div>
 
-        <span className="w-px h-6" style={{ background: COLOR.border }} />
+        <span className="w-px h-4" style={{ background: COLOR.border }} />
 
         {/* Enemy count */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: COLOR.dim }}>Hostiles</span>
-          <span className="font-display font-black text-2xl tabular-nums" style={{ color: COLOR.enemy }}>
+          <span className="font-display font-black text-lg tabular-nums leading-none" style={{ color: COLOR.enemy }}>
             {aliveEnemies}
           </span>
           <span className="text-[10px] tabular-nums" style={{ color: COLOR.dim }}>
@@ -256,15 +263,15 @@ function CombatTopBar({
           </span>
         </div>
 
-        <span className="w-px h-6" style={{ background: COLOR.border }} />
+        <span className="w-px h-4" style={{ background: COLOR.border }} />
 
         {/* Difficulty */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: COLOR.dim }}>Threat</span>
-          <span className="font-display font-black text-base tabular-nums" style={{ color: diffColor }}>
+          <span className="font-display font-black text-sm tabular-nums leading-none" style={{ color: diffColor }}>
             D{difficulty}
           </span>
-          <span className="text-[10px] uppercase tracking-widest" style={{ color: diffColor }}>
+          <span className="text-[9px] uppercase tracking-widest" style={{ color: diffColor }}>
             {DIFF_LABEL[difficulty]}
           </span>
         </div>
@@ -321,26 +328,31 @@ function PlayerPanel({ runBuffs }: { runBuffs: any[] }) {
 
   return (
     <aside
-      className="hidden lg:flex flex-col p-3 gap-3 border-r overflow-y-auto"
+      // overflow-y-auto: tall buff lists scroll INSIDE the column instead of
+      // stretching the whole layout. min-h-0 on parent grid lets this work.
+      className="hidden lg:flex flex-col p-2 gap-2 border-r overflow-y-auto min-h-0"
       style={{ borderColor: COLOR.border, background: "rgba(17,24,33,0.55)" }}
     >
-      {/* Portrait card */}
+      {/* Portrait card — fixed-height banner so the panel never dictates the
+          column height. 132px keeps the cinematic Helldiver feel without
+          eating the whole side rail. */}
       <div
-        className="relative aspect-[4/5] border overflow-hidden"
+        className="relative border overflow-hidden shrink-0"
         style={{
+          height: 132,
           borderColor: lowHp ? COLOR.enemy : COLOR.player,
           boxShadow: lowHp
-            ? "0 0 24px rgba(255,77,77,0.35)"
-            : "0 0 18px rgba(77,166,255,0.18)",
+            ? "0 0 18px rgba(255,77,77,0.35)"
+            : "0 0 12px rgba(77,166,255,0.18)",
         }}
       >
-        <span className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 z-10" style={{ borderColor: COLOR.accent }} />
-        <span className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 z-10" style={{ borderColor: COLOR.accent }} />
-        <span className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 z-10" style={{ borderColor: COLOR.accent }} />
-        <span className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 z-10" style={{ borderColor: COLOR.accent }} />
+        <span className="absolute top-1 left-1 w-2 h-2 border-t-2 border-l-2 z-10" style={{ borderColor: COLOR.accent }} />
+        <span className="absolute top-1 right-1 w-2 h-2 border-t-2 border-r-2 z-10" style={{ borderColor: COLOR.accent }} />
+        <span className="absolute bottom-1 left-1 w-2 h-2 border-b-2 border-l-2 z-10" style={{ borderColor: COLOR.accent }} />
+        <span className="absolute bottom-1 right-1 w-2 h-2 border-b-2 border-r-2 z-10" style={{ borderColor: COLOR.accent }} />
 
         <motion.div
-          animate={{ scale: [1, 1.015, 1], y: [0, -2, 0] }}
+          animate={{ scale: [1, 1.015, 1], y: [0, -1, 0] }}
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
           className="absolute inset-0"
         >
@@ -362,27 +374,29 @@ function PlayerPanel({ runBuffs }: { runBuffs: any[] }) {
           )}
         </AnimatePresence>
 
-        {/* Bottom panel */}
-        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 z-10 bg-gradient-to-t from-black/90 to-transparent">
-          <div className="text-[8px] uppercase tracking-[0.4em] flex items-center gap-1.5" style={{ color: COLOR.dim }}>
-            <span className={clsx("w-1.5 h-1.5 rounded-full animate-pulse", lowHp ? "bg-helldiver-red" : "bg-emerald-400")} />
-            {lowHp ? "CRITICAL" : "OPERATIONAL"}
-          </div>
-          <div className="font-display font-black text-sm mt-0.5 leading-tight" style={{ color: COLOR.player }}>
-            HELLDIVER
+        {/* Bottom panel — compact name + status */}
+        <div className="absolute bottom-0 left-0 right-0 px-2 py-1 z-10 bg-gradient-to-t from-black/95 to-transparent">
+          <div className="flex items-center justify-between gap-2">
+            <div className="font-display font-black text-[12px] leading-none" style={{ color: COLOR.player }}>
+              HELLDIVER
+            </div>
+            <div className="text-[8px] uppercase tracking-[0.3em] flex items-center gap-1" style={{ color: COLOR.dim }}>
+              <span className={clsx("w-1.5 h-1.5 rounded-full animate-pulse", lowHp ? "bg-helldiver-red" : "bg-emerald-400")} />
+              {lowHp ? "CRITICAL" : "OPERATIONAL"}
+            </div>
           </div>
         </div>
       </div>
 
       {/* HP bar */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
+      <div className="shrink-0">
+        <div className="flex items-center justify-between mb-0.5">
           <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: COLOR.dim }}>HP</span>
-          <span className={clsx("font-display font-black text-base tabular-nums", lowHp ? "text-helldiver-red" : "text-emerald-400")}>
-            {player.hp}<span className="text-white/30 text-xs"> / {player.maxHp}</span>
+          <span className={clsx("font-display font-black text-sm tabular-nums leading-none", lowHp ? "text-helldiver-red" : "text-emerald-400")}>
+            {player.hp}<span className="text-white/30 text-[10px]"> / {player.maxHp}</span>
           </span>
         </div>
-        <div className="h-2.5 bg-black border relative overflow-hidden" style={{ borderColor: COLOR.border }}>
+        <div className="h-2 bg-black border relative overflow-hidden" style={{ borderColor: COLOR.border }}>
           <motion.div
             className="h-full"
             style={{
@@ -404,69 +418,71 @@ function PlayerPanel({ runBuffs }: { runBuffs: any[] }) {
         </div>
       </div>
 
-      {/* Block bar (always shown) */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: COLOR.dim }}>Block</span>
-          <span className="font-display font-black text-base tabular-nums" style={{ color: COLOR.player }}>
-            {player.block}
-          </span>
+      {/* Block + Reinforcements — same row to save vertical space */}
+      <div className="grid grid-cols-2 gap-2 shrink-0">
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: COLOR.dim }}>Block</span>
+            <span className="font-display font-black text-sm tabular-nums leading-none" style={{ color: COLOR.player }}>
+              {player.block}
+            </span>
+          </div>
+          <div className="h-1.5 bg-black border overflow-hidden" style={{ borderColor: COLOR.border }}>
+            <motion.div
+              className="h-full"
+              style={{ background: COLOR.player }}
+              animate={{ width: `${blockPct}%` }}
+              transition={{ type: "spring", stiffness: 180, damping: 22 }}
+            />
+          </div>
         </div>
-        <div className="h-1.5 bg-black border overflow-hidden" style={{ borderColor: COLOR.border }}>
-          <motion.div
-            className="h-full"
-            style={{ background: COLOR.player }}
-            animate={{ width: `${blockPct}%` }}
-            transition={{ type: "spring", stiffness: 180, damping: 22 }}
-          />
-        </div>
-      </div>
-
-      {/* Reinforcements */}
-      <div>
-        <div className="flex items-center justify-between text-[10px]">
-          <span className="uppercase tracking-widest" style={{ color: COLOR.dim }}>Reinforcements</span>
-          <div className="flex gap-1">
+        <div>
+          <div className="flex items-center justify-between text-[10px] mb-0.5">
+            <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: COLOR.dim }}>Reinf</span>
+          </div>
+          <div className="flex gap-1 h-1.5 items-center">
             {Array.from({ length: Math.max(player.reinforcements, 0) }).map((_, i) => (
-              <span key={i} className="w-2 h-2" style={{ background: COLOR.accent }} />
+              <span key={i} className="w-2 h-1.5" style={{ background: COLOR.accent }} />
             ))}
-            {player.reinforcements === 0 && <span className="text-helldiver-red text-[10px] font-bold">DEPLETED</span>}
+            {player.reinforcements === 0 && <span className="text-helldiver-red text-[9px] font-bold leading-none">DEPLETED</span>}
           </div>
         </div>
       </div>
 
-      {/* Active passives */}
+      {/* Active passives — compact */}
       {armor.passiveName && (
-        <div className="border-t pt-2" style={{ borderColor: COLOR.border }}>
-          <div className="text-[9px] uppercase tracking-[0.3em] mb-1" style={{ color: COLOR.dim }}>Armor</div>
-          <div className="text-[11px] font-display font-bold" style={{ color: COLOR.accent }}>
-            {armor.passiveName}
+        <div className="border-t pt-1.5 shrink-0" style={{ borderColor: COLOR.border }}>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: COLOR.dim }}>Armor</span>
+            <span className="text-[11px] font-display font-bold leading-none" style={{ color: COLOR.accent }}>
+              {armor.passiveName}
+            </span>
           </div>
-          <div className="text-[10px] text-white/50 italic leading-snug mt-0.5 line-clamp-2">{armor.passive}</div>
+          <div className="text-[9.5px] text-white/50 italic leading-snug mt-0.5 line-clamp-2">{armor.passive}</div>
         </div>
       )}
 
-      {/* Run buffs */}
+      {/* Run buffs — scroll within column */}
       {runBuffs.length > 0 && (
-        <div className="border-t pt-2" style={{ borderColor: COLOR.border }}>
-          <div className="text-[9px] uppercase tracking-[0.3em] mb-1.5" style={{ color: COLOR.dim }}>Active Buffs</div>
-          <div className="space-y-1.5">
+        <div className="border-t pt-1.5 min-h-0" style={{ borderColor: COLOR.border }}>
+          <div className="text-[9px] uppercase tracking-[0.3em] mb-1" style={{ color: COLOR.dim }}>Active Buffs</div>
+          <div className="space-y-1">
             {runBuffs.map((b) => (
               <div
                 key={b.id}
-                className="border-l-2 pl-2 py-0.5"
+                className="border-l-2 pl-1.5 py-0.5"
                 style={{ borderColor: b.lifetime === "next_combat" ? COLOR.player : COLOR.accent }}
               >
                 <div
-                  className="text-[10px] font-bold flex items-center justify-between"
+                  className="text-[10px] font-bold flex items-center justify-between leading-tight"
                   style={{ color: b.lifetime === "next_combat" ? COLOR.player : COLOR.accent }}
                 >
-                  <span>{b.name}</span>
-                  <span className="text-[8px] uppercase tracking-widest text-white/30">
+                  <span className="truncate">{b.name}</span>
+                  <span className="text-[8px] uppercase tracking-widest text-white/30 shrink-0 ml-1">
                     {b.lifetime === "next_combat" ? "1 fight" : "run"}
                   </span>
                 </div>
-                <div className="text-[10px] text-white/50 leading-snug">{b.description}</div>
+                <div className="text-[9.5px] text-white/50 leading-snug line-clamp-2">{b.description}</div>
               </div>
             ))}
           </div>
@@ -489,7 +505,7 @@ function Battlefield({
   playedCard: PlayedCardSnapshot | null;
 }) {
   return (
-    <div className="relative flex-1 flex flex-col items-center justify-center p-6 overflow-hidden min-h-[320px]">
+    <div className="relative flex flex-col items-center justify-center p-3 overflow-hidden min-h-0">
       {/* SEAF battle backdrop — main mood-setter */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -532,14 +548,15 @@ function Battlefield({
         }}
       />
 
-      {/* Center crosshair (hidden when a card is playing) */}
+      {/* Center crosshair (hidden when a card is playing) — smaller crosshair
+          since the battlefield is shorter now */}
       {!playedCard && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="relative w-32 h-32 opacity-20">
-            <span className="absolute top-1/2 -translate-y-1/2 left-0 w-8 h-px" style={{ background: COLOR.accent }} />
-            <span className="absolute top-1/2 -translate-y-1/2 right-0 w-8 h-px" style={{ background: COLOR.accent }} />
-            <span className="absolute left-1/2 -translate-x-1/2 top-0 h-8 w-px" style={{ background: COLOR.accent }} />
-            <span className="absolute left-1/2 -translate-x-1/2 bottom-0 h-8 w-px" style={{ background: COLOR.accent }} />
+          <div className="relative w-24 h-24 opacity-15">
+            <span className="absolute top-1/2 -translate-y-1/2 left-0 w-6 h-px" style={{ background: COLOR.accent }} />
+            <span className="absolute top-1/2 -translate-y-1/2 right-0 w-6 h-px" style={{ background: COLOR.accent }} />
+            <span className="absolute left-1/2 -translate-x-1/2 top-0 h-6 w-px" style={{ background: COLOR.accent }} />
+            <span className="absolute left-1/2 -translate-x-1/2 bottom-0 h-6 w-px" style={{ background: COLOR.accent }} />
           </div>
         </div>
       )}
@@ -570,9 +587,9 @@ function Battlefield({
         {playedCard && <PlayedCardLayer snapshot={playedCard} />}
       </AnimatePresence>
 
-      {/* Animated horizon — slow ambient sway */}
+      {/* Animated horizon — slow ambient sway, slimmer footprint */}
       <motion.div
-        className="absolute bottom-0 inset-x-0 h-16 pointer-events-none"
+        className="absolute bottom-0 inset-x-0 h-10 pointer-events-none"
         animate={{ opacity: [0.2, 0.35, 0.2] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
         style={{
@@ -582,7 +599,7 @@ function Battlefield({
 
       {/* Idle text */}
       {!needsTarget && !playedCard && (
-        <div className="text-[10px] uppercase tracking-[0.4em] absolute bottom-3 left-1/2 -translate-x-1/2" style={{ color: COLOR.dim }}>
+        <div className="text-[9px] uppercase tracking-[0.4em] absolute bottom-1.5 left-1/2 -translate-x-1/2" style={{ color: COLOR.dim }}>
           ◢ FOR SUPER EARTH ◣
         </div>
       )}
@@ -722,10 +739,11 @@ function EnemyStack({
 }) {
   return (
     <aside
-      className="flex flex-col p-3 gap-3 border-l overflow-y-auto"
+      // overflow-y-auto + min-h-0: many enemies scroll inside the column
+      className="flex flex-col p-2 gap-2 border-l overflow-y-auto min-h-0"
       style={{ borderColor: COLOR.border, background: "rgba(17,24,33,0.55)" }}
     >
-      <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.4em]" style={{ color: COLOR.dim }}>
+      <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.4em] shrink-0" style={{ color: COLOR.dim }}>
         <span>◢ Hostile Contacts ◣</span>
         <span style={{ color: COLOR.enemy }}>{bosses.filter(b => b.hp > 0).length + minions.filter(m => m.hp > 0).length}</span>
       </div>
@@ -804,26 +822,26 @@ function ResourceBar({
       className="border-t border-b backdrop-blur-md relative z-20"
       style={{ borderColor: COLOR.border, background: "rgba(17,24,33,0.85)" }}
     >
-      <div className="px-4 md:px-6 py-2 flex items-center gap-4 flex-wrap">
+      <div className="px-3 md:px-4 py-1 flex items-center gap-3 flex-wrap min-h-[40px]">
         {/* Requisition pips */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: COLOR.dim }}>
             Requisition
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {Array.from({ length: maxRequisition }).map((_, i) => (
               <motion.div
                 key={i}
-                className="w-5 h-5 border-2 flex items-center justify-center"
+                className="w-4 h-4 border flex items-center justify-center"
                 style={{
                   borderColor: i < requisition ? COLOR.accent : COLOR.border,
                   background: i < requisition ? COLOR.accent : "transparent",
                 }}
-                animate={i < requisition ? { boxShadow: ["0 0 0 rgba(245,197,66,0)", "0 0 8px rgba(245,197,66,0.8)", "0 0 0 rgba(245,197,66,0)"] } : {}}
+                animate={i < requisition ? { boxShadow: ["0 0 0 rgba(245,197,66,0)", "0 0 6px rgba(245,197,66,0.8)", "0 0 0 rgba(245,197,66,0)"] } : {}}
                 transition={i < requisition ? { duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.15 } : {}}
               >
                 {i < requisition && (
-                  <span className="text-[10px] font-display font-black" style={{ color: COLOR.bg }}>R</span>
+                  <span className="text-[9px] font-display font-black leading-none" style={{ color: COLOR.bg }}>R</span>
                 )}
               </motion.div>
             ))}
@@ -832,15 +850,15 @@ function ResourceBar({
             key={requisition}
             initial={{ scale: 1.3 }}
             animate={{ scale: 1 }}
-            className="font-display font-black text-xl tabular-nums ml-1"
+            className="font-display font-black text-lg tabular-nums ml-1 leading-none"
             style={{ color: COLOR.accent }}
           >
             {requisition}
           </motion.span>
-          <span className="text-xs" style={{ color: COLOR.dim }}>/ {maxRequisition}</span>
+          <span className="text-[10px]" style={{ color: COLOR.dim }}>/ {maxRequisition}</span>
         </div>
 
-        <span className="w-px h-6 hidden md:block" style={{ background: COLOR.border }} />
+        <span className="w-px h-4 hidden md:block" style={{ background: COLOR.border }} />
 
         {/* Deck stats */}
         <div className="hidden md:flex items-center gap-3 text-[10px]">
@@ -852,17 +870,17 @@ function ResourceBar({
 
         <div className="flex-1" />
 
-        {/* End turn — large bottom-right CTA */}
+        {/* End turn — slimmer CTA */}
         <motion.button
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.96 }}
           onClick={onEndTurn}
-          className="py-2.5 px-6 font-display font-black uppercase tracking-[0.3em] text-sm border-2 transition-all"
+          className="py-1.5 px-4 font-display font-black uppercase tracking-[0.3em] text-xs border-2 transition-all leading-none"
           style={{
             background: "linear-gradient(135deg, #ff8a28 0%, #ff4d4d 100%)",
             color: COLOR.bg,
             borderColor: COLOR.enemy,
-            boxShadow: "0 0 20px rgba(255,77,77,0.35)",
+            boxShadow: "0 0 16px rgba(255,77,77,0.35)",
           }}
         >
           END TURN ▶
