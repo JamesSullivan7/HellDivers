@@ -1252,12 +1252,12 @@ function WeaponTab() {
         </div>
       </div>
 
-      {/* Zoomed weapon — render the same card scaled up so every detail is
-          legible. transform: scale keeps the layout pixel-perfect (no
-          re-flow) and matches the design at 196×287 exactly. */}
+      {/* Zoomed weapon — render the same card at 2.2× via CSS `zoom`.
+          Unlike `transform: scale`, `zoom` re-rasterises text at the new
+          size so every spec stays crisp instead of going pixelated. */}
       <CodexLightbox open={!!zoomedWeapon} onClose={() => setZoomedId(null)}>
         {zoomedWeapon && (
-          <div style={{ transform: "scale(2.2)", transformOrigin: "center center" }}>
+          <div style={{ zoom: 2.2 }}>
             <WeaponCard
               weapon={zoomedWeapon}
               index={zoomedIndex}

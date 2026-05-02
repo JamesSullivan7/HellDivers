@@ -30,11 +30,15 @@ interface Props {
   name?: string;
   /** Render the image cell at a smaller height (used for compact cards). */
   small?: boolean;
+  /** Even smaller — used in the combat hand (size="tight"). */
+  tight?: boolean;
 }
 
-export default function CardImage({ type, cardId, name, small }: Props) {
+export default function CardImage({ type, cardId, name, small, tight }: Props) {
   const art = cardId ? getCardArt(cardId) : null;
-  const height = small ? "120px" : "180px";
+  // tight (96px) for the combat hand · small (120px) for codex/loadout grids
+  // · default (180px) for the cinematic full-size card.
+  const height = tight ? "96px" : small ? "120px" : "180px";
 
   return (
     <div

@@ -27,6 +27,7 @@ import HudFrame from "./HudFrame";
 import CardView from "./CardView";
 import AppShell from "./shell/AppShell";
 import { FactionIcon } from "@/lib/icons";
+import { getArmorArt, getWeaponArt } from "@/lib/artManifest";
 
 type Step = "armor" | "weapon" | "booster" | "stratagems";
 
@@ -208,10 +209,10 @@ export default function LoadoutScreen() {
                           : owned && "border-helldiver-steel hover:border-helldiver-yellow/50"
                       )}
                     >
-                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-helldiver-yellow" />
-                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-helldiver-yellow" />
-                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-helldiver-yellow" />
-                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-helldiver-yellow" />
+                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-helldiver-yellow z-10" />
+                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-helldiver-yellow z-10" />
+                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-helldiver-yellow z-10" />
+                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-helldiver-yellow z-10" />
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
                           {a.id === "scout" ? "LIGHT" : a.id === "frontline" ? "MEDIUM" : "HEAVY"} ARMOR
@@ -220,7 +221,10 @@ export default function LoadoutScreen() {
                           <TierBadge tier={tier} />
                         )}
                       </div>
-                      <div className="font-display font-black text-lg text-helldiver-yellow tracking-tight mb-3">
+                      {/* Portrait — matches the Codex armor showcase. Drops in via getArmorArt;
+                          falls back to a tinted gradient if the file is missing. */}
+                      <ArmorPortrait armorId={a.id} className="mb-3" />
+                      <div className="font-display font-black text-lg text-helldiver-yellow tracking-tight mb-2">
                         {a.name.toUpperCase()}
                       </div>
                       <div className="text-xs text-gray-300 leading-relaxed mb-3">{a.passive}</div>
@@ -275,17 +279,19 @@ export default function LoadoutScreen() {
                           : owned && "border-helldiver-steel hover:border-sky-400/50"
                       )}
                     >
-                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-sky-400" />
-                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-sky-400" />
-                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-sky-400" />
-                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-sky-400" />
+                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-sky-400 z-10" />
+                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-sky-400 z-10" />
+                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-sky-400 z-10" />
+                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-sky-400 z-10" />
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
                           Primary Weapon · Auto-Fire
                         </div>
                         {owned && <TierBadge tier={tier} />}
                       </div>
-                      <div className="font-display font-black text-lg text-sky-400 tracking-tight mb-3">
+                      {/* Cinematic weapon portrait — same source as the Codex */}
+                      <WeaponPortrait weaponId={w.id} className="mb-3" />
+                      <div className="font-display font-black text-lg text-sky-400 tracking-tight mb-2">
                         {w.name.toUpperCase()}
                       </div>
                       <div className="text-xs text-gray-300 mb-3 leading-relaxed">{w.description}</div>
@@ -590,6 +596,67 @@ function ArmoryHint() {
     <div className="text-[10px] text-helldiver-dim text-center font-mono uppercase tracking-widest mb-2">
       Locked items can be purchased and upgraded in the{" "}
       <span className="text-emerald-400">Armory ▸ Outfitter</span> tab.
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PORTRAIT HELPERS — pull the same cinematic art the Codex uses so the
+// loadout cards aren't text-only. Both gracefully fall back to a tinted
+// silhouette when the source image is missing.
+// ─────────────────────────────────────────────────────────────────────────
+function ArmorPortrait({ armorId, className }: { armorId: string; className?: string }) {
+  const art = getArmorArt(armorId);
+  return (
+    <div
+      className={clsx("relative overflow-hidden border border-helldiver-yellow/20 bg-gradient-to-b from-helldiver-yellow/[0.04] to-black/40", className)}
+      style={{ height: 140 }}
+    >
+      {art ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={art}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover object-top"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-helldiver-yellow/40 text-3xl">⚙</div>
+      )}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85), transparent)" }}
+      />
+    </div>
+  );
+}
+
+function WeaponPortrait({ weaponId, className }: { weaponId: string; className?: string }) {
+  const art = getWeaponArt(weaponId);
+  return (
+    <div
+      className={clsx("relative overflow-hidden border border-sky-400/20 bg-gradient-to-b from-sky-400/[0.04] to-black/40", className)}
+      style={{ height: 130 }}
+    >
+      {art ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={art}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-sky-400/40 text-3xl">▶▶</div>
+      )}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-10 pointer-events-none"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85), transparent)" }}
+      />
     </div>
   );
 }

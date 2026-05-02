@@ -16,28 +16,17 @@ export default function PlayerHand({ onCardClick }: Props) {
     selected !== null ? combat.hand[selected]?.target === "single" : false;
 
   return (
-    <div className="border-t border-accent-yellow/30 bg-bg-tertiary/40 backdrop-blur-sm shrink-0">
-      <div className="px-tok-3 py-1 flex items-center justify-between text-[9px] tracking-[0.25em] uppercase font-mono leading-none">
-        <div className="text-text-dim flex gap-tok-2">
-          <span>Hand <span className="text-text-primary font-bold">{combat.hand.length}</span></span>
-          <span className="text-border-strong">|</span>
-          <span>Deck <span className="text-text-primary font-bold">{combat.deck.length}</span></span>
-          <span className="text-border-strong">|</span>
-          <span>Discard <span className="text-text-primary font-bold">{combat.discard.length}</span></span>
-          {combat.exhausted.length > 0 && (
-            <>
-              <span className="text-border-strong">|</span>
-              <span>Exhausted <span className="text-accent-red font-bold">{combat.exhausted.length}</span></span>
-            </>
-          )}
+    <div className="border-t border-accent-yellow/30 bg-bg-tertiary/40 backdrop-blur-sm shrink-0 relative">
+      {/* SELECT TARGET prompt — overlay, no extra strip */}
+      {selected !== null && needsTarget && (
+        <div className="absolute right-3 top-1 z-10 text-accent-yellow font-display font-bold animate-blink text-[9px] tracking-[0.25em] uppercase">
+          ▶ SELECT TARGET
         </div>
-        {selected !== null && needsTarget && (
-          <div className="text-accent-yellow font-display font-bold animate-blink text-[9px]">
-            ▶ SELECT TARGET
-          </div>
-        )}
-      </div>
-      <div className="hand-strip pb-1.5 pt-1">
+      )}
+      {/* Hand strip — uses size="tight" (196x230) so cards fit alongside the
+          rest of the combat UI in one viewport without page-scroll. The
+          deck/discard counters were removed — they live in ResourceBar above. */}
+      <div className="hand-strip pb-1 pt-1">
         <AnimatePresence>
           {combat.hand.map((card, idx) => (
             <motion.div
@@ -51,7 +40,7 @@ export default function PlayerHand({ onCardClick }: Props) {
             >
               <CardView
                 card={card}
-                size="compact"
+                size="tight"
                 selected={selected === idx}
                 affordable={player.requisition >= card.cost}
                 onClick={() => onCardClick(idx)}

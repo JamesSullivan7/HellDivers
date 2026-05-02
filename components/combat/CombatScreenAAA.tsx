@@ -587,22 +587,17 @@ function Battlefield({
         {playedCard && <PlayedCardLayer snapshot={playedCard} />}
       </AnimatePresence>
 
-      {/* Animated horizon — slow ambient sway, slimmer footprint */}
+      {/* Animated horizon — slow ambient sway, slim decorative band */}
       <motion.div
-        className="absolute bottom-0 inset-x-0 h-10 pointer-events-none"
+        className="absolute bottom-0 inset-x-0 h-6 pointer-events-none"
         animate={{ opacity: [0.2, 0.35, 0.2] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
         style={{
           background: "linear-gradient(to top, rgba(245,197,66,0.15), transparent)",
         }}
       />
-
-      {/* Idle text */}
-      {!needsTarget && !playedCard && (
-        <div className="text-[9px] uppercase tracking-[0.4em] absolute bottom-1.5 left-1/2 -translate-x-1/2" style={{ color: COLOR.dim }}>
-          ◢ FOR SUPER EARTH ◣
-        </div>
-      )}
+      {/* "FOR SUPER EARTH" footer removed — pure vertical bloat that
+          contributed to the hand-cards-clipped issue on shorter viewports. */}
     </div>
   );
 }

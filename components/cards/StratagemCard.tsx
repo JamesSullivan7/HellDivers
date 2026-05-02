@@ -33,11 +33,22 @@ interface Props {
   selected?: boolean;
   affordable?: boolean;
   onClick?: () => void;
-  /** "compact" scales the same layout down (does not redesign). For grids. */
-  size?: "normal" | "compact";
+  /**
+   * Card size variants:
+   *   - "normal"  280x410  — codex zoom + played-card cinematic
+   *   - "compact" 196x287  — codex grid + loadout
+   *   - "tight"   196x230  — combat hand (viewport-fit-sized)
+   */
+  size?: "normal" | "compact" | "tight";
   /** Backward compat alias for size="compact" */
   small?: boolean;
 }
+
+const SIZE_DIMS: Record<NonNullable<Props["size"]>, { w: number; h: number }> = {
+  normal:  { w: 280, h: 410 },
+  compact: { w: 196, h: 287 },
+  tight:   { w: 196, h: 230 },
+};
 
 export default function StratagemCard({
   card,
@@ -47,7 +58,9 @@ export default function StratagemCard({
   size = "normal",
   small,
 }: Props) {
-  const isCompact = small || size === "compact";
+  const resolvedSize: NonNullable<Props["size"]> = small ? "compact" : size;
+  const isCompactish = resolvedSize !== "normal";
+  const dims = SIZE_DIMS[resolvedSize];
 
   return (
     <motion.button
@@ -66,11 +79,9 @@ export default function StratagemCard({
         !affordable && "grayscale brightness-75"
       )}
       style={{
-        width: isCompact ? "196px" : "280px",
-        height: isCompact ? "287px" : "410px",
+        width: dims.w,
+        height: dims.h,
         borderRadius: "var(--radius-md)",
-        // scale-down via transform for compact: keep layout, smaller footprint
-        transform: isCompact ? "scale(1)" : undefined,
       }}
     >
       {/* corner brackets */}
@@ -82,8 +93,8 @@ export default function StratagemCard({
       {/* Inner top highlight */}
       <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
 
-      {isCompact ? (
-        <CompactLayout card={card} affordable={affordable} />
+      {isCompactish ? (
+        <CompactLayout card={card} affordable={affordable} tight={resolvedSize === "tight"} />
       ) : (
         <>
           <CardHeader name={card.name} cost={card.cost} affordable={affordable} />
@@ -98,16 +109,25 @@ export default function StratagemCard({
   );
 }
 
-/** Compact layout — same data, denser stack. Used in grids/loadout. */
-function CompactLayout({ card, affordable }: { card: Card; affordable: boolean }) {
+/** Compact layout — same data, denser stack. Used in grids/loadout/combat. */
+function CompactLayout({
+  card,
+  affordable,
+  tight,
+}: {
+  card: Card;
+  affordable: boolean;
+  /** Combat hand variant — even smaller image so description still has room. */
+  tight?: boolean;
+}) {
   return (
     <div className="flex flex-col h-full">
       <CardHeader name={card.name} cost={card.cost} affordable={affordable} />
-      <CardImage type={card.type} cardId={card.id} name={card.name} small />
+      <CardImage type={card.type} cardId={card.id} name={card.name} small={!tight} tight={tight} />
       <CardTags card={card} />
       <div
-        className="px-tok-3 text-text-secondary text-[11px] leading-snug overflow-hidden flex-1"
-        style={{ paddingTop: "var(--space-2)" }}
+        className="px-tok-3 text-text-secondary leading-snug overflow-hidden flex-1"
+        style={{ paddingTop: tight ? "2px" : "var(--space-2)", fontSize: tight ? "10px" : "11px" }}
       >
         {card.description}
       </div>
