@@ -615,15 +615,16 @@ function PlanetSphere({
           boxShadow: `inset -${size * 0.18}px -${size * 0.18}px ${size * 0.3}px rgba(0,0,0,0.65)`,
         }}
       >
-        {/* 3. Faction image overlay — hero visual */}
+        {/* 3. Faction image overlay — hero visual.
+             eager loading so the planet visual is up immediately on first render. */}
         <img
           src={factionImg}
           alt=""
           aria-hidden
-          className="w-full h-full object-cover"
-          loading="lazy"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
           decoding="async"
-          style={{ display: "block" }}
+          style={{ display: "block", zIndex: 1 }}
           onError={(e) => {
             // No faction image yet — hide so the CSS globe shows through.
             (e.currentTarget as HTMLImageElement).style.opacity = "0";
