@@ -7,12 +7,12 @@ import { sfx } from "@/lib/sfx";
 import { CARD_LIBRARY } from "@/lib/cards";
 import { ENEMY_TEMPLATES } from "@/lib/enemies";
 import { ARMORS, WEAPONS, BOOSTERS } from "@/lib/loadout";
-import { getEnemyArt, getCardArt, getArmorArt } from "@/lib/artManifest";
+import { getEnemyArt, getCardArt, getArmorArt, getWeaponArt } from "@/lib/artManifest";
 import HudFrame from "./HudFrame";
 import HubFrame from "./hub/HubFrame";
 import StratagemCard from "./cards/StratagemCard";
 import { FactionIcon } from "@/lib/icons";
-import { Armor, Faction, EnemyTemplate } from "@/lib/types";
+import { Armor, Faction, EnemyTemplate, Weapon } from "@/lib/types";
 
 type Tab = "stratagems" | "armors" | "weapons" | "boosters" | "enemies";
 
@@ -863,32 +863,631 @@ function ArmorMiniCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// WEAPONS
+// WEAPONS — AAA card system
+//
+// Card structure (top → bottom):
+//   1. TOP BAR     · weapon-class glyph · NAME · rarity pip strip
+//   2. ART         · cinematic full-bleed portrait + bottom gradient
+//   3. TYPE LINE   · "PRIMARY · <CATEGORY>"
+//   4. STATS ROW   · DAMAGE · HITS · TARGET (icons + tabular numerics)
+//   5. ABILITY     · in-engine effect copy
+//   6. KEYWORDS    · subtle gold/role-tinted chips
+//   7. BOTTOM BAR  · flavor line · faction skull · card ID
+//
+// Visual states: idle, hover (scale + glow), selected (gold border).
+// Disabled state is exposed via `locked` prop (desaturated, sealed).
 // ─────────────────────────────────────────────────────────────────────────
+
+type WeaponClass =
+  | "assault"
+  | "marksman"
+  | "explosive"
+  | "energy"
+  | "arc"
+  | "shotgun"
+  | "adaptive";
+type WeaponRarity = "common" | "rare" | "epic" | "legendary";
+type WeaponKeyword =
+  | "PRECISION"
+  | "ARMOR-PIERCING"
+  | "EXPLOSIVE"
+  | "PLASMA"
+  | "ARC"
+  | "FIRE"
+  | "STAGGER"
+  | "AUTO-FIRE"
+  | "AOE"
+  | "ADAPTIVE"
+  | "CHAIN";
+
+interface WeaponMeta {
+  className: string;       // human-readable category line, e.g. "ASSAULT", "DMR"
+  weaponClass: WeaponClass; // tints / icons
+  rarity: WeaponRarity;
+  keywords: WeaponKeyword[];
+  flavor: string;          // bottom flavor line
+  cardId: string;          // bottom-right ID stamp
+}
+
+const WEAPON_META: Record<string, WeaponMeta> = {
+  ar2_coyote: {
+    className: "ASSAULT CARBINE",
+    weaponClass: "assault",
+    rarity: "common",
+    keywords: ["AUTO-FIRE"],
+    flavor: "Standard issue. The first rifle every Helldiver fires. The last one some ever will.",
+    cardId: "AR-002",
+  },
+  ar23p_liberator_penetrator: {
+    className: "ASSAULT — PENETRATOR",
+    weaponClass: "assault",
+    rarity: "rare",
+    keywords: ["AUTO-FIRE", "ARMOR-PIERCING"],
+    flavor: "AR-23 base — re-bored chamber, hardened core. Cuts where the original could only chip.",
+    cardId: "AR-023P",
+  },
+  r2124_constitution: {
+    className: "BATTLE RIFLE — HEIRLOOM",
+    weaponClass: "marksman",
+    rarity: "rare",
+    keywords: ["PRECISION", "AUTO-FIRE"],
+    flavor: "Wood furniture. Brass fittings. Older than the war and outliving most of who fight it.",
+    cardId: "R-2124",
+  },
+  r6_deadeye: {
+    className: "MARKSMAN DMR",
+    weaponClass: "marksman",
+    rarity: "epic",
+    keywords: ["PRECISION", "ARMOR-PIERCING"],
+    flavor: "One target. One round. One less problem for democracy.",
+    cardId: "R-006",
+  },
+  r36_eruptor: {
+    className: "EXPLOSIVE BOLT-ACTION",
+    weaponClass: "explosive",
+    rarity: "epic",
+    keywords: ["EXPLOSIVE", "AOE"],
+    flavor: "Detonates on contact. Re-detonates on shrapnel. Re-re-detonates on doctrine.",
+    cardId: "R-036",
+  },
+  jar5_dominator: {
+    className: "EXPLOSIVE PISTOL",
+    weaponClass: "explosive",
+    rarity: "rare",
+    keywords: ["EXPLOSIVE", "STAGGER"],
+    flavor: "A handgun, technically. A field demolition charge, statistically.",
+    cardId: "JAR-005",
+  },
+  cb9_exploding_crossbow: {
+    className: "EXPLOSIVE CROSSBOW",
+    weaponClass: "explosive",
+    rarity: "epic",
+    keywords: ["EXPLOSIVE", "PRECISION"],
+    flavor: "Silent in flight. Loud on arrival. Approved for democratic stealth operations.",
+    cardId: "CB-009",
+  },
+  sg8p_punisher_plasma: {
+    className: "PLASMA SHOTGUN",
+    weaponClass: "energy",
+    rarity: "epic",
+    keywords: ["PLASMA", "AOE"],
+    flavor: "Charged superheated cores. Disperses on impact. Disperses what was hit too.",
+    cardId: "SG-008P",
+  },
+  arc12_blitzer: {
+    className: "ARC SHOTGUN",
+    weaponClass: "arc",
+    rarity: "epic",
+    keywords: ["ARC", "CHAIN"],
+    flavor: "Discharges raw atmospheric current. Targets are encouraged not to hold hands.",
+    cardId: "ARC-012",
+  },
+  sg20_halt: {
+    className: "STAGGER SHOTGUN",
+    weaponClass: "shotgun",
+    rarity: "rare",
+    keywords: ["STAGGER", "AUTO-FIRE"],
+    flavor: "Concussive shells. The enemy stops advancing. Sometimes permanently.",
+    cardId: "SG-020",
+  },
+  sg451_cookout: {
+    className: "INCENDIARY SHOTGUN",
+    weaponClass: "shotgun",
+    rarity: "rare",
+    keywords: ["FIRE", "AUTO-FIRE"],
+    flavor: "Thermite buckshot. Cooks armor open from the inside. Liberty served well-done.",
+    cardId: "SG-451",
+  },
+  vg70_variable: {
+    className: "ADAPTIVE — DUAL MODE",
+    weaponClass: "adaptive",
+    rarity: "legendary",
+    keywords: ["ADAPTIVE", "ARMOR-PIERCING", "AUTO-FIRE"],
+    flavor: "Reconfigures mid-engagement. Precision optic on one threat, devastator on the next.",
+    cardId: "VG-070",
+  },
+};
+
+const WEAPON_PALETTE = {
+  bg: "#0A0F14",
+  panel: "#0E141C",
+  panelDeep: "#070b10",
+  panelHover: "#10171F",
+  gold: "#FFC72C",
+  goldDim: "rgba(255,199,44,0.7)",
+  goldFaint: "rgba(255,199,44,0.18)",
+  rule: "rgba(255,255,255,0.06)",
+  ruleStrong: "rgba(255,199,44,0.35)",
+  text: "rgba(255,255,255,0.92)",
+  textMid: "rgba(255,255,255,0.62)",
+  textDim: "rgba(255,255,255,0.38)",
+  red: "#ff4d4d",
+} as const;
+
+const RARITY_META: Record<WeaponRarity, { pips: number; label: string; color: string }> = {
+  common:    { pips: 1, label: "STANDARD",    color: "rgba(255,255,255,0.55)" },
+  rare:      { pips: 2, label: "FIELD-PROVEN", color: "#60c4ff" },
+  epic:      { pips: 3, label: "ELITE ISSUE",  color: "#a855f7" },
+  legendary: { pips: 4, label: "EXPERIMENTAL", color: WEAPON_PALETTE.gold },
+};
+
+const CLASS_GLYPH: Record<WeaponClass, string> = {
+  assault: "▶▶",
+  marksman: "◆",
+  explosive: "✸",
+  energy: "◉",
+  arc: "⚡",
+  shotgun: "▣",
+  adaptive: "⟁",
+};
+
+const CLASS_TINT: Record<WeaponClass, string> = {
+  assault: "#FFC72C",
+  marksman: "#FFC72C",
+  explosive: "#ff8a28",
+  energy: "#a855f7",
+  arc: "#60c4ff",
+  shotgun: "#FFC72C",
+  adaptive: "#FFC72C",
+};
+
+const KEYWORD_TINT: Record<WeaponKeyword, string> = {
+  "PRECISION":      "#60c4ff",
+  "ARMOR-PIERCING": "#FFC72C",
+  "EXPLOSIVE":      "#ff8a28",
+  "PLASMA":         "#a855f7",
+  "ARC":            "#60c4ff",
+  "FIRE":           "#ff4d4d",
+  "STAGGER":        "#FFC72C",
+  "AUTO-FIRE":      "rgba(255,255,255,0.55)",
+  "AOE":            "#ff8a28",
+  "ADAPTIVE":       "#FFC72C",
+  "CHAIN":          "#60c4ff",
+};
+
+const TARGET_LABEL: Record<Weapon["target"], string> = {
+  highest_hp: "PRIORITY",
+  random:     "SPREAD",
+  all:        "AREA",
+};
+const TARGET_GLYPH: Record<Weapon["target"], string> = {
+  highest_hp: "◎",
+  random:     "✦",
+  all:        "▤",
+};
+
 function WeaponTab() {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
   return (
-    <HudFrame label={`Primary Weapons · ${WEAPONS.length}`} accent="yellow" className="p-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {WEAPONS.map((w, i) => (
-          <DataCard
-            key={w.id}
-            index={i + 1}
-            id={w.id}
-            name={w.name}
-            subtitle="Primary · Auto-Fire"
-            description={w.description}
-            stats={[
-              { label: "Damage", value: `${w.damage}`, accent: true },
-              { label: "Hits/Turn", value: `${w.hitsPerTurn}` },
-              { label: "Targeting", value: w.target.replace("_", " ").toUpperCase() },
-              ...(w.ignoreArmor ? [{ label: "Special", value: "IGNORES ARMOR" }] : []),
-            ]}
-            accent="cyan"
-            artUrl={null}
+    <div
+      className="relative overflow-hidden"
+      style={{
+        background: `linear-gradient(180deg, ${WEAPON_PALETTE.panelDeep} 0%, ${WEAPON_PALETTE.bg} 100%)`,
+        border: `1px solid ${WEAPON_PALETTE.rule}`,
+      }}
+    >
+      {/* Top hairline */}
+      <div
+        aria-hidden
+        className="absolute top-0 left-0 right-0 h-px"
+        style={{ background: `linear-gradient(90deg, transparent, ${WEAPON_PALETTE.gold}, transparent)` }}
+      />
+
+      {/* Header strip */}
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: `1px solid ${WEAPON_PALETTE.rule}` }}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="w-1.5 h-1.5"
+            style={{ background: WEAPON_PALETTE.gold, boxShadow: `0 0 6px ${WEAPON_PALETTE.gold}` }}
           />
-        ))}
+          <h2
+            className="font-display font-black uppercase tracking-[0.32em] text-sm"
+            style={{ color: WEAPON_PALETTE.gold }}
+          >
+            Primary Armament Database
+          </h2>
+        </div>
+        <span
+          className="text-[10px] uppercase tracking-[0.3em] tabular-nums"
+          style={{ color: WEAPON_PALETTE.textDim }}
+        >
+          {WEAPONS.length} catalogued · {WEAPONS.filter((w) => getWeaponArt(w.id)).length} cinematic
+        </span>
       </div>
-    </HudFrame>
+
+      {/* Card grid */}
+      <div className="p-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {WEAPONS.map((w, i) => (
+            <WeaponCard
+              key={w.id}
+              weapon={w}
+              index={i + 1}
+              selected={selectedId === w.id}
+              onClick={() => {
+                sfx.click();
+                setSelectedId((prev) => (prev === w.id ? null : w.id));
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface WeaponCardProps {
+  weapon: Weapon;
+  index: number;
+  selected: boolean;
+  onClick: () => void;
+  /** Optional locked/disabled state — desaturated + non-interactive overlay. */
+  locked?: boolean;
+}
+
+function WeaponCard({ weapon, index, selected, onClick, locked = false }: WeaponCardProps) {
+  const meta = WEAPON_META[weapon.id] ?? {
+    className: "PRIMARY WEAPON",
+    weaponClass: "assault" as WeaponClass,
+    rarity: "common" as WeaponRarity,
+    keywords: ["AUTO-FIRE"] as WeaponKeyword[],
+    flavor: "Awaiting field assessment.",
+    cardId: weapon.id.toUpperCase().slice(0, 8),
+  };
+  const rarity = RARITY_META[meta.rarity];
+  const art = getWeaponArt(weapon.id);
+  const classTint = CLASS_TINT[meta.weaponClass];
+
+  return (
+    <motion.button
+      type="button"
+      onClick={locked ? undefined : onClick}
+      whileHover={locked ? undefined : { y: -2 }}
+      transition={{ duration: 0.18 }}
+      aria-pressed={selected}
+      aria-disabled={locked}
+      className={clsx(
+        "group relative text-left w-full overflow-hidden",
+        locked ? "cursor-not-allowed" : "cursor-pointer"
+      )}
+      style={{
+        background: `linear-gradient(180deg, ${WEAPON_PALETTE.panel} 0%, ${WEAPON_PALETTE.panelDeep} 100%)`,
+        border: `1px solid ${selected ? WEAPON_PALETTE.gold : WEAPON_PALETTE.rule}`,
+        boxShadow: selected
+          ? `0 0 0 1px ${WEAPON_PALETTE.gold}, 0 0 30px ${WEAPON_PALETTE.goldFaint}`
+          : "0 6px 24px rgba(0,0,0,0.45)",
+        filter: locked ? "saturate(0.2) brightness(0.5)" : undefined,
+        transition: "border-color 200ms ease, box-shadow 200ms ease",
+      }}
+    >
+      {/* Hover accent — gold inner ring + corner brackets */}
+      {!locked && !selected && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          style={{
+            boxShadow: `inset 0 0 0 1px ${WEAPON_PALETTE.goldFaint}, 0 0 22px ${WEAPON_PALETTE.goldFaint}`,
+          }}
+        />
+      )}
+
+      {/* TOP BAR ── glyph · name · rarity */}
+      <div
+        className="relative flex items-center gap-2 px-3 h-10"
+        style={{
+          borderBottom: `1px solid ${selected ? WEAPON_PALETTE.ruleStrong : WEAPON_PALETTE.rule}`,
+          background: selected
+            ? `linear-gradient(90deg, ${WEAPON_PALETTE.gold}1a, transparent 70%)`
+            : `linear-gradient(90deg, rgba(255,199,44,0.04), transparent 70%)`,
+        }}
+      >
+        <span
+          aria-hidden
+          className="flex items-center justify-center w-7 h-7 text-[12px] font-black tabular-nums"
+          style={{
+            border: `1px solid ${WEAPON_PALETTE.rule}`,
+            color: classTint,
+            background: WEAPON_PALETTE.panelDeep,
+            boxShadow: `inset 0 0 8px rgba(0,0,0,0.6)`,
+          }}
+          title={meta.weaponClass}
+        >
+          {CLASS_GLYPH[meta.weaponClass]}
+        </span>
+        <h3
+          className="flex-1 font-display font-black uppercase tracking-[0.06em] text-[12px] truncate"
+          style={{ color: selected ? WEAPON_PALETTE.gold : WEAPON_PALETTE.text }}
+        >
+          {weapon.name}
+        </h3>
+        <RarityPips rarity={meta.rarity} />
+      </div>
+
+      {/* ART ── cinematic portrait, full bleed */}
+      <div
+        className="relative w-full overflow-hidden"
+        style={{ aspectRatio: "16 / 11", background: WEAPON_PALETTE.panelDeep }}
+      >
+        {art ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={art}
+              alt=""
+              draggable={false}
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+              style={{ display: "block" }}
+            />
+            {/* Vignette + bottom darken for type-line legibility */}
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  "linear-gradient(to top, rgba(5,8,16,0.95) 0%, rgba(5,8,16,0.25) 35%, transparent 60%)",
+              }}
+            />
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(ellipse 80% 70% at 50% 45%, transparent 0%, rgba(0,0,0,0.55) 100%)",
+              }}
+            />
+          </>
+        ) : (
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ color: WEAPON_PALETTE.textDim, fontSize: 36 }}
+          >
+            {CLASS_GLYPH[meta.weaponClass]}
+          </div>
+        )}
+
+        {/* Card index — top-left over art */}
+        <span
+          className="absolute top-2 left-2 px-1.5 py-0.5 text-[9px] font-display font-black tabular-nums tracking-widest"
+          style={{
+            color: WEAPON_PALETTE.gold,
+            background: "rgba(0,0,0,0.7)",
+            border: `1px solid ${WEAPON_PALETTE.goldFaint}`,
+          }}
+        >
+          #{String(index).padStart(2, "0")}
+        </span>
+
+        {/* Type-line over the bottom gradient */}
+        <div className="absolute left-3 right-3 bottom-2 flex items-baseline justify-between gap-2">
+          <span
+            className="text-[10px] font-display font-black uppercase tracking-[0.22em]"
+            style={{ color: classTint, textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}
+          >
+            Primary · {meta.className}
+          </span>
+          <span
+            className="text-[9px] uppercase tracking-[0.28em] tabular-nums"
+            style={{ color: WEAPON_PALETTE.textMid, textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}
+          >
+            {rarity.label}
+          </span>
+        </div>
+      </div>
+
+      {/* STATS ROW ── three-stat command panel */}
+      <div
+        className="grid grid-cols-3 gap-px"
+        style={{
+          background: WEAPON_PALETTE.rule,
+          borderBottom: `1px solid ${WEAPON_PALETTE.rule}`,
+        }}
+      >
+        <StatCell
+          label="DMG"
+          value={String(weapon.damage)}
+          glyph="✦"
+          accent={WEAPON_PALETTE.gold}
+        />
+        <StatCell
+          label="HITS"
+          value={String(weapon.hitsPerTurn)}
+          glyph="≡"
+          accent={WEAPON_PALETTE.text}
+        />
+        <StatCell
+          label={TARGET_LABEL[weapon.target]}
+          value={weapon.ignoreArmor ? "AP" : "—"}
+          glyph={TARGET_GLYPH[weapon.target]}
+          accent={weapon.ignoreArmor ? WEAPON_PALETTE.gold : WEAPON_PALETTE.text}
+        />
+      </div>
+
+      {/* ABILITY TEXT */}
+      <div className="px-3 pt-2 pb-1">
+        <p
+          className="text-[11px] leading-snug"
+          style={{ color: WEAPON_PALETTE.textMid }}
+        >
+          {weapon.description}
+        </p>
+      </div>
+
+      {/* KEYWORD CHIPS */}
+      {meta.keywords.length > 0 && (
+        <div className="px-3 pb-2 flex flex-wrap gap-1">
+          {meta.keywords.map((kw) => (
+            <span
+              key={kw}
+              className="px-1.5 py-0.5 text-[8.5px] font-display font-black uppercase tracking-[0.18em]"
+              style={{
+                color: KEYWORD_TINT[kw],
+                border: `1px solid ${KEYWORD_TINT[kw]}40`,
+                background: `${KEYWORD_TINT[kw]}10`,
+              }}
+            >
+              {kw}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* BOTTOM BAR ── flavor · faction · ID */}
+      <div
+        className="flex items-center gap-2 px-3 py-2"
+        style={{
+          borderTop: `1px solid ${WEAPON_PALETTE.rule}`,
+          background: WEAPON_PALETTE.panelDeep,
+        }}
+      >
+        <p
+          className="flex-1 text-[9.5px] italic leading-snug truncate"
+          style={{ color: WEAPON_PALETTE.textDim }}
+          title={meta.flavor}
+        >
+          “{meta.flavor}”
+        </p>
+        <SuperEarthSkull className="w-4 h-4" tint={WEAPON_PALETTE.goldDim} />
+        <span
+          className="text-[9px] font-display font-black tabular-nums tracking-widest"
+          style={{ color: WEAPON_PALETTE.goldDim }}
+        >
+          {meta.cardId}
+        </span>
+      </div>
+
+      {/* SELECTED accent — bottom gold rule */}
+      {selected && !locked && (
+        <span
+          aria-hidden
+          className="absolute left-0 right-0 bottom-0 h-px"
+          style={{
+            background: `linear-gradient(90deg, transparent, ${WEAPON_PALETTE.gold}, transparent)`,
+            boxShadow: `0 0 8px ${WEAPON_PALETTE.gold}`,
+          }}
+        />
+      )}
+
+      {/* LOCKED overlay */}
+      {locked && (
+        <div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          style={{ background: "rgba(0,0,0,0.55)" }}
+        >
+          <span
+            className="px-2 py-1 text-[10px] font-display font-black uppercase tracking-[0.32em]"
+            style={{
+              color: WEAPON_PALETTE.red,
+              border: `1px solid ${WEAPON_PALETTE.red}`,
+              background: "rgba(0,0,0,0.6)",
+            }}
+          >
+            Sealed · Requisition Required
+          </span>
+        </div>
+      )}
+    </motion.button>
+  );
+}
+
+function RarityPips({ rarity }: { rarity: WeaponRarity }) {
+  const r = RARITY_META[rarity];
+  return (
+    <span className="flex items-center gap-0.5" aria-label={`Rarity: ${rarity}`}>
+      {[0, 1, 2, 3].map((i) => (
+        <span
+          key={i}
+          className="block w-1 h-2.5"
+          style={{
+            background: i < r.pips ? r.color : WEAPON_PALETTE.rule,
+            boxShadow: i < r.pips ? `0 0 4px ${r.color}` : undefined,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function StatCell({
+  label,
+  value,
+  glyph,
+  accent,
+}: {
+  label: string;
+  value: string;
+  glyph: string;
+  accent: string;
+}) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center py-1.5"
+      style={{ background: WEAPON_PALETTE.panel }}
+    >
+      <span
+        aria-hidden
+        className="text-[11px] leading-none"
+        style={{ color: accent, opacity: 0.85 }}
+      >
+        {glyph}
+      </span>
+      <span
+        className="font-display font-black tabular-nums leading-none mt-1"
+        style={{ color: accent, fontSize: 18 }}
+      >
+        {value}
+      </span>
+      <span
+        className="text-[8px] font-display font-black uppercase tracking-[0.22em] mt-1"
+        style={{ color: WEAPON_PALETTE.textDim }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function SuperEarthSkull({ className, tint }: { className?: string; tint: string }) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      className={className}
+      aria-hidden
+      fill="none"
+      stroke={tint}
+      strokeWidth={1.4}
+    >
+      <circle cx="16" cy="14" r="7" />
+      <rect x="12" y="20" width="8" height="3" />
+      <circle cx="13" cy="14" r="1.4" fill={tint} stroke="none" />
+      <circle cx="19" cy="14" r="1.4" fill={tint} stroke="none" />
+      <line x1="16" y1="16" x2="16" y2="18" />
+    </svg>
   );
 }
 

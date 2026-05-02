@@ -183,8 +183,22 @@ export const ARMORS: Record<string, { id: string; hpMod: number; handMod: number
 };
 
 export const WEAPONS: Record<string, { damage: number; hitsPerTurn: number; target: "highest_hp" | "random" | "all"; ignoreArmor?: boolean }> = {
-  ar23_liberator: { damage: 3, hitsPerTurn: 1, target: "highest_hp" },
-  sg225_breaker: { damage: 2, hitsPerTurn: 1, target: "all" },
-  r63_diligence: { damage: 7, hitsPerTurn: 1, target: "highest_hp", ignoreArmor: true },
-  mp98_knight: { damage: 1, hitsPerTurn: 4, target: "random" },
+  // ── ASSAULT / RIFLES ──
+  ar2_coyote:                  { damage: 2, hitsPerTurn: 2, target: "random" },
+  ar23p_liberator_penetrator:  { damage: 3, hitsPerTurn: 1, target: "highest_hp", ignoreArmor: true },
+  r2124_constitution:          { damage: 5, hitsPerTurn: 1, target: "highest_hp" },
+  // ── DMR / SNIPER ──
+  r6_deadeye:                  { damage: 8, hitsPerTurn: 1, target: "highest_hp", ignoreArmor: true },
+  // ── EXPLOSIVE ──
+  r36_eruptor:                 { damage: 4, hitsPerTurn: 1, target: "all" },
+  jar5_dominator:              { damage: 6, hitsPerTurn: 1, target: "highest_hp" },
+  cb9_exploding_crossbow:      { damage: 7, hitsPerTurn: 1, target: "highest_hp" },
+  // ── ENERGY / PLASMA / ARC ──
+  sg8p_punisher_plasma:        { damage: 3, hitsPerTurn: 1, target: "all" },
+  arc12_blitzer:               { damage: 2, hitsPerTurn: 3, target: "random" },
+  // ── SHOTGUNS ──
+  sg20_halt:                   { damage: 3, hitsPerTurn: 1, target: "highest_hp" },
+  sg451_cookout:               { damage: 2, hitsPerTurn: 2, target: "random" },
+  // ── ADAPTIVE / SPECIAL ──
+  vg70_variable:               { damage: 4, hitsPerTurn: 2, target: "highest_hp", ignoreArmor: true },
 };

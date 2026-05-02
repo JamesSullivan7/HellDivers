@@ -1,5 +1,6 @@
 import { Faction } from "./types";
 import { CARD_LIBRARY } from "./cards";
+import { LEGACY_WEAPON_ID_MAP } from "./loadout";
 
 const ACCOUNT_KEY = "helldivers_account";
 
@@ -148,10 +149,10 @@ export function defaultAccount(): Account {
     helldiverName: generateHelldiverName(),
     // Outfitter: every Helldiver starts with the standard issue kit.
     ownedArmors: ["frontline"],
-    ownedWeapons: ["ar23_liberator"],
+    ownedWeapons: ["ar2_coyote"],
     ownedBoosters: ["hellpod_optimization"],
     armorTiers: { frontline: 1 },
-    weaponTiers: { ar23_liberator: 1 },
+    weaponTiers: { ar2_coyote: 1 },
     boosterTiers: { hellpod_optimization: 1 },
   };
 }
@@ -195,10 +196,14 @@ export function loadAccount(): Account {
       equippedCape: typeof parsed.equippedCape === "string" ? parsed.equippedCape : def.equippedCape,
       equippedTitle: typeof parsed.equippedTitle === "string" ? parsed.equippedTitle : def.equippedTitle,
       ownedArmors: Array.isArray(parsed.ownedArmors) ? parsed.ownedArmors : def.ownedArmors,
-      ownedWeapons: Array.isArray(parsed.ownedWeapons) ? parsed.ownedWeapons : def.ownedWeapons,
+      ownedWeapons: Array.isArray(parsed.ownedWeapons)
+        ? migrateWeaponIds(parsed.ownedWeapons)
+        : def.ownedWeapons,
       ownedBoosters: Array.isArray(parsed.ownedBoosters) ? parsed.ownedBoosters : def.ownedBoosters,
       armorTiers: parsed.armorTiers && typeof parsed.armorTiers === "object" ? parsed.armorTiers : def.armorTiers,
-      weaponTiers: parsed.weaponTiers && typeof parsed.weaponTiers === "object" ? parsed.weaponTiers : def.weaponTiers,
+      weaponTiers: parsed.weaponTiers && typeof parsed.weaponTiers === "object"
+        ? migrateWeaponTiers(parsed.weaponTiers as Record<string, number>)
+        : def.weaponTiers,
       boosterTiers: parsed.boosterTiers && typeof parsed.boosterTiers === "object" ? parsed.boosterTiers : def.boosterTiers,
     };
     delete (merged as any).slips;
@@ -215,6 +220,36 @@ export function saveAccount(a: Account) {
   try {
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify(a));
   } catch {}
+}
+
+/**
+ * Map any pre-art-pass weapon IDs (e.g. "ar23_liberator") onto their
+ * modern equivalents from the new 12-weapon roster. Dedupes the result
+ * so a player who owned both an old + new ID doesn't end up with a
+ * duplicate after migration.
+ */
+function migrateWeaponIds(ids: string[]): string[] {
+  const out = new Set<string>();
+  for (const raw of ids) {
+    if (typeof raw !== "string") continue;
+    out.add(LEGACY_WEAPON_ID_MAP[raw] ?? raw);
+  }
+  return Array.from(out);
+}
+
+/**
+ * Mirror of migrateWeaponIds for the per-weapon tier dictionary. If an
+ * old + new key collide we keep the higher tier so the player never
+ * regresses.
+ */
+function migrateWeaponTiers(tiers: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(tiers)) {
+    if (typeof v !== "number") continue;
+    const mapped = LEGACY_WEAPON_ID_MAP[k] ?? k;
+    out[mapped] = Math.max(out[mapped] ?? 0, v);
+  }
+  return out;
 }
 
 export function xpToLevelUp(level: number): number {

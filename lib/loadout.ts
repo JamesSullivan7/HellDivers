@@ -72,65 +72,128 @@ export const ARMORS: Armor[] = [
   },
 ];
 
-// Authentic Helldivers 2 primary weapons (from helldivers.wiki.gg).
+/**
+ * PRIMARY WEAPON ROSTER — Helldivers 2 canon (from helldivers.wiki.gg).
+ *
+ * Each entry's `description` is the in-engine ability text shown on the
+ * combat HUD. The Codex Weapons tab reads richer metadata (type, rarity,
+ * keyword tags, flavor) from `WEAPON_META` in CodexScreen.tsx so the
+ * Weapon contract stays focused on engine math.
+ *
+ * Order is intentional — broadly progresses from basic auto-fire rifles
+ * → DMR / sniper precision → explosive → energy/plasma → shotguns →
+ * specials. The first entry is the default starter loadout.
+ */
 export const WEAPONS: Weapon[] = [
+  // ── ASSAULT / RIFLES ──
   {
-    id: "ar23_liberator",
-    name: "AR-23 Liberator",
-    description: "Auto-fires 3 dmg at the highest-HP enemy each turn.",
-    damage: 3,
-    hitsPerTurn: 1,
-    target: "highest_hp",
-  },
-  {
-    id: "sg225_breaker",
-    name: "SG-225 Breaker",
-    description: "Auto-fires 2 dmg to all enemies each turn.",
+    id: "ar2_coyote",
+    name: "AR-2 Coyote",
+    description: "Burst-fires 2 dmg at 2 random enemies each turn.",
     damage: 2,
-    hitsPerTurn: 1,
-    target: "all",
-  },
-  {
-    id: "r63_diligence",
-    name: "R-63 Diligence",
-    description: "Auto-fires 7 dmg at the highest-HP enemy. Ignores armor.",
-    damage: 7,
-    hitsPerTurn: 1,
-    target: "highest_hp",
-    ignoreArmor: true,
-  },
-  {
-    id: "mp98_knight",
-    name: "MP-98 Knight",
-    description: "Auto-fires 1 dmg at random enemies 4 times each turn.",
-    damage: 1,
-    hitsPerTurn: 4,
+    hitsPerTurn: 2,
     target: "random",
   },
   {
-    id: "las16_sickle",
-    name: "LAS-16 Sickle",
-    description: "Laser auto-fires 4 dmg at the highest-HP enemy. Ignores armor.",
-    damage: 4,
+    id: "ar23p_liberator_penetrator",
+    name: "AR-23P Liberator Penetrator",
+    description: "Armor-piercing burst: 3 dmg at the highest-HP enemy. Ignores armor.",
+    damage: 3,
     hitsPerTurn: 1,
     target: "highest_hp",
     ignoreArmor: true,
   },
   {
-    id: "plas1_scorcher",
-    name: "PLAS-1 Scorcher",
-    description: "Plasma auto-fires 3 dmg to all enemies. Ignites armor weak points.",
+    id: "r2124_constitution",
+    name: "R-2124 Constitution",
+    description: "Heavy bolt-rifle: 5 dmg at the highest-HP enemy each turn.",
+    damage: 5,
+    hitsPerTurn: 1,
+    target: "highest_hp",
+  },
+
+  // ── DMR / SNIPER ──
+  {
+    id: "r6_deadeye",
+    name: "R-6 Deadeye",
+    description: "Precision shot: 8 dmg at the highest-HP enemy. Ignores armor.",
+    damage: 8,
+    hitsPerTurn: 1,
+    target: "highest_hp",
+    ignoreArmor: true,
+  },
+
+  // ── EXPLOSIVE ──
+  {
+    id: "r36_eruptor",
+    name: "R-36 Eruptor",
+    description: "Explosive auto-fire: 4 dmg to all enemies each turn.",
+    damage: 4,
+    hitsPerTurn: 1,
+    target: "all",
+  },
+  {
+    id: "jar5_dominator",
+    name: "JAR-5 Dominator",
+    description: "Explosive slug: 6 dmg at the highest-HP enemy each turn.",
+    damage: 6,
+    hitsPerTurn: 1,
+    target: "highest_hp",
+  },
+  {
+    id: "cb9_exploding_crossbow",
+    name: "CB-9 Exploding Crossbow",
+    description: "Detonating bolt: 7 dmg at the highest-HP enemy each turn.",
+    damage: 7,
+    hitsPerTurn: 1,
+    target: "highest_hp",
+  },
+
+  // ── ENERGY / PLASMA / ARC ──
+  {
+    id: "sg8p_punisher_plasma",
+    name: "SG-8P Punisher Plasma",
+    description: "Plasma blast: 3 dmg to all enemies each turn.",
     damage: 3,
     hitsPerTurn: 1,
     target: "all",
   },
   {
-    id: "sg8_punisher",
-    name: "SG-8 Punisher",
-    description: "Pump shotgun auto-fires 6 dmg at the highest-HP enemy.",
-    damage: 6,
+    id: "arc12_blitzer",
+    name: "ARC-12 Blitzer",
+    description: "Chain lightning: arcs 2 dmg across 3 random enemies each turn.",
+    damage: 2,
+    hitsPerTurn: 3,
+    target: "random",
+  },
+
+  // ── SHOTGUNS ──
+  {
+    id: "sg20_halt",
+    name: "SG-20 HALT",
+    description: "Sonic blast: 3 dmg + stagger at the highest-HP enemy each turn.",
+    damage: 3,
     hitsPerTurn: 1,
     target: "highest_hp",
+  },
+  {
+    id: "sg451_cookout",
+    name: "SG-451 Cookout",
+    description: "Incendiary spray: 2 dmg at 2 random enemies each turn. Ignites.",
+    damage: 2,
+    hitsPerTurn: 2,
+    target: "random",
+  },
+
+  // ── ADAPTIVE / SPECIAL ──
+  {
+    id: "vg70_variable",
+    name: "VG-70 Variable",
+    description: "Dual-mode: 4 dmg precision + 4 dmg burst each turn. Ignores armor.",
+    damage: 4,
+    hitsPerTurn: 2,
+    target: "highest_hp",
+    ignoreArmor: true,
   },
 ];
 
@@ -174,8 +237,23 @@ export const BOOSTERS: Booster[] = [
 ];
 
 export const DEFAULT_ARMOR = "frontline";
-export const DEFAULT_WEAPON = "ar23_liberator";
+export const DEFAULT_WEAPON = "ar2_coyote";
 export const DEFAULT_BOOSTER = "hellpod_optimization";
+
+/**
+ * Weapon ID migration map. Old roster (pre-art-pass) → new roster.
+ * Used by account.ts when loading saves so existing players don't lose
+ * their unlocked weapons / tier progress when the IDs were renamed.
+ */
+export const LEGACY_WEAPON_ID_MAP: Record<string, string> = {
+  ar23_liberator: "ar23p_liberator_penetrator",
+  sg225_breaker: "sg8p_punisher_plasma",
+  r63_diligence: "r6_deadeye",
+  mp98_knight: "ar2_coyote",
+  las16_sickle: "r6_deadeye",
+  plas1_scorcher: "sg8p_punisher_plasma",
+  sg8_punisher: "sg20_halt",
+};
 
 export function getArmor(id: string): Armor {
   return ARMORS.find((a) => a.id === id) ?? ARMORS[1];

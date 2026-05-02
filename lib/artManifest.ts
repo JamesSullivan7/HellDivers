@@ -146,6 +146,35 @@ export function getArmorArt(armorId: string): string | null {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// PRIMARY WEAPONS — maps weapon id → cinematic portrait
+// Drop renders at /public/art/weapons/<id>.jpg.
+// ──────────────────────────────────────────────────────────────────────
+const WEAPON_ART: Record<string, string> = {
+  // Assault / rifles
+  ar2_coyote:                 `${ART_BASE}/weapons/ar2_coyote.jpg`,
+  ar23p_liberator_penetrator: `${ART_BASE}/weapons/ar23p_liberator_penetrator.jpg`,
+  r2124_constitution:         `${ART_BASE}/weapons/r2124_constitution.jpg`,
+  // DMR / sniper
+  r6_deadeye:                 `${ART_BASE}/weapons/r6_deadeye.jpg`,
+  // Explosive
+  r36_eruptor:                `${ART_BASE}/weapons/r36_eruptor.jpg`,
+  jar5_dominator:             `${ART_BASE}/weapons/jar5_dominator.jpg`,
+  cb9_exploding_crossbow:     `${ART_BASE}/weapons/cb9_exploding_crossbow.jpg`,
+  // Energy / plasma / arc
+  sg8p_punisher_plasma:       `${ART_BASE}/weapons/sg8p_punisher_plasma.jpg`,
+  arc12_blitzer:              `${ART_BASE}/weapons/arc12_blitzer.jpg`,
+  // Shotguns
+  sg20_halt:                  `${ART_BASE}/weapons/sg20_halt.jpg`,
+  sg451_cookout:              `${ART_BASE}/weapons/sg451_cookout.jpg`,
+  // Adaptive / special
+  vg70_variable:              `${ART_BASE}/weapons/vg70_variable.jpg`,
+};
+
+export function getWeaponArt(weaponId: string): string | null {
+  return WEAPON_ART[weaponId] ?? null;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // MISC
 // ──────────────────────────────────────────────────────────────────────
 export const HELLDIVER_PORTRAIT = `${ART_BASE}/misc/helldiver_portrait.png`;

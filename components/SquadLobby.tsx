@@ -140,7 +140,7 @@ export default function SquadLobby() {
       name: m.name,
       ownedDeckIds: defaultDeck,
       armorId: "frontline",
-      weaponId: "ar23_liberator",
+      weaponId: "ar2_coyote",
       boosterId: "hellpod_optimization",
     }));
     await createCoop({

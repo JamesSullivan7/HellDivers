@@ -537,7 +537,7 @@ export const endTurn = mutation({
     // Weapons
     for (const p of players) {
       if (p.dead) continue;
-      const w = WEAPONS[p.weaponId] ?? WEAPONS.ar23_liberator;
+      const w = WEAPONS[p.weaponId] ?? WEAPONS.ar2_coyote;
       const fireOnce = (idx: number) => {
         const e = enemies[idx];
         if (!e || e.hp <= 0) return;
