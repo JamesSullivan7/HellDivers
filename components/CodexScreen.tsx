@@ -354,21 +354,31 @@ function EnemyDataCard({ template, index }: { template: EnemyTemplate; index: nu
         </div>
       )}
 
-      {/* Portrait — full image, never cropped */}
+      {/* Portrait — full image, never cropped (4:5 to match source cards) */}
       <div
-        className="relative aspect-[4/5] overflow-hidden flex items-center justify-center"
-        style={{ background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))" }}
+        className="relative w-full"
+        style={{
+          aspectRatio: "4 / 5",
+          background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))",
+        }}
       >
         {art ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={art}
             alt={template.name}
-            className="w-full h-full object-contain"
             loading="lazy"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              objectPosition: "center",
+            }}
           />
         ) : (
-          <div className={clsx("flex items-center justify-center", FACTION_TEXT[template.faction])}>
+          <div className={clsx("absolute inset-0 flex items-center justify-center", FACTION_TEXT[template.faction])}>
             <FactionIcon faction={template.faction} className="w-16 h-16 opacity-80" />
           </div>
         )}
@@ -485,14 +495,29 @@ function DataCard({
       )}
       {/* Art slot — full image displayed (4:5 aspect to match source portraits) */}
       <div
-        className="relative aspect-[4/5] flex items-center justify-center overflow-hidden"
-        style={{ background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))" }}
+        className="relative w-full"
+        style={{
+          aspectRatio: "4 / 5",
+          background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04), rgba(0,0,0,0.45))",
+        }}
       >
         {artUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={artUrl} alt={name} className="w-full h-full object-contain" loading="lazy" />
+          <img
+            src={artUrl}
+            alt={name}
+            loading="lazy"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              objectPosition: "center",
+            }}
+          />
         ) : (
-          <div className={clsx("text-3xl opacity-30 font-display font-black", ACCENT_TEXT[accent])}>
+          <div className={clsx("absolute inset-0 flex items-center justify-center text-3xl opacity-30 font-display font-black", ACCENT_TEXT[accent])}>
             ◇◇◇
           </div>
         )}
