@@ -28,6 +28,8 @@ import CardView from "./CardView";
 import AppShell from "./shell/AppShell";
 import { FactionIcon } from "@/lib/icons";
 import { getArmorArt, getWeaponArt } from "@/lib/artManifest";
+import type { Armor } from "@/lib/types";
+import type { Account } from "@/lib/account";
 
 type Step = "armor" | "weapon" | "booster" | "stratagems";
 
@@ -182,73 +184,11 @@ export default function LoadoutScreen() {
             transition={{ duration: 0.18 }}
           >
           {step === "armor" && (
-            <div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                {ARMORS.map((a) => {
-                  const owned = account.ownedArmors.includes(a.id);
-                  const tier = account.armorTiers[a.id] ?? 1;
-                  const eff = owned ? getArmorEffective(a.id, tier) : a;
-                  return (
-                    <motion.button
-                      key={a.id}
-                      whileHover={owned ? { y: -4 } : {}}
-                      onClick={() => {
-                        if (!owned) {
-                          sfx.alert();
-                          return;
-                        }
-                        sfx.cardSelect();
-                        setArmorId(a.id);
-                      }}
-                      disabled={!owned}
-                      className={clsx(
-                        "relative p-5 border-2 text-left transition-all bg-helldiver-panel/80",
-                        !owned && "opacity-60 cursor-not-allowed border-helldiver-steel/40",
-                        owned && armorId === a.id
-                          ? "border-helldiver-yellow shadow-[0_0_24px_rgba(255, 211, 77,0.4)]"
-                          : owned && "border-helldiver-steel hover:border-helldiver-yellow/50"
-                      )}
-                    >
-                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-helldiver-yellow z-10" />
-                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-helldiver-yellow z-10" />
-                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-helldiver-yellow z-10" />
-                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-helldiver-yellow z-10" />
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
-                          {a.id === "scout" ? "LIGHT" : a.id === "frontline" ? "MEDIUM" : "HEAVY"} ARMOR
-                        </div>
-                        {owned && (
-                          <TierBadge tier={tier} />
-                        )}
-                      </div>
-                      {/* Portrait — matches the Codex armor showcase. Drops in via getArmorArt;
-                          falls back to a tinted gradient if the file is missing. */}
-                      <ArmorPortrait armorId={a.id} className="mb-3" />
-                      <div className="font-display font-black text-lg text-helldiver-yellow tracking-tight mb-2">
-                        {a.name.toUpperCase()}
-                      </div>
-                      <div className="text-xs text-gray-300 leading-relaxed mb-3">{a.passive}</div>
-                      <div className="space-y-1 text-[11px] font-mono">
-                        <div className="flex justify-between"><span className="text-helldiver-dim">HP</span><span className={eff.hpMod >= 0 ? "text-emerald-400" : "text-helldiver-red"}>{eff.hpMod >= 0 ? "+" : ""}{eff.hpMod}</span></div>
-                        <div className="flex justify-between"><span className="text-helldiver-dim">Hand Size</span><span className={eff.handMod >= 0 ? "text-emerald-400" : "text-helldiver-red"}>{eff.handMod >= 0 ? "+" : ""}{eff.handMod}</span></div>
-                        <div className="flex justify-between"><span className="text-helldiver-dim">Starting Block</span><span className="text-sky-400">+{eff.startingBlock}</span></div>
-                      </div>
-                      {!owned && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[1px]">
-                          <div className="text-3xl mb-1">🔒</div>
-                          <div className="text-[10px] uppercase tracking-widest text-helldiver-red font-bold">Locked</div>
-                          <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mt-1">Visit Outfitter</div>
-                        </div>
-                      )}
-                      {owned && armorId === a.id && (
-                        <div className="absolute top-9 right-2 text-helldiver-yellow text-xs font-bold">✓ EQUIPPED</div>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-              <ArmoryHint />
-            </div>
+            <ArmorStep
+              account={account}
+              equippedId={armorId}
+              setEquippedId={setArmorId}
+            />
           )}
 
           {step === "weapon" && (
@@ -658,5 +598,434 @@ function WeaponPortrait({ weaponId, className }: { weaponId: string; className?:
         style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85), transparent)" }}
       />
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ARMOR STEP — split-screen tactical-decision UI.
+// LEFT (35%):  vertical list of compact selectable armor tiles
+// RIGHT (65%): hero display with parallax art, stat block, tactical
+//              profile bars, description, and ACTIVE LOADOUT banner
+// ─────────────────────────────────────────────────────────────────────────
+
+const ARMOR_CLASS_TINT: Record<string, { primary: string; soft: string; label: string; glyph: string }> = {
+  scout:     { primary: "#60c4ff", soft: "rgba(96,196,255,0.22)",  label: "LIGHT",  glyph: "▲" },
+  frontline: { primary: "#FFC72C", soft: "rgba(255,199,44,0.22)",  label: "MEDIUM", glyph: "■" },
+  fortified: { primary: "#ff8a28", soft: "rgba(255,138,40,0.22)",  label: "HEAVY",  glyph: "▼" },
+};
+
+function clamp(n: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, n)); }
+
+/**
+ * Derive the three tactical-profile bars (1-10 each) from an armor's
+ * raw stats. Keeps the metric simple and always reflects the live numbers
+ * — adding a new armor automatically gets a sensible profile.
+ */
+function tacticalProfile(armor: Armor) {
+  const surv = clamp(5 + armor.hpMod / 4 + armor.startingBlock * 0.8, 1, 10);
+  const mob  = clamp(5 + armor.handMod * 2.5, 1, 10);
+  const util = clamp(5 + armor.reqMod * 2 + (armor.bonusStims ?? 0) * 1.5, 1, 10);
+  return { surv: Math.round(surv), mob: Math.round(mob), util: Math.round(util) };
+}
+
+function ArmorStep({
+  account,
+  equippedId,
+  setEquippedId,
+}: {
+  account: Account;
+  equippedId: string;
+  setEquippedId: (id: string) => void;
+}) {
+  // selected = the tile being PREVIEWED on the right. Defaults to the
+  // currently-equipped armor so the right rail always has something to show.
+  const [selectedId, setSelectedId] = useState<string>(equippedId);
+  const selected = ARMORS.find((a) => a.id === selectedId) ?? ARMORS.find((a) => a.id === equippedId) ?? ARMORS[0];
+  const selectedTier = account.armorTiers[selected.id] ?? 1;
+  const selectedOwned = account.ownedArmors.includes(selected.id);
+  const selectedEff = selectedOwned ? getArmorEffective(selected.id, selectedTier) : selected;
+  const selectedTint = ARMOR_CLASS_TINT[selected.weightClass] ?? ARMOR_CLASS_TINT.frontline;
+
+  return (
+    <div className="grid gap-4" style={{ gridTemplateColumns: "minmax(320px, 35%) 1fr" }}>
+      {/* LEFT — selector list */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="w-1.5 h-1.5 bg-helldiver-yellow shadow-[0_0_4px_currentColor]" />
+          <h3 className="text-[10px] font-display font-black uppercase tracking-[0.32em] text-helldiver-yellow">
+            Body Armor · {ARMORS.length} configurations
+          </h3>
+        </div>
+        {ARMORS.map((a) => {
+          const owned = account.ownedArmors.includes(a.id);
+          const tier = account.armorTiers[a.id] ?? 1;
+          const eff = owned ? getArmorEffective(a.id, tier) : a;
+          const tint = ARMOR_CLASS_TINT[a.weightClass] ?? ARMOR_CLASS_TINT.frontline;
+          const isSelected = a.id === selectedId;
+          const isEquipped = a.id === equippedId;
+          return (
+            <ArmorTile
+              key={a.id}
+              armor={a}
+              eff={eff}
+              owned={owned}
+              tier={tier}
+              tint={tint}
+              isSelected={isSelected}
+              isEquipped={isEquipped}
+              onClick={() => {
+                if (!owned) {
+                  sfx.alert();
+                  return;
+                }
+                sfx.cardSelect();
+                setSelectedId(a.id);
+                setEquippedId(a.id);
+              }}
+            />
+          );
+        })}
+        <ArmoryHint />
+      </div>
+
+      {/* RIGHT — hero panel */}
+      <ArmorHeroPanel
+        armor={selected}
+        eff={selectedEff}
+        tier={selectedTier}
+        owned={selectedOwned}
+        tint={selectedTint}
+        isEquipped={selected.id === equippedId}
+      />
+    </div>
+  );
+}
+
+function ArmorTile({
+  armor, eff, owned, tier, tint, isSelected, isEquipped, onClick,
+}: {
+  armor: Armor;
+  eff: Armor;
+  owned: boolean;
+  tier: number;
+  tint: { primary: string; soft: string; label: string; glyph: string };
+  isSelected: boolean;
+  isEquipped: boolean;
+  onClick: () => void;
+}) {
+  const art = getArmorArt(armor.id);
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={owned ? { x: 3, scale: 1.005 } : {}}
+      whileTap={owned ? { scale: 0.995 } : {}}
+      transition={{ type: "spring", stiffness: 400, damping: 28 }}
+      disabled={!owned}
+      className={clsx(
+        "relative grid grid-cols-[72px_1fr] gap-3 p-2 text-left transition-all",
+        !owned && "opacity-50 cursor-not-allowed",
+      )}
+      style={{
+        background: isSelected
+          ? `linear-gradient(90deg, ${tint.soft}, ${tint.soft}05 60%, transparent)`
+          : "rgba(14,18,24,0.55)",
+        border: `1px solid ${isSelected ? tint.primary : "rgba(255,255,255,0.08)"}`,
+        boxShadow: isSelected
+          ? `inset 4px 0 0 ${tint.primary}, 0 0 18px ${tint.soft}`
+          : isEquipped
+            ? `inset 3px 0 0 ${tint.primary}88`
+            : "none",
+      }}
+    >
+      {/* Thumbnail */}
+      <div
+        className="relative overflow-hidden shrink-0"
+        style={{
+          width: 72, height: 72,
+          border: `1px solid ${tint.primary}33`,
+          background: `linear-gradient(180deg, ${tint.soft}, rgba(0,0,0,0.6))`,
+        }}
+      >
+        {art ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={art} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover object-top" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ color: tint.primary, fontSize: 20 }}>
+            {tint.glyph}
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="min-w-0 flex flex-col gap-0.5">
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className="px-1 py-0.5 text-[8px] font-display font-black uppercase tracking-[0.3em] shrink-0"
+              style={{ color: tint.primary, border: `1px solid ${tint.primary}55`, background: `${tint.primary}10` }}
+            >
+              {tint.glyph} {tint.label}
+            </span>
+            {owned && <TierBadge tier={tier} />}
+          </div>
+          {isEquipped && (
+            <span className="text-[8px] font-display font-black uppercase tracking-[0.3em] shrink-0" style={{ color: tint.primary }}>
+              ✓ Active
+            </span>
+          )}
+        </div>
+
+        <div
+          className="font-display font-black uppercase tracking-tight truncate"
+          style={{ color: isSelected ? tint.primary : "rgba(255,255,255,0.92)", fontSize: 14, lineHeight: 1.1 }}
+        >
+          {armor.name}
+        </div>
+
+        {/* Compact stat summary */}
+        <div className="flex gap-2 text-[10px] font-mono">
+          <span className={clsx("tabular-nums", eff.hpMod >= 0 ? "text-emerald-400" : "text-helldiver-red")}>
+            HP {eff.hpMod >= 0 ? "+" : ""}{eff.hpMod}
+          </span>
+          <span className="text-helldiver-steel">·</span>
+          <span className={clsx("tabular-nums", eff.handMod >= 0 ? "text-emerald-400" : "text-helldiver-red")}>
+            HND {eff.handMod >= 0 ? "+" : ""}{eff.handMod}
+          </span>
+          <span className="text-helldiver-steel">·</span>
+          <span className="tabular-nums text-sky-400">
+            BLK +{eff.startingBlock}
+          </span>
+        </div>
+      </div>
+
+      {/* Locked overlay */}
+      {!owned && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-[1px]">
+          <div className="text-[10px] uppercase tracking-[0.32em] text-helldiver-red font-display font-black">
+            🔒 Locked · Visit Outfitter
+          </div>
+        </div>
+      )}
+    </motion.button>
+  );
+}
+
+function ArmorHeroPanel({
+  armor, eff, tier, owned, tint, isEquipped,
+}: {
+  armor: Armor;
+  eff: Armor;
+  tier: number;
+  owned: boolean;
+  tint: { primary: string; soft: string; label: string; glyph: string };
+  isEquipped: boolean;
+}) {
+  const art = getArmorArt(armor.id);
+  const profile = tacticalProfile(armor);
+
+  return (
+    <div
+      className="relative flex flex-col overflow-hidden"
+      style={{
+        background: `linear-gradient(180deg, rgba(14,18,24,0.92) 0%, rgba(7,11,16,0.92) 100%)`,
+        border: `1px solid ${tint.primary}33`,
+        boxShadow: isEquipped ? `0 0 32px ${tint.soft}, inset 0 0 60px rgba(0,0,0,0.6)` : "0 8px 28px rgba(0,0,0,0.45)",
+      }}
+    >
+      {/* Top hairline */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: `linear-gradient(90deg, transparent, ${tint.primary}, transparent)` }}
+      />
+
+      {/* HERO ART — animated parallax */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={armor.id}
+          initial={{ opacity: 0, scale: 1.03 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="relative w-full overflow-hidden"
+          style={{ height: 280, background: "#070b10" }}
+        >
+          {art ? (
+            <motion.img
+              src={art}
+              alt=""
+              loading="lazy"
+              draggable={false}
+              className="absolute inset-0 w-full h-full object-cover object-top"
+              animate={{ y: [0, -4, 0], scale: [1, 1.02, 1] }}
+              transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-7xl" style={{ color: tint.primary, opacity: 0.3 }}>
+              {tint.glyph}
+            </div>
+          )}
+
+          {/* Class wash — light blue / gold / heavy orange */}
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                `radial-gradient(ellipse 60% 50% at 50% 30%, ${tint.soft} 0%, transparent 60%), linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 45%)`,
+            }}
+          />
+
+          {/* Scanlines */}
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none opacity-[0.06] mix-blend-overlay"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(0deg, rgba(255,255,255,0.5) 0 1px, transparent 1px 4px)",
+            }}
+          />
+
+          {/* Title overlay */}
+          <div className="absolute left-4 right-4 bottom-3 flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <div
+                className="text-[10px] uppercase tracking-[0.4em] font-display font-black mb-1"
+                style={{ color: tint.primary }}
+              >
+                {tint.glyph} {tint.label} ARMOR · {armor.passiveName ?? "Standard"}
+              </div>
+              <div
+                className="font-display font-black uppercase tracking-tight leading-none"
+                style={{
+                  color: tint.primary,
+                  fontSize: 28,
+                  textShadow: `0 0 12px ${tint.soft}, 0 2px 4px rgba(0,0,0,0.95)`,
+                }}
+              >
+                {armor.name}
+              </div>
+            </div>
+            {owned && <TierBadge tier={tier} />}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* INFO STRIP — stat block + tactical profile side-by-side */}
+      <div className="grid grid-cols-2 gap-3 p-4" style={{ borderTop: `1px solid ${tint.primary}22` }}>
+        {/* STAT BLOCK */}
+        <div>
+          <SectionLabel tint={tint.primary}>Vitals · Stat Block</SectionLabel>
+          <div className="space-y-1.5">
+            <StatRow label="HP" value={eff.hpMod} sign accent="emerald" />
+            <StatRow label="Hand Size" value={eff.handMod} sign accent="emerald" />
+            <StatRow label="Starting Block" value={eff.startingBlock} sign accent="sky" />
+            {(armor.bonusStims ?? 0) > 0 && <StatRow label="Bonus Stims" value={armor.bonusStims!} sign accent="emerald" />}
+            {armor.reqMod !== 0 && <StatRow label="Requisition" value={armor.reqMod} sign accent="orange" />}
+          </div>
+        </div>
+
+        {/* TACTICAL PROFILE */}
+        <div>
+          <SectionLabel tint={tint.primary}>Tactical Profile</SectionLabel>
+          <div className="space-y-2">
+            <ProfileBar label="Survivability" value={profile.surv} accent={tint.primary} />
+            <ProfileBar label="Mobility" value={profile.mob} accent={tint.primary} />
+            <ProfileBar label="Utility" value={profile.util} accent={tint.primary} />
+          </div>
+        </div>
+      </div>
+
+      {/* DESCRIPTION + LOADOUT BANNER */}
+      <div className="px-4 pb-4 flex flex-col gap-3">
+        <p className="text-[12px] text-gray-300 leading-relaxed italic" style={{ borderLeft: `2px solid ${tint.primary}55`, paddingLeft: 10 }}>
+          “{armor.passive}”
+        </p>
+
+        <ActiveLoadoutBanner active={isEquipped} tint={tint.primary} />
+      </div>
+    </div>
+  );
+}
+
+function SectionLabel({ tint, children }: { tint: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="flex items-center gap-1.5 mb-2 text-[9px] font-display font-black uppercase tracking-[0.3em]"
+      style={{ color: tint }}
+    >
+      <span className="w-1 h-1" style={{ background: tint, boxShadow: `0 0 4px ${tint}` }} />
+      {children}
+    </div>
+  );
+}
+
+function StatRow({
+  label, value, sign, accent,
+}: {
+  label: string;
+  value: number;
+  sign?: boolean;
+  accent: "emerald" | "sky" | "orange";
+}) {
+  const accentColor =
+    accent === "sky" ? "text-sky-400" :
+    accent === "orange" ? "text-helldiver-orange" :
+    value >= 0 ? "text-emerald-400" : "text-helldiver-red";
+  const display = sign ? `${value >= 0 ? "+" : ""}${value}` : `${value}`;
+  return (
+    <div className="flex items-center justify-between text-[11px] font-mono">
+      <span className="text-helldiver-dim uppercase tracking-widest text-[10px]">{label}</span>
+      <span className={clsx("font-bold tabular-nums", accentColor)}>{display}</span>
+    </div>
+  );
+}
+
+function ProfileBar({ label, value, accent }: { label: string; value: number; accent: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[9.5px] font-mono mb-0.5">
+        <span className="text-helldiver-dim uppercase tracking-widest">{label}</span>
+        <span className="text-helldiver-yellow tabular-nums font-bold">{value}<span className="text-helldiver-dim">/10</span></span>
+      </div>
+      <div className="h-1.5 bg-black/60 border border-white/[0.06] overflow-hidden">
+        <motion.div
+          className="h-full"
+          style={{ background: `linear-gradient(90deg, ${accent}, ${accent}cc)` }}
+          initial={{ width: 0 }}
+          animate={{ width: `${(value / 10) * 100}%` }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ActiveLoadoutBanner({ active, tint }: { active: boolean; tint: string }) {
+  if (!active) {
+    return (
+      <div
+        className="text-center py-2 text-[10px] uppercase tracking-[0.4em] font-display font-black"
+        style={{ color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.1)" }}
+      >
+        ▸ Click a tile to equip ◂
+      </div>
+    );
+  }
+  return (
+    <motion.div
+      className="relative overflow-hidden text-center py-2.5 font-display font-black uppercase"
+      style={{
+        background: `linear-gradient(90deg, transparent, ${tint}1f 50%, transparent)`,
+        border: `1px solid ${tint}`,
+        color: tint,
+        boxShadow: `0 0 18px ${tint}55, inset 0 0 12px ${tint}22`,
+      }}
+      animate={{ boxShadow: [`0 0 14px ${tint}55, inset 0 0 12px ${tint}22`, `0 0 22px ${tint}88, inset 0 0 18px ${tint}44`, `0 0 14px ${tint}55, inset 0 0 12px ${tint}22`] }}
+      transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+    >
+      <span className="text-[12px] tracking-[0.42em]">✓ Active Loadout</span>
+    </motion.div>
   );
 }
