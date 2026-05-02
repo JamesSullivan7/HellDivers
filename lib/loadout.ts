@@ -256,7 +256,14 @@ export const FIXED_BASICS = [
   "util_shield",
 ];
 
-export const STRATAGEM_PICKS_REQUIRED = 5;
+export const STRATAGEM_PICKS_REQUIRED = 4;
+
+/**
+ * Resupply is a free stratagem every Helldiver carries onto the field —
+ * the player picks 4 stratagems and resupply is automatically added on
+ * top, giving them 5 stratagem cards in the starting deck.
+ */
+export const FREE_STRATAGEM_ID = "util_resupply";
 
 // ──────────────────────────────────────────────────────────────────────────
 // OUTFITTER · purchase + upgrade costs

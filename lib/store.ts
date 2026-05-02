@@ -35,6 +35,7 @@ import {
   ARMORS,
   WEAPONS,
   BOOSTERS,
+  FREE_STRATAGEM_ID,
 } from "./loadout";
 import {
   Account,
@@ -288,6 +289,11 @@ function buildLoadoutDeck(loadout: Loadout): Card[] {
   const cards: Card[] = [];
   FIXED_BASICS.forEach((id) => cards.push(getCardById(id)));
   loadout.stratagemIds.forEach((id) => cards.push(getCardById(id)));
+  // Free Resupply — every Helldiver carries it onto the field. Skip if the
+  // player already picked it as one of their 4 (no double-up).
+  if (!loadout.stratagemIds.includes(FREE_STRATAGEM_ID)) {
+    cards.push(getCardById(FREE_STRATAGEM_ID));
+  }
   // Med-Kit armor passive: extra stims in the starting deck.
   const armor = getArmorEffective(loadout.armorId, loadout.armorTier ?? 1);
   const extraStims = armor.bonusStims ?? 0;
@@ -301,11 +307,12 @@ const DEFAULT_LOADOUT: Loadout = {
   armorId: DEFAULT_ARMOR,
   weaponId: DEFAULT_WEAPON,
   boosterId: DEFAULT_BOOSTER,
+  // 4 stratagem picks. Resupply is added automatically as the free
+  // 5th slot in buildLoadoutDeck — every Helldiver carries it.
   stratagemIds: [
     "eagle_airstrike",
     "support_recoilless",
     "sentry_mg",
-    "util_resupply",
     "support_eat",
   ],
 };

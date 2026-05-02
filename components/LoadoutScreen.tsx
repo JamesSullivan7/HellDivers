@@ -12,6 +12,7 @@ import {
   BOOSTERS,
   STRATAGEM_PICK_POOL,
   STRATAGEM_PICKS_REQUIRED,
+  FREE_STRATAGEM_ID,
   FIXED_BASICS,
   DEFAULT_ARMOR,
   DEFAULT_WEAPON,
@@ -83,6 +84,9 @@ export default function LoadoutScreen() {
 
   const selectableCards = CARD_LIBRARY.filter((c) => {
     if (!STRATAGEM_PICK_POOL.includes(c.id)) return false;
+    // Resupply is included automatically as the free 5th slot — hide it
+    // from the picker so the player doesn't double up on a "free" pick.
+    if (c.id === FREE_STRATAGEM_ID) return false;
     if (filter !== "all" && c.type !== filter) return false;
     if (!showLocked && !account.unlockedCards.includes(c.id)) return false;
     return true;
@@ -380,7 +384,7 @@ export default function LoadoutScreen() {
             <div>
               <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
-                  Pick <span className="text-helldiver-yellow font-bold">{STRATAGEM_PICKS_REQUIRED}</span> Stratagems for your starter loadout
+                  Pick <span className="text-helldiver-yellow font-bold">{STRATAGEM_PICKS_REQUIRED}</span> Stratagems · Resupply is <span className="text-emerald-400 font-bold">free</span>
                 </div>
                 <div className={clsx(
                   "text-sm font-display font-black tracking-widest",
@@ -390,7 +394,7 @@ export default function LoadoutScreen() {
                 </div>
               </div>
 
-              {/* Selected pills */}
+              {/* Selected pills + locked free Resupply slot */}
               <div className="mb-4 grid grid-cols-5 gap-2 min-h-[60px]">
                 {Array.from({ length: STRATAGEM_PICKS_REQUIRED }).map((_, i) => {
                   const id = stratagems[i];
@@ -399,7 +403,7 @@ export default function LoadoutScreen() {
                     <div
                       key={i}
                       className={clsx(
-                        "h-14 px-2 flex items-center justify-center text-center border-2 text-xs font-mono",
+                        "h-14 px-2 flex flex-col items-center justify-center text-center border-2 text-xs font-mono",
                         card ? "border-helldiver-yellow text-helldiver-yellow bg-helldiver-yellow/10" : "border-dashed border-helldiver-steel text-helldiver-dim"
                       )}
                     >
@@ -411,11 +415,19 @@ export default function LoadoutScreen() {
                     </div>
                   );
                 })}
+                {/* Free Resupply slot — locked & always included */}
+                <div
+                  className="h-14 px-2 flex flex-col items-center justify-center text-center border-2 border-emerald-500 bg-emerald-500/10 text-emerald-400 font-mono relative"
+                  title="Resupply is free and always included in your loadout."
+                >
+                  <span className="text-[8px] uppercase tracking-widest opacity-80">◆ FREE</span>
+                  <span className="text-[10px] tracking-wider mt-0.5">Resupply</span>
+                </div>
               </div>
 
               {/* Always-included basics */}
               <div className="mb-4 text-[10px] uppercase tracking-widest text-helldiver-dim font-mono">
-                ◇ Always In Loadout: 3× Orbital Precision Strike · 1× Stim · 1× Shield Generator
+                ◇ Always In Loadout: 3× Orbital Precision Strike · 1× Stim · 1× Shield Generator · <span className="text-emerald-400">1× Resupply (free)</span>
               </div>
 
               {/* Filters */}
