@@ -27,7 +27,7 @@ import HudFrame from "./HudFrame";
 import CardView from "./CardView";
 import AppShell from "./shell/AppShell";
 import { FactionIcon } from "@/lib/icons";
-import { getArmorArt, getWeaponArt } from "@/lib/artManifest";
+import { getArmorArt, getWeaponArt, getBoosterArt } from "@/lib/artManifest";
 import type { Armor } from "@/lib/types";
 import type { Account } from "@/lib/account";
 
@@ -294,17 +294,19 @@ export default function LoadoutScreen() {
                           : owned && "border-helldiver-steel hover:border-purple-400/50"
                       )}
                     >
-                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-purple-400" />
-                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-purple-400" />
-                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-purple-400" />
-                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-purple-400" />
+                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-purple-400 z-10" />
+                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-purple-400 z-10" />
+                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-purple-400 z-10" />
+                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-purple-400 z-10" />
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
                           Run-Wide Booster
                         </div>
                         {owned && <TierBadge tier={tier} />}
                       </div>
-                      <div className="font-display font-black text-lg text-purple-400 tracking-tight mb-3">
+                      {/* Cinematic booster portrait — same source as the codex */}
+                      <BoosterPortrait boosterId={b.id} className="mb-3" />
+                      <div className="font-display font-black text-lg text-purple-400 tracking-tight mb-2">
                         {b.name.toUpperCase()}
                       </div>
                       <div className="text-xs text-gray-300 leading-relaxed">{b.description}</div>
@@ -591,6 +593,34 @@ function WeaponPortrait({ weaponId, className }: { weaponId: string; className?:
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-sky-400/40 text-3xl">▶▶</div>
+      )}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-10 pointer-events-none"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85), transparent)" }}
+      />
+    </div>
+  );
+}
+
+function BoosterPortrait({ boosterId, className }: { boosterId: string; className?: string }) {
+  const art = getBoosterArt(boosterId);
+  return (
+    <div
+      className={clsx("relative overflow-hidden border border-purple-400/20 bg-gradient-to-b from-purple-400/[0.04] to-black/40", className)}
+      style={{ height: 130 }}
+    >
+      {art ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={art}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-contain"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-purple-400/40 text-3xl">◆</div>
       )}
       <div
         aria-hidden

@@ -115,7 +115,8 @@ const CARD_ART: Record<string, string> = {
   util_jump_pack: `${ART_BASE}/stratagems/lift850_jump_pack.jpg`,
   util_resupply: `${ART_BASE}/stratagems/resupply.jpg`,
   util_reinforce: `${ART_BASE}/stratagems/reinforce.jpg`,
-  util_shield_relay: `${ART_BASE}/stratagems/fx12_shield_generator_relay.jpg`,
+  // util_shield_relay removed — no card with this id exists in CARD_LIBRARY,
+  // and sentry_shield_relay above already maps to the same image.
   util_stim: `${ART_BASE}/stratagems/stim.jpg`,
 };
 

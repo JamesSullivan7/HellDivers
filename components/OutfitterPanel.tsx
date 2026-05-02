@@ -20,7 +20,7 @@ import {
 } from "@/lib/loadout";
 import HudFrame from "./HudFrame";
 import { Armor, Weapon, Booster } from "@/lib/types";
-import { getWeaponArt } from "@/lib/artManifest";
+import { getArmorArt, getWeaponArt, getBoosterArt } from "@/lib/artManifest";
 
 const TIER_LABEL: Record<number, string> = {
   1: "MK I",
@@ -254,8 +254,35 @@ function ArmorCard({
   const eff = getArmorEffective(armor.id, tier);
   const isMaxTier = tier >= MAX_TIER;
   const upCost = isMaxTier ? Infinity : armorUpgradeCost(tier);
+  const art = getArmorArt(armor.id);
   return (
     <ItemFrame owned={owned} tier={tier} itemName="Body Armor · Standard Issue">
+      {/* Cinematic art — same source the Codex uses, full-bleed via
+          object-cover + object-top so the helldiver's silhouette stays
+          framed even on shorter rows. */}
+      <div
+        className="relative w-full overflow-hidden mb-2 mt-1"
+        style={{ height: 150, background: "rgba(7,11,16,0.85)", border: "1px solid rgba(255,199,44,0.18)" }}
+      >
+        {art ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={art}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-cover object-top"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-helldiver-yellow/30 text-3xl">⚙</div>
+        )}
+        <div
+          aria-hidden
+          className="absolute left-0 right-0 bottom-0 h-8 pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 100%)" }}
+        />
+      </div>
+
       <div className="font-display font-black text-base tracking-tight text-white mb-2 leading-tight">
         {armor.name}
       </div>
@@ -436,8 +463,35 @@ function BoosterCard({
     }
     return booster.description;
   })();
+  const art = getBoosterArt(booster.id);
   return (
     <ItemFrame owned={owned} tier={tier} itemName="Booster · Drop-Pod Augment">
+      {/* Cinematic booster art — object-contain so the full pod / canister
+          render is visible. Tinted purple frame to match the booster
+          category's visual identity throughout the rest of the codebase. */}
+      <div
+        className="relative w-full overflow-hidden mb-2 mt-1"
+        style={{ height: 150, background: "rgba(7,11,16,0.85)", border: "1px solid rgba(168,85,247,0.18)" }}
+      >
+        {art ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={art}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-purple-400/40 text-3xl">◆</div>
+        )}
+        <div
+          aria-hidden
+          className="absolute left-0 right-0 bottom-0 h-8 pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 100%)" }}
+        />
+      </div>
+
       <div className="font-display font-black text-base tracking-tight text-white mb-2 leading-tight">
         {booster.name}
       </div>
