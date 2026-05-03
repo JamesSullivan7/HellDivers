@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGame } from "@/lib/store";
@@ -88,12 +88,30 @@ const NODE_GLOW: Record<NodeType, string> = {
   signal: "shadow-[0_0_18px_rgba(34,211,238,0.55)]",
 };
 
-// Visual layout constants for the SVG tree
-const TIER_HEIGHT = 110; // px between tiers (vertical)
-const NODE_SIZE = 56; // px box size
-const COL_GUTTER = 130; // px between cols
-const TREE_PAD_X = 40;
-const TREE_PAD_Y = 28;
+// Visual layout constants for the SVG tree.
+// NODE_SIZE bumped from 56 -> 64 for the AAA pass; spacing reduced
+// so the tree fits more comfortably in the available viewport before
+// the auto-fit scale even kicks in.
+const TIER_HEIGHT = 100; // px between tiers (vertical)
+const NODE_SIZE = 64;    // px box size
+const COL_GUTTER = 130;  // px between cols
+const TREE_PAD_X = 48;
+const TREE_PAD_Y = 36;
+
+/** Faction-driven tint applied to the tactical grid + radial wash. */
+const FACTION_TINT: Record<string, { primary: string; soft: string; deep: string }> = {
+  terminid:   { primary: "#ff8a28", soft: "rgba(255,138,40,0.18)", deep: "rgba(255,138,40,0.06)" },
+  automaton:  { primary: "#ff4d4d", soft: "rgba(255,77,77,0.18)",  deep: "rgba(255,77,77,0.06)"  },
+  illuminate: { primary: "#a855f7", soft: "rgba(168,85,247,0.18)", deep: "rgba(168,85,247,0.06)" },
+};
+
+/** Tier labels — descriptive prefix appears alongside the tier number. */
+const TIER_LABELS = ["DROP", "APPROACH", "SECURE", "ASSAULT", "STRIKE", "PRIMARY"];
+
+function tierLabel(tier: number, isLast: boolean) {
+  if (isLast) return "PRIMARY";
+  return TIER_LABELS[tier] ?? `TIER ${tier}`;
+}
 
 function nodePos(node: MapNode, maxColsByTier: number[]): { x: number; y: number } {
   const cols = maxColsByTier[node.tier] || 1;
@@ -238,8 +256,13 @@ export default function MapView() {
         className="relative z-10 flex-1 min-h-0 grid"
         style={{ gridTemplateColumns: "1fr 320px" }}
       >
-        {/* MAP CELL — hero element, centered, takes full available height */}
-        <div className="relative overflow-auto flex items-center justify-center p-4">
+        {/* MAP CELL — AAA tactical command screen */}
+        <MapCell
+          tiers={tiers}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+          faction={faction}
+        >
             <div
               style={{
                 width: canvasWidth,
@@ -248,11 +271,25 @@ export default function MapView() {
               }}
             >
                 {/* SVG layer for edges */}
+                {/* SVG connection lines — three visual states:
+                      • TRAVELED   solid emerald with subtle glow (locked-in route)
+                      • REACHABLE  gold with animated marching-ants dash (live option)
+                      • LOCKED     thin grey, dashed, very dim
+                    Background line slightly thicker than foreground = halo glow. */}
                 <svg
                   width={canvasWidth}
                   height={canvasHeight}
                   className="absolute top-0 left-0 pointer-events-none"
                 >
+                  <defs>
+                    <filter id="route-glow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
                   {map.map((node) => {
                     const from = nodePos(node, maxColsByTier);
                     const fromX = canvasWidth / 2 + from.x + NODE_SIZE / 2;
@@ -266,23 +303,49 @@ export default function MapView() {
                       const reachableEdge =
                         node.index === startIndex && reachable.includes(childIdx);
                       const traveledEdge = node.cleared && child.cleared;
+
+                      // Stroke + width per state
+                      const stroke = traveledEdge
+                        ? "rgba(16,185,129,0.85)"
+                        : reachableEdge
+                          ? "rgba(255,199,44,0.95)"
+                          : "rgba(120,120,140,0.22)";
+                      const w = reachableEdge ? 2.5 : traveledEdge ? 2 : 1.2;
+
                       return (
-                        <line
-                          key={`${node.index}-${childIdx}`}
-                          x1={fromX}
-                          y1={fromY}
-                          x2={toX}
-                          y2={toY}
-                          stroke={
-                            traveledEdge
-                              ? "rgba(16,185,129,0.6)"
-                              : reachableEdge
-                                ? "rgba(255,211,77,0.85)"
-                                : "rgba(120,120,140,0.25)"
-                          }
-                          strokeWidth={reachableEdge ? 2.5 : 1.5}
-                          strokeDasharray={reachableEdge ? undefined : "4 4"}
-                        />
+                        <g key={`${node.index}-${childIdx}`}>
+                          {/* Halo for reachable + traveled (gives the line presence) */}
+                          {(reachableEdge || traveledEdge) && (
+                            <line
+                              x1={fromX} y1={fromY} x2={toX} y2={toY}
+                              stroke={stroke}
+                              strokeWidth={w + 4}
+                              strokeOpacity={0.18}
+                              filter="url(#route-glow)"
+                            />
+                          )}
+                          {/* Main line */}
+                          <line
+                            x1={fromX} y1={fromY} x2={toX} y2={toY}
+                            stroke={stroke}
+                            strokeWidth={w}
+                            strokeDasharray={
+                              reachableEdge ? "8 6" : !traveledEdge ? "4 4" : undefined
+                            }
+                            strokeLinecap="round"
+                          >
+                            {/* Marching ants on reachable routes */}
+                            {reachableEdge && (
+                              <animate
+                                attributeName="stroke-dashoffset"
+                                from="14"
+                                to="0"
+                                dur="0.6s"
+                                repeatCount="indefinite"
+                              />
+                            )}
+                          </line>
+                        </g>
                       );
                     });
                   })}
@@ -298,6 +361,24 @@ export default function MapView() {
                   const isReachable = reachable.includes(node.index);
                   const isCleared = node.cleared;
                   const isSelectable = isReachable && !isCleared;
+                  const isHidden = node.visibility === "hidden";
+                  const isPartial = node.visibility === "partial";
+                  const isBoss = node.type === "boss";
+
+                  // Resolve the type-tinted hex color we'll use for chrome.
+                  // Uses the existing NODE_TEXT class names by tint mapping.
+                  const TINT_BY_TYPE: Record<NodeType, string> = {
+                    combat:    "#FFC72C",
+                    elite:     "#ff8a28",
+                    rest:      "#10b981",
+                    shop:      "#60c4ff",
+                    boss:      "#ff4d4d",
+                    event:     "#a855f7",
+                    cache:     "#fcd34d",
+                    hazard:    "#84cc16",
+                    signal:    "#22d3ee",
+                  };
+                  const tint = isHidden ? "rgba(255,255,255,0.35)" : TINT_BY_TYPE[node.type];
 
                   return (
                     <motion.button
@@ -317,12 +398,12 @@ export default function MapView() {
                       whileTap={isSelectable ? { scale: 0.95 } : {}}
                       animate={
                         isSelectable
-                          ? { scale: [1, 1.04, 1], opacity: 1 }
-                          : { scale: 1, opacity: 1 }
+                          ? { scale: [1, 1.05, 1] }
+                          : { scale: 1 }
                       }
                       transition={
                         isSelectable
-                          ? { repeat: Infinity, duration: 1.6, ease: "easeInOut" }
+                          ? { repeat: Infinity, duration: 1.8, ease: "easeInOut" }
                           : {}
                       }
                       style={{
@@ -331,32 +412,75 @@ export default function MapView() {
                         top,
                         width: NODE_SIZE,
                         height: NODE_SIZE,
+                        background: isCleared
+                          ? "rgba(16,30,22,0.7)"
+                          : `radial-gradient(circle at 50% 35%, ${tint}33 0%, rgba(7,11,16,0.92) 70%)`,
+                        border: `1.5px solid ${isCleared ? "rgba(16,185,129,0.6)" : isHidden ? "rgba(255,255,255,0.2)" : tint}`,
+                        boxShadow: isCleared
+                          ? "0 0 12px rgba(16,185,129,0.35), inset 0 0 12px rgba(16,185,129,0.15)"
+                          : isSelectable
+                            ? `0 0 18px ${tint}99, inset 0 0 12px ${tint}33`
+                            : isCurrent
+                              ? `0 0 24px ${tint}, inset 0 0 18px ${tint}55`
+                              : `0 0 6px ${tint}33, inset 0 0 6px rgba(0,0,0,0.6)`,
+                        opacity: isHidden ? 0.55 : !isSelectable && !isCleared && !isCurrent ? 0.5 : 1,
                       }}
-                      className={clsx(
-                        "flex flex-col items-center justify-center border-2 bg-helldiver-panel/60 transition-colors",
-                        node.visibility === "hidden"
-                          ? "border-helldiver-steel/50 text-helldiver-dim"
-                          : node.visibility === "partial"
-                          ? clsx(NODE_BORDER[node.type], "opacity-70 text-helldiver-dim")
-                          : clsx(NODE_BORDER[node.type], NODE_TEXT[node.type]),
-                        isSelectable && node.visibility !== "hidden" && NODE_GLOW[node.type],
-                        isCleared && "border-emerald-700 bg-emerald-900/30 opacity-60",
-                        !isSelectable && !isCleared && "opacity-40",
-                        isCurrent && "ring-2 ring-helldiver-yellow"
-                      )}
+                      className="flex flex-col items-center justify-center transition-shadow"
                       title={
-                        node.visibility === "hidden"
+                        isHidden
                           ? "UNKNOWN · scout for intel"
-                          : node.visibility === "partial"
+                          : isPartial
                           ? `${NODE_LABELS[node.type]} · partial scan`
                           : `${NODE_LABELS[node.type]}${node.enemyTemplateIds.length ? ` · ${node.enemyTemplateIds.join(", ")}` : ""}`
                       }
                     >
-                      <div className="font-display font-black text-2xl leading-none">
-                        {node.visibility === "hidden" ? "?" : NODE_GLYPH[node.type]}
+                      {/* Outer scanner ring on the CURRENT node — slow rotation */}
+                      {isCurrent && (
+                        <motion.span
+                          aria-hidden
+                          className="absolute -inset-2 pointer-events-none"
+                          style={{
+                            border: `1px dashed ${tint}`,
+                            borderRadius: 1,
+                          }}
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                        />
+                      )}
+                      {/* Boss-only outer pulse ring */}
+                      {isBoss && !isCleared && (
+                        <motion.span
+                          aria-hidden
+                          className="absolute -inset-1 pointer-events-none"
+                          style={{ border: `1.5px solid ${tint}`, borderRadius: 1 }}
+                          animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.08, 1] }}
+                          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                        />
+                      )}
+                      {/* Corner brackets — the "tactical chip" frame */}
+                      <span aria-hidden className="absolute top-0 left-0 w-2 h-2" style={{ borderTop: `1px solid ${tint}`, borderLeft: `1px solid ${tint}` }} />
+                      <span aria-hidden className="absolute top-0 right-0 w-2 h-2" style={{ borderTop: `1px solid ${tint}`, borderRight: `1px solid ${tint}` }} />
+                      <span aria-hidden className="absolute bottom-0 left-0 w-2 h-2" style={{ borderBottom: `1px solid ${tint}`, borderLeft: `1px solid ${tint}` }} />
+                      <span aria-hidden className="absolute bottom-0 right-0 w-2 h-2" style={{ borderBottom: `1px solid ${tint}`, borderRight: `1px solid ${tint}` }} />
+
+                      <div
+                        className="font-display font-black leading-none"
+                        style={{
+                          fontSize: isBoss ? 28 : 22,
+                          color: isHidden ? "rgba(255,255,255,0.55)" : tint,
+                          textShadow: !isHidden ? `0 0 8px ${tint}88` : undefined,
+                        }}
+                      >
+                        {isHidden ? "?" : NODE_GLYPH[node.type]}
                       </div>
-                      <div className="text-[7px] uppercase tracking-[0.15em] mt-0.5 leading-none">
-                        {node.visibility === "hidden"
+                      <div
+                        className="uppercase tracking-[0.18em] mt-0.5 leading-none"
+                        style={{
+                          fontSize: 7,
+                          color: isHidden ? "rgba(255,255,255,0.45)" : `${tint}cc`,
+                        }}
+                      >
+                        {isHidden
                           ? "UNKNOWN"
                           : NODE_LABELS[node.type].split(" ")[0]}
                       </div>
@@ -418,7 +542,7 @@ export default function MapView() {
                   })()}
                 </AnimatePresence>
               </div>
-            </div>
+            </MapCell>
 
         {/* RIGHT PANEL — single unified column. No nested boxes, no
             HudFrame chrome. Spacing defines the structure. Sections are
@@ -576,6 +700,217 @@ function Legend({ color, text, label }: { color: string; text: string; label: st
     <div className="flex items-center gap-1.5">
       <div className={clsx("w-3 h-3 border-2 bg-helldiver-panel/60", color)} />
       <span className={text}>{label}</span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MAP CELL — the AAA tactical command-screen wrapper around the SVG tree.
+//
+//   • Faction-tinted radial wash backdrop
+//   • Tactical grid (40px squares) at low opacity
+//   • Two scanline overlays (one static thin, one drifting wider)
+//   • A few drifting ember particles for ambient motion
+//   • Tier badges down the left edge
+//   • DROP POINT indicator at the top, PRIMARY OBJECTIVE banner at bottom
+//   • Auto-fit: tree scales down via CSS transform when the canvas exceeds
+//     the available container size, so the entire tree always fits one
+//     viewport regardless of tier count or window height.
+// ─────────────────────────────────────────────────────────────────────────
+function MapCell({
+  tiers,
+  canvasWidth,
+  canvasHeight,
+  faction,
+  children,
+}: {
+  tiers: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  faction: string;
+  children: React.ReactNode;
+}) {
+  const tint = FACTION_TINT[faction] ?? FACTION_TINT.terminid;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  // Measure available area + compute scale so the canvas always fits.
+  // Re-runs on any container resize via ResizeObserver.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const fit = () => {
+      const rect = el.getBoundingClientRect();
+      // Reserve some breathing room: side rail (~64px) + top/bottom labels.
+      const availW = Math.max(200, rect.width - 88);
+      const availH = Math.max(200, rect.height - 96);
+      const s = Math.min(1, availW / canvasWidth, availH / canvasHeight);
+      setScale(Math.max(0.5, s));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [canvasWidth, canvasHeight]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative overflow-hidden"
+      style={{ background: "#070b10" }}
+    >
+      {/* === BACKDROP STACK === */}
+
+      {/* Faction-tinted radial wash, brightest at the top centre */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `radial-gradient(ellipse 70% 60% at 50% 30%, ${tint.soft} 0%, transparent 70%), radial-gradient(ellipse 100% 100% at 50% 100%, ${tint.deep} 0%, transparent 75%)`,
+        }}
+      />
+
+      {/* Tactical grid — 40px cells, very low opacity */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,199,44,0.06) 1px, transparent 1px), linear-gradient(to right, rgba(255,199,44,0.06) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+        }}
+      />
+
+      {/* Static scanlines */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none opacity-[0.05] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(0deg, rgba(255,255,255,0.5) 0 1px, transparent 1px 4px)",
+        }}
+      />
+
+      {/* Drifting wide scan band */}
+      <motion.div
+        aria-hidden
+        className="absolute inset-x-0 pointer-events-none"
+        style={{
+          height: 80,
+          background: `linear-gradient(180deg, transparent, ${tint.soft}, transparent)`,
+          mixBlendMode: "screen",
+        }}
+        animate={{ y: ["-10%", "110%"] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+      />
+
+      {/* Vignette */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.6) 100%)",
+        }}
+      />
+
+      {/* Ambient ember particles */}
+      <div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <motion.span
+            key={i}
+            className="absolute"
+            style={{
+              left: `${10 + i * 14}%`,
+              bottom: 0,
+              width: 2,
+              height: 2,
+              background: tint.primary,
+              boxShadow: `0 0 6px ${tint.primary}`,
+              borderRadius: "50%",
+            }}
+            animate={{ y: [0, -800], opacity: [0, 0.6, 0] }}
+            transition={{
+              duration: 14 + i * 1.5,
+              delay: i * 2.4,
+              repeat: Infinity,
+              ease: "easeOut",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* === TIER RAIL — left side, one badge per tier === */}
+      <div
+        className="absolute left-3 top-12 bottom-12 z-10 flex flex-col justify-around pointer-events-none"
+        aria-hidden
+      >
+        {Array.from({ length: tiers }).map((_, i) => {
+          const isLast = i === tiers - 1;
+          const label = tierLabel(i, isLast);
+          return (
+            <div key={i} className="flex items-center gap-2">
+              <span
+                className="font-display font-black tabular-nums"
+                style={{
+                  color: isLast ? "#ff4d4d" : "#FFC72C",
+                  fontSize: 9,
+                  letterSpacing: "0.2em",
+                  textShadow: `0 0 6px ${isLast ? "rgba(255,77,77,0.6)" : "rgba(255,199,44,0.5)"}`,
+                }}
+              >
+                T{i + 1}
+              </span>
+              <span
+                className="text-[8px] uppercase font-display font-black tracking-[0.3em]"
+                style={{ color: isLast ? "#ff4d4d" : "rgba(255,255,255,0.55)" }}
+              >
+                {label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* === DROP POINT BADGE — top centre === */}
+      <div
+        className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-3 h-6 pointer-events-none"
+        style={{
+          border: "1px solid rgba(255,199,44,0.45)",
+          background: "rgba(0,0,0,0.55)",
+        }}
+      >
+        <span className="text-[9px] font-display font-black uppercase tracking-[0.32em] text-helldiver-yellow">
+          ◣ Drop Point ◢
+        </span>
+      </div>
+
+      {/* === PRIMARY OBJECTIVE BANNER — bottom centre === */}
+      <motion.div
+        className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-3 h-6 pointer-events-none"
+        style={{
+          border: "1px solid rgba(255,77,77,0.55)",
+          background: "rgba(0,0,0,0.55)",
+        }}
+        animate={{ boxShadow: ["0 0 6px rgba(255,77,77,0.3)", "0 0 14px rgba(255,77,77,0.6)", "0 0 6px rgba(255,77,77,0.3)"] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <span className="text-[9px] font-display font-black uppercase tracking-[0.32em]" style={{ color: "#ff4d4d" }}>
+          ★ Primary Objective ★
+        </span>
+      </motion.div>
+
+      {/* === TREE — auto-fit scaled to the available area === */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          style={{
+            transform: `scale(${scale})`,
+            transformOrigin: "center center",
+            position: "relative",
+          }}
+        >
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
