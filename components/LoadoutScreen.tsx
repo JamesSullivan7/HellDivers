@@ -136,52 +136,85 @@ export default function LoadoutScreen() {
     startNewRun({ armorId, weaponId, boosterId, stratagemIds: stratagems });
   };
 
+  // Live names of currently selected items, for the bottom summary bar.
+  const summary = {
+    armor: ARMORS.find((a) => a.id === armorId)?.name ?? "—",
+    weapon: WEAPONS.find((w) => w.id === weaponId)?.name ?? "—",
+    booster: BOOSTERS.find((b) => b.id === boosterId)?.name ?? "—",
+  };
+
   return (
     <AppShell activeNav="mission">
+      {/*
+        h-full + flex-col + overflow-hidden = the loadout page is *strictly*
+        one viewport. The negative margins reclaim the AppShell main padding
+        so the whole layout has more vertical room to work with. Each step
+        renders inside the flex-1 content row, which in turn scrolls
+        internally if needed (stratagems) but never the page.
+      */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18 }}
+        className="h-full flex flex-col overflow-hidden"
+        style={{ margin: -24 }}
       >
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="text-[10px] uppercase tracking-[0.4em] text-helldiver-yellow mb-1 flex items-center justify-center gap-2">
-            <FactionIcon faction={faction} className="w-4 h-4" />
-            Loadout Configuration · Pre-Drop
-          </div>
-          <div className="text-3xl font-display font-black tracking-tight">
+        {/* ── HEADER (32px) — destination + subtitle on one line ── */}
+        <div
+          className="flex items-center gap-3 px-5 shrink-0 border-b"
+          style={{ height: 32, borderColor: "rgba(255,199,44,0.18)", background: "rgba(14,18,24,0.65)" }}
+        >
+          <FactionIcon faction={faction} className="w-3.5 h-3.5 text-helldiver-yellow shrink-0" />
+          <span className="text-[9px] uppercase tracking-[0.4em] text-helldiver-yellow shrink-0">
+            Loadout · Pre-Drop
+          </span>
+          <span aria-hidden className="w-px h-3.5 bg-helldiver-steel/40 shrink-0" />
+          <span className="font-display font-black tracking-tight text-[14px] truncate">
             DESTINATION <span className="text-helldiver-yellow">{planet.name}</span>
-          </div>
+          </span>
         </div>
 
-        {/* Step nav */}
-        <div className="flex items-center justify-center gap-1 mb-6">
-          {STEPS.map((s, i) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                sfx.click();
-                setStep(s.id);
-              }}
-              className={clsx(
-                "px-4 py-2 border-2 font-display font-bold tracking-widest text-xs transition-all",
-                s.id === step
-                  ? "bg-helldiver-yellow text-black border-helldiver-yellow shadow-[0_0_18px_rgba(255, 211, 77,0.5)]"
-                  : "border-helldiver-steel text-helldiver-dim hover:border-helldiver-yellow hover:text-helldiver-yellow"
-              )}
-            >
-              {String(i + 1).padStart(2, "0")} · {s.label}
-            </button>
-          ))}
+        {/* ── STEP TABS (36px) — compact horizontal bar ── */}
+        <div
+          className="flex items-center gap-1 px-5 shrink-0 border-b"
+          style={{ height: 36, borderColor: "rgba(255,255,255,0.06)" }}
+        >
+          {STEPS.map((s, i) => {
+            const isActive = s.id === step;
+            return (
+              <button
+                key={s.id}
+                onClick={() => { sfx.click(); setStep(s.id); }}
+                className={clsx(
+                  "px-3 h-[26px] text-[10px] font-display font-black tracking-[0.22em] uppercase transition-colors flex items-center gap-1.5 shrink-0",
+                  isActive
+                    ? "bg-helldiver-yellow text-black"
+                    : "text-helldiver-dim hover:text-helldiver-yellow"
+                )}
+                style={{
+                  border: `1px solid ${isActive ? "#FFC72C" : "rgba(255,255,255,0.08)"}`,
+                  boxShadow: isActive ? "0 0 12px rgba(255,199,44,0.4)" : "none",
+                }}
+              >
+                <span className={clsx("font-mono tabular-nums", isActive ? "text-black/60" : "text-helldiver-steel")}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{s.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Step content — single keyed wrapper so AnimatePresence swaps cleanly */}
+        {/* ── STEP CONTENT (flex-1) — fills the remaining viewport ── */}
+        <div className="flex-1 min-h-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
+            exit={{ opacity: 0, x: -12 }}
             transition={{ duration: 0.18 }}
+            className="h-full"
           >
           {step === "armor" && (
             <ArmorStep
@@ -200,82 +233,113 @@ export default function LoadoutScreen() {
           )}
 
           {step === "booster" && (
-            <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            // 4-col x 2-row compressed grid — 7 boosters fit one screen.
+            <div className="p-3 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-purple-400 shadow-[0_0_4px_currentColor]" />
+                  <h3 className="text-[10px] font-display font-black uppercase tracking-[0.32em] text-purple-400">
+                    Drop-Pod Boosters · {BOOSTERS.length} options
+                  </h3>
+                </div>
+                <span className="text-[9px] uppercase tracking-[0.3em] text-helldiver-dim">
+                  Click a tile to equip
+                </span>
+              </div>
+              <div className="grid grid-cols-4 grid-rows-2 gap-2 flex-1 min-h-0">
                 {BOOSTERS.map((b) => {
                   const owned = account.ownedBoosters.includes(b.id);
                   const tier = account.boosterTiers[b.id] ?? 1;
+                  const isEquipped = boosterId === b.id;
                   return (
                     <motion.button
                       key={b.id}
-                      whileHover={owned ? { y: -4 } : {}}
+                      type="button"
+                      whileHover={owned ? { y: -2, scale: 1.01 } : {}}
+                      whileTap={owned ? { scale: 0.99 } : {}}
+                      transition={{ type: "spring", stiffness: 400, damping: 28 }}
                       onClick={() => {
-                        if (!owned) {
-                          sfx.alert();
-                          return;
-                        }
+                        if (!owned) { sfx.alert(); return; }
                         sfx.cardSelect();
                         setBoosterId(b.id);
                       }}
                       disabled={!owned}
                       className={clsx(
-                        "relative p-5 border-2 text-left transition-all bg-helldiver-panel/80",
-                        !owned && "opacity-60 cursor-not-allowed border-helldiver-steel/40",
-                        owned && boosterId === b.id
-                          ? "border-purple-400 shadow-[0_0_24px_rgba(168,85,247,0.4)]"
-                          : owned && "border-helldiver-steel hover:border-purple-400/50"
+                        "relative overflow-hidden text-left flex flex-col",
+                        !owned && "opacity-50 cursor-not-allowed",
                       )}
+                      style={{
+                        background: "rgba(14,18,24,0.55)",
+                        border: `1px solid ${isEquipped ? "#a855f7" : "rgba(255,255,255,0.08)"}`,
+                        boxShadow: isEquipped ? "0 0 14px rgba(168,85,247,0.35), inset 0 0 0 1px rgba(168,85,247,0.55)" : "none",
+                      }}
                     >
-                      <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-purple-400 z-10" />
-                      <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-purple-400 z-10" />
-                      <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-purple-400 z-10" />
-                      <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-purple-400 z-10" />
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
-                          Run-Wide Booster
+                      <div className="relative flex-1 min-h-0 overflow-hidden">
+                        <BoosterPortrait boosterId={b.id} className="!h-full !border-0" />
+                        {isEquipped && (
+                          <span
+                            className="absolute top-1 right-1 px-1 py-0.5 text-[7.5px] font-display font-black uppercase tracking-[0.28em] z-10"
+                            style={{ color: "#0A0F14", background: "#a855f7" }}
+                          >
+                            ✓ Active
+                          </span>
+                        )}
+                        {owned && (
+                          <div className="absolute bottom-1 right-1 z-10">
+                            <TierBadge tier={tier} />
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className="px-2 py-1.5 shrink-0"
+                        style={{ borderTop: `1px solid ${isEquipped ? "rgba(168,85,247,0.55)" : "rgba(255,255,255,0.06)"}` }}
+                      >
+                        <div
+                          className="font-display font-black uppercase tracking-tight truncate"
+                          style={{ color: isEquipped ? "#a855f7" : "rgba(255,255,255,0.92)", fontSize: 10.5, lineHeight: 1.1 }}
+                        >
+                          {b.name}
                         </div>
-                        {owned && <TierBadge tier={tier} />}
+                        <div className="text-[9px] text-gray-300 leading-snug line-clamp-2 mt-0.5">
+                          {b.description}
+                        </div>
                       </div>
-                      {/* Cinematic booster portrait — same source as the codex */}
-                      <BoosterPortrait boosterId={b.id} className="mb-3" />
-                      <div className="font-display font-black text-lg text-purple-400 tracking-tight mb-2">
-                        {b.name.toUpperCase()}
-                      </div>
-                      <div className="text-xs text-gray-300 leading-relaxed">{b.description}</div>
                       {!owned && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[1px]">
-                          <div className="text-3xl mb-1">🔒</div>
-                          <div className="text-[10px] uppercase tracking-widest text-helldiver-red font-bold">Locked</div>
-                          <div className="text-[9px] uppercase tracking-widest text-helldiver-dim mt-1">Visit Outfitter</div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-[1px]">
+                          <div className="text-[9px] uppercase tracking-[0.32em] text-helldiver-red font-display font-black text-center px-2">
+                            🔒 Locked<br />Visit Outfitter
+                          </div>
                         </div>
-                      )}
-                      {owned && boosterId === b.id && (
-                        <div className="absolute top-9 right-2 text-purple-400 text-xs font-bold">✓ ACTIVE</div>
                       )}
                     </motion.button>
                   );
                 })}
               </div>
-              <ArmoryHint />
             </div>
           )}
 
           {step === "stratagems" && (
-            <div>
-              <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-                <div className="text-[10px] uppercase tracking-widest text-helldiver-dim">
-                  Pick <span className="text-helldiver-yellow font-bold">{STRATAGEM_PICKS_REQUIRED}</span> Stratagems · Resupply is <span className="text-emerald-400 font-bold">free</span>
-                </div>
-                <div className={clsx(
-                  "text-sm font-display font-black tracking-widest",
+            // Stratagems step keeps its rich layout but now lives inside a
+            // strict h-full flex container. Header + slot strip + filters
+            // are shrink-0; the card grid claims flex-1 and scrolls
+            // internally so the page itself never grows past 100vh.
+            <div className="p-3 h-full flex flex-col min-h-0">
+              <div className="flex items-center gap-2 mb-2 shrink-0">
+                <span className="w-1.5 h-1.5 bg-helldiver-yellow shadow-[0_0_4px_currentColor]" />
+                <h3 className="text-[10px] font-display font-black uppercase tracking-[0.32em] text-helldiver-yellow">
+                  Pick {STRATAGEM_PICKS_REQUIRED} · Resupply <span className="text-emerald-400">free</span>
+                </h3>
+                <div className="flex-1" />
+                <span className={clsx(
+                  "text-[11px] font-display font-black tracking-widest",
                   canDeploy ? "text-emerald-400" : "text-helldiver-yellow"
                 )}>
                   {stratagems.length} / {STRATAGEM_PICKS_REQUIRED} SELECTED
-                </div>
+                </span>
               </div>
 
-              {/* Selected pills + locked free Resupply slot */}
-              <div className="mb-4 grid grid-cols-5 gap-2 min-h-[60px]">
+              {/* Selected pills + locked free Resupply slot — slim 36px row */}
+              <div className="grid grid-cols-5 gap-1.5 mb-2 shrink-0" style={{ height: 36 }}>
                 {Array.from({ length: STRATAGEM_PICKS_REQUIRED }).map((_, i) => {
                   const id = stratagems[i];
                   const card = id ? getCardById(id) : null;
@@ -283,44 +347,32 @@ export default function LoadoutScreen() {
                     <div
                       key={i}
                       className={clsx(
-                        "h-14 px-2 flex flex-col items-center justify-center text-center border-2 text-xs font-mono",
-                        card ? "border-helldiver-yellow text-helldiver-yellow bg-helldiver-yellow/10" : "border-dashed border-helldiver-steel text-helldiver-dim"
+                        "px-2 flex items-center justify-center text-center text-[10px] font-mono",
+                        card ? "border border-helldiver-yellow text-helldiver-yellow bg-helldiver-yellow/10" : "border border-dashed border-helldiver-steel text-helldiver-dim"
                       )}
                     >
-                      {card ? (
-                        <span className="text-[10px] tracking-wider">{card.name}</span>
-                      ) : (
-                        <span className="text-[10px]">SLOT {i + 1}</span>
-                      )}
+                      <span className="truncate tracking-wider">
+                        {card ? card.name : `SLOT ${i + 1}`}
+                      </span>
                     </div>
                   );
                 })}
-                {/* Free Resupply slot — locked & always included */}
                 <div
-                  className="h-14 px-2 flex flex-col items-center justify-center text-center border-2 border-emerald-500 bg-emerald-500/10 text-emerald-400 font-mono relative"
+                  className="px-2 flex items-center justify-center text-center border border-emerald-500 bg-emerald-500/10 text-emerald-400 font-mono"
                   title="Resupply is free and always included in your loadout."
                 >
-                  <span className="text-[8px] uppercase tracking-widest opacity-80">◆ FREE</span>
-                  <span className="text-[10px] tracking-wider mt-0.5">Resupply</span>
+                  <span className="text-[10px] tracking-wider">◆ Resupply (free)</span>
                 </div>
               </div>
 
-              {/* Always-included basics */}
-              <div className="mb-4 text-[10px] uppercase tracking-widest text-helldiver-dim font-mono">
-                ◇ Always In Loadout: 3× Orbital Precision Strike · 1× Stim · 1× Shield Generator · <span className="text-emerald-400">1× Resupply (free)</span>
-              </div>
-
-              {/* Filters */}
-              <div className="mb-3 flex flex-wrap gap-1 items-center">
+              {/* Filters — slim row */}
+              <div className="flex flex-wrap gap-1 items-center mb-2 shrink-0">
                 {FILTERS.map((f) => (
                   <button
                     key={f.id}
-                    onClick={() => {
-                      sfx.click();
-                      setFilter(f.id);
-                    }}
+                    onClick={() => { sfx.click(); setFilter(f.id); }}
                     className={clsx(
-                      "px-3 py-1 border text-[10px] tracking-widest font-mono transition-colors",
+                      "px-2 h-6 border text-[9px] tracking-widest font-mono transition-colors",
                       filter === f.id
                         ? "border-helldiver-yellow bg-helldiver-yellow text-black"
                         : "border-helldiver-steel text-helldiver-dim hover:border-helldiver-yellow hover:text-helldiver-yellow"
@@ -331,12 +383,9 @@ export default function LoadoutScreen() {
                 ))}
                 <div className="flex-1" />
                 <button
-                  onClick={() => {
-                    sfx.click();
-                    setShowLocked(!showLocked);
-                  }}
+                  onClick={() => { sfx.click(); setShowLocked(!showLocked); }}
                   className={clsx(
-                    "px-3 py-1 border text-[10px] tracking-widest font-mono transition-colors",
+                    "px-2 h-6 border text-[9px] tracking-widest font-mono transition-colors",
                     showLocked
                       ? "border-helldiver-yellow bg-helldiver-yellow text-black"
                       : "border-helldiver-steel text-helldiver-dim hover:border-helldiver-yellow hover:text-helldiver-yellow"
@@ -345,19 +394,18 @@ export default function LoadoutScreen() {
                   {showLocked ? "✓ SHOW LOCKED" : "□ SHOW LOCKED"}
                 </button>
                 <button
-                  onClick={() => {
-                    sfx.click();
-                    goToArmory();
-                  }}
-                  className="px-3 py-1 border text-[10px] tracking-widest font-mono border-sky-400 text-sky-400 hover:bg-sky-400 hover:text-black transition-colors"
+                  onClick={() => { sfx.click(); goToArmory(); }}
+                  className="px-2 h-6 border text-[9px] tracking-widest font-mono border-sky-400 text-sky-400 hover:bg-sky-400 hover:text-black transition-colors"
                 >
                   ⌥ ARMORY
                 </button>
               </div>
 
-              {/* Card grid */}
-              <HudFrame label={`Available Stratagems (${selectableCards.length})`} accent="steel" className="p-3">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-[420px] overflow-y-auto pr-1">
+              {/* Card grid — flex-1 + min-h-0 + overflow-y-auto so this is
+                  the only thing that scrolls; the rest of the page stays
+                  pinned. */}
+              <HudFrame label={`Available Stratagems (${selectableCards.length})`} accent="steel" className="p-2 flex-1 min-h-0 overflow-hidden flex flex-col">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 flex-1 min-h-0 overflow-y-auto pr-1">
                   {selectableCards.map((card) => {
                     const selected = stratagems.includes(card.id);
                     const unlocked = account.unlockedCards.includes(card.id);
@@ -389,20 +437,39 @@ export default function LoadoutScreen() {
           )}
           </motion.div>
         </AnimatePresence>
+        </div>
 
-        {/* Bottom nav */}
-        <div className="mt-6 flex items-center justify-between gap-3">
+        {/* ── BOTTOM SUMMARY BAR (48px) — current loadout at-a-glance + nav ── */}
+        <div
+          className="flex items-center gap-3 px-4 shrink-0 border-t"
+          style={{ height: 48, borderColor: "rgba(255,199,44,0.18)", background: "rgba(14,18,24,0.85)" }}
+        >
           <button
             onClick={handlePrev}
-            className="px-5 py-2 border-2 border-helldiver-steel text-helldiver-dim hover:border-helldiver-yellow hover:text-helldiver-yellow text-[10px] uppercase tracking-[0.3em] font-mono transition-colors"
+            className="h-7 px-3 border text-[9px] uppercase tracking-[0.3em] font-mono transition-colors text-helldiver-dim hover:text-helldiver-yellow shrink-0"
+            style={{ borderColor: "rgba(255,255,255,0.1)" }}
           >
-            ◀ {step === "armor" ? "Back to Sector Select" : "Back"}
+            ◀ {step === "armor" ? "Sector" : "Back"}
           </button>
+
+          {/* Loadout summary chips */}
+          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto">
+            <SummaryChip label="ARMOR"   value={summary.armor}   active={step === "armor"} tint="#FFC72C" />
+            <SummaryChip label="PRIMARY" value={summary.weapon}  active={step === "weapon"} tint="#60c4ff" />
+            <SummaryChip label="BOOSTER" value={summary.booster} active={step === "booster"} tint="#a855f7" />
+            <SummaryChip
+              label="STRATS"
+              value={`${stratagems.length} / ${STRATAGEM_PICKS_REQUIRED}`}
+              active={step === "stratagems"}
+              tint="#10b981"
+            />
+          </div>
 
           {step !== "stratagems" ? (
             <button
               onClick={handleNext}
-              className="px-8 py-3 bg-gradient-to-b from-helldiver-yellow to-yellow-500 text-helldiver-dark font-display font-black uppercase tracking-[0.3em] border-2 border-helldiver-yellow shadow-[0_0_24px_rgba(255, 211, 77,0.4)] transition-shadow hover:shadow-[0_0_36px_rgba(255, 211, 77,0.6)]"
+              className="h-9 px-5 bg-helldiver-yellow text-black font-display font-black uppercase tracking-[0.3em] text-[11px] shrink-0 transition-shadow hover:shadow-[0_0_24px_rgba(255,199,44,0.6)]"
+              style={{ border: "1px solid #FFC72C", boxShadow: "0 0 14px rgba(255,199,44,0.35)" }}
             >
               Next ▶
             </button>
@@ -413,11 +480,12 @@ export default function LoadoutScreen() {
               onClick={handleDeploy}
               disabled={!canDeploy}
               className={clsx(
-                "px-8 py-3 font-display font-black uppercase tracking-[0.3em] border-2 transition-all",
+                "h-9 px-5 font-display font-black uppercase tracking-[0.3em] text-[11px] shrink-0 transition-all",
                 canDeploy
-                  ? "bg-gradient-to-b from-helldiver-red to-red-800 border-helldiver-red text-white shadow-[0_0_30px_rgba(255, 77, 77,0.5)] hover:shadow-[0_0_40px_rgba(255, 77, 77,0.7)]"
-                  : "border-helldiver-steel text-helldiver-dim cursor-not-allowed"
+                  ? "bg-gradient-to-b from-helldiver-red to-red-800 text-white shadow-[0_0_20px_rgba(255,77,77,0.5)]"
+                  : "text-helldiver-dim cursor-not-allowed",
               )}
+              style={{ border: `1px solid ${canDeploy ? "#ff4d4d" : "rgba(255,255,255,0.1)"}` }}
             >
               {canDeploy ? "▶ Deploy Hellpod" : `Pick ${STRATAGEM_PICKS_REQUIRED - stratagems.length} more`}
             </motion.button>
@@ -425,6 +493,42 @@ export default function LoadoutScreen() {
         </div>
       </motion.div>
     </AppShell>
+  );
+}
+
+/**
+ * SummaryChip — compact loadout pill in the bottom bar. Shows the
+ * current selection name; the chip for the active step is tinted +
+ * highlighted so the player always knows where they are.
+ */
+function SummaryChip({
+  label, value, active, tint,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+  tint: string;
+}) {
+  return (
+    <div
+      className="flex items-center gap-2 px-2 h-7 text-[10px] font-mono tabular-nums shrink-0"
+      style={{
+        background: active ? `${tint}14` : "rgba(255,255,255,0.03)",
+        border: `1px solid ${active ? tint : "rgba(255,255,255,0.06)"}`,
+        boxShadow: active ? `inset 2px 0 0 ${tint}, 0 0 10px ${tint}33` : "none",
+        minWidth: 0,
+      }}
+    >
+      <span
+        className="font-display font-black uppercase tracking-[0.28em] shrink-0"
+        style={{ color: active ? tint : "rgba(255,255,255,0.42)", fontSize: 8.5 }}
+      >
+        {label}
+      </span>
+      <span className="truncate text-white/85" style={{ maxWidth: 160 }}>
+        {value}
+      </span>
+    </div>
   );
 }
 
@@ -609,48 +713,55 @@ function ArmorStep({
   const selectedTint = ARMOR_CLASS_TINT[selected.weightClass] ?? ARMOR_CLASS_TINT.frontline;
 
   return (
-    <div className="grid gap-4" style={{ gridTemplateColumns: "minmax(320px, 35%) 1fr" }}>
-      {/* LEFT — selector list */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-1.5 h-1.5 bg-helldiver-yellow shadow-[0_0_4px_currentColor]" />
-          <h3 className="text-[10px] font-display font-black uppercase tracking-[0.32em] text-helldiver-yellow">
-            Body Armor · {ARMORS.length} configurations
-          </h3>
+    // 100vh-fit: 1fr / 380px split. The grid claims the full available
+    // height (h-full from the parent step wrapper). Section headers are
+    // slim and the inner content adapts to whatever vertical space is left.
+    <div className="grid gap-3 p-3 h-full" style={{ gridTemplateColumns: "1fr 380px" }}>
+      {/* LEFT — 3-col x 2-row armor grid */}
+      <div className="flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-2 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-helldiver-yellow shadow-[0_0_4px_currentColor]" />
+            <h3 className="text-[10px] font-display font-black uppercase tracking-[0.32em] text-helldiver-yellow">
+              Body Armor · {ARMORS.length} configurations
+            </h3>
+          </div>
+          <span className="text-[9px] uppercase tracking-[0.3em] text-helldiver-dim">
+            Click a tile to equip
+          </span>
         </div>
-        {ARMORS.map((a) => {
-          const owned = account.ownedArmors.includes(a.id);
-          const tier = account.armorTiers[a.id] ?? 1;
-          const eff = owned ? getArmorEffective(a.id, tier) : a;
-          const tint = ARMOR_CLASS_TINT[a.weightClass] ?? ARMOR_CLASS_TINT.frontline;
-          const isSelected = a.id === selectedId;
-          const isEquipped = a.id === equippedId;
-          return (
-            <ArmorTile
-              key={a.id}
-              armor={a}
-              eff={eff}
-              owned={owned}
-              tier={tier}
-              tint={tint}
-              isSelected={isSelected}
-              isEquipped={isEquipped}
-              onClick={() => {
-                if (!owned) {
-                  sfx.alert();
-                  return;
-                }
-                sfx.cardSelect();
-                setSelectedId(a.id);
-                setEquippedId(a.id);
-              }}
-            />
-          );
-        })}
-        <ArmoryHint />
+
+        <div className="grid grid-cols-3 grid-rows-2 gap-2 flex-1 min-h-0">
+          {ARMORS.map((a) => {
+            const owned = account.ownedArmors.includes(a.id);
+            const tier = account.armorTiers[a.id] ?? 1;
+            const eff = owned ? getArmorEffective(a.id, tier) : a;
+            const tint = ARMOR_CLASS_TINT[a.weightClass] ?? ARMOR_CLASS_TINT.frontline;
+            const isSelected = a.id === selectedId;
+            const isEquipped = a.id === equippedId;
+            return (
+              <ArmorGridCard
+                key={a.id}
+                armor={a}
+                eff={eff}
+                owned={owned}
+                tier={tier}
+                tint={tint}
+                isSelected={isSelected}
+                isEquipped={isEquipped}
+                onClick={() => {
+                  if (!owned) { sfx.alert(); return; }
+                  sfx.cardSelect();
+                  setSelectedId(a.id);
+                  setEquippedId(a.id);
+                }}
+              />
+            );
+          })}
+        </div>
       </div>
 
-      {/* RIGHT — hero panel */}
+      {/* RIGHT — slim hero preview */}
       <ArmorHeroPanel
         armor={selected}
         eff={selectedEff}
@@ -660,6 +771,129 @@ function ArmorStep({
         isEquipped={selected.id === equippedId}
       />
     </div>
+  );
+}
+
+/**
+ * ArmorGridCard — compact tile sized to fit a 3x2 grid in the
+ * compressed loadout layout. Image fills the upper portion; a slim
+ * data strip at the bottom carries name + class + key stats.
+ */
+function ArmorGridCard({
+  armor, eff, owned, tier, tint, isSelected, isEquipped, onClick,
+}: {
+  armor: Armor;
+  eff: Armor;
+  owned: boolean;
+  tier: number;
+  tint: { primary: string; soft: string; label: string; glyph: string };
+  isSelected: boolean;
+  isEquipped: boolean;
+  onClick: () => void;
+}) {
+  const art = getArmorArt(armor.id);
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={owned ? { y: -2, scale: 1.01 } : {}}
+      whileTap={owned ? { scale: 0.99 } : {}}
+      transition={{ type: "spring", stiffness: 400, damping: 28 }}
+      disabled={!owned}
+      className={clsx(
+        "relative overflow-hidden text-left flex flex-col",
+        !owned && "opacity-50 cursor-not-allowed",
+      )}
+      style={{
+        background: "rgba(14,18,24,0.55)",
+        border: `1px solid ${isSelected ? tint.primary : "rgba(255,255,255,0.08)"}`,
+        boxShadow: isSelected
+          ? `0 0 16px ${tint.soft}, inset 0 0 0 1px ${tint.primary}55`
+          : isEquipped
+            ? `inset 0 0 0 1px ${tint.primary}55`
+            : "none",
+      }}
+    >
+      {/* IMAGE — fills the top, object-cover with object-top to keep the
+          helldiver framed nicely even at compact sizes */}
+      <div className="relative flex-1 min-h-0 overflow-hidden">
+        {art ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={art}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-cover object-top"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ color: tint.primary, fontSize: 32 }}>
+            {tint.glyph}
+          </div>
+        )}
+        {/* Bottom darken so the data strip text stays legible */}
+        <div
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 100%)" }}
+        />
+        {/* Class chip — top-left over the image */}
+        <span
+          className="absolute top-1.5 left-1.5 px-1 py-0.5 text-[8px] font-display font-black uppercase tracking-[0.3em] z-10"
+          style={{ color: tint.primary, border: `1px solid ${tint.primary}55`, background: "rgba(0,0,0,0.7)" }}
+        >
+          {tint.glyph} {tint.label}
+        </span>
+        {/* Active indicator — top-right */}
+        {isEquipped && (
+          <span
+            className="absolute top-1.5 right-1.5 px-1 py-0.5 text-[8px] font-display font-black uppercase tracking-[0.3em] z-10"
+            style={{ color: "#0A0F14", background: tint.primary, boxShadow: `0 0 8px ${tint.primary}88` }}
+          >
+            ✓ Active
+          </span>
+        )}
+        {/* Tier badge — bottom-right (over gradient) */}
+        {owned && (
+          <div className="absolute bottom-1.5 right-1.5 z-10">
+            <TierBadge tier={tier} />
+          </div>
+        )}
+      </div>
+
+      {/* DATA STRIP — name + compact stats */}
+      <div
+        className="px-2 py-1.5 shrink-0"
+        style={{ borderTop: `1px solid ${isSelected ? tint.primary + "55" : "rgba(255,255,255,0.06)"}` }}
+      >
+        <div
+          className="font-display font-black uppercase tracking-tight truncate"
+          style={{ color: isSelected ? tint.primary : "rgba(255,255,255,0.92)", fontSize: 11, lineHeight: 1.1 }}
+        >
+          {armor.name}
+        </div>
+        <div className="flex gap-1.5 text-[9px] font-mono mt-0.5">
+          <span className={clsx("tabular-nums", eff.hpMod >= 0 ? "text-emerald-400" : "text-helldiver-red")}>
+            HP {eff.hpMod >= 0 ? "+" : ""}{eff.hpMod}
+          </span>
+          <span className="text-helldiver-steel">·</span>
+          <span className={clsx("tabular-nums", eff.handMod >= 0 ? "text-emerald-400" : "text-helldiver-red")}>
+            HND {eff.handMod >= 0 ? "+" : ""}{eff.handMod}
+          </span>
+          <span className="text-helldiver-steel">·</span>
+          <span className="tabular-nums text-sky-400">BLK +{eff.startingBlock}</span>
+        </div>
+      </div>
+
+      {/* Locked overlay */}
+      {!owned && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-[1px]">
+          <div className="text-[9px] uppercase tracking-[0.32em] text-helldiver-red font-display font-black text-center px-2">
+            🔒 Locked<br />Visit Outfitter
+          </div>
+        </div>
+      )}
+    </motion.button>
   );
 }
 
@@ -788,11 +1022,11 @@ function ArmorHeroPanel({
 
   return (
     <div
-      className="relative flex flex-col overflow-hidden"
+      className="relative flex flex-col overflow-hidden h-full min-h-0"
       style={{
         background: `linear-gradient(180deg, rgba(14,18,24,0.92) 0%, rgba(7,11,16,0.92) 100%)`,
         border: `1px solid ${tint.primary}33`,
-        boxShadow: isEquipped ? `0 0 32px ${tint.soft}, inset 0 0 60px rgba(0,0,0,0.6)` : "0 8px 28px rgba(0,0,0,0.45)",
+        boxShadow: isEquipped ? `0 0 24px ${tint.soft}, inset 0 0 40px rgba(0,0,0,0.6)` : "0 6px 20px rgba(0,0,0,0.45)",
       }}
     >
       {/* Top hairline */}
@@ -802,10 +1036,9 @@ function ArmorHeroPanel({
         style={{ background: `linear-gradient(90deg, transparent, ${tint.primary}, transparent)` }}
       />
 
-      {/* HERO ART — animated parallax. object-contain so the entire armor
-          portrait is visible head-to-toe (no waist-up crop). Height is
-          bumped to 420 so the figure renders at a meaningful size; the
-          class wash + radial gradient below softens any side letterboxing. */}
+      {/* HERO ART — flex-1 min-h-0 so the artwork claims whatever
+          vertical space is left after the stats/profile/banner below.
+          Adapts to short and tall viewports without forcing scroll. */}
       <AnimatePresence mode="wait">
         <motion.div
           key={armor.id}
@@ -813,8 +1046,8 @@ function ArmorHeroPanel({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="relative w-full overflow-hidden"
-          style={{ height: 420, background: "#070b10" }}
+          className="relative w-full overflow-hidden flex-1 min-h-0"
+          style={{ background: "#070b10" }}
         >
           {art ? (
             <motion.img
@@ -856,21 +1089,21 @@ function ArmorHeroPanel({
             }}
           />
 
-          {/* Title overlay */}
-          <div className="absolute left-4 right-4 bottom-3 flex items-end justify-between gap-3">
+          {/* Title overlay — sized for the slim 380px preview panel */}
+          <div className="absolute left-3 right-3 bottom-2 flex items-end justify-between gap-2">
             <div className="min-w-0">
               <div
-                className="text-[10px] uppercase tracking-[0.4em] font-display font-black mb-1"
+                className="text-[8.5px] uppercase tracking-[0.32em] font-display font-black mb-0.5"
                 style={{ color: tint.primary }}
               >
-                {tint.glyph} {tint.label} ARMOR · {armor.passiveName ?? "Standard"}
+                {tint.glyph} {tint.label} · {armor.passiveName ?? "Standard"}
               </div>
               <div
-                className="font-display font-black uppercase tracking-tight leading-none"
+                className="font-display font-black uppercase tracking-tight leading-none truncate"
                 style={{
                   color: tint.primary,
-                  fontSize: 28,
-                  textShadow: `0 0 12px ${tint.soft}, 0 2px 4px rgba(0,0,0,0.95)`,
+                  fontSize: 18,
+                  textShadow: `0 0 10px ${tint.soft}, 0 2px 4px rgba(0,0,0,0.95)`,
                 }}
               >
                 {armor.name}
@@ -881,24 +1114,20 @@ function ArmorHeroPanel({
         </motion.div>
       </AnimatePresence>
 
-      {/* INFO STRIP — stat block + tactical profile side-by-side */}
-      <div className="grid grid-cols-2 gap-3 p-4" style={{ borderTop: `1px solid ${tint.primary}22` }}>
-        {/* STAT BLOCK */}
+      {/* INFO STRIP — shrink-0 + tighter padding so the hero claims the
+          flex-1 space above. Two-column stat-block + tactical-profile. */}
+      <div className="grid grid-cols-2 gap-3 px-3 py-2 shrink-0" style={{ borderTop: `1px solid ${tint.primary}22` }}>
         <div>
-          <SectionLabel tint={tint.primary}>Vitals · Stat Block</SectionLabel>
-          <div className="space-y-1.5">
+          <SectionLabel tint={tint.primary}>Stat Block</SectionLabel>
+          <div className="space-y-1">
             <StatRow label="HP" value={eff.hpMod} sign accent="emerald" />
-            <StatRow label="Hand Size" value={eff.handMod} sign accent="emerald" />
-            <StatRow label="Starting Block" value={eff.startingBlock} sign accent="sky" />
-            {(armor.bonusStims ?? 0) > 0 && <StatRow label="Bonus Stims" value={armor.bonusStims!} sign accent="emerald" />}
-            {armor.reqMod !== 0 && <StatRow label="Requisition" value={armor.reqMod} sign accent="orange" />}
+            <StatRow label="Hand" value={eff.handMod} sign accent="emerald" />
+            <StatRow label="Block" value={eff.startingBlock} sign accent="sky" />
           </div>
         </div>
-
-        {/* TACTICAL PROFILE */}
         <div>
           <SectionLabel tint={tint.primary}>Tactical Profile</SectionLabel>
-          <div className="space-y-2">
+          <div className="space-y-1">
             <ProfileBar label="Survivability" value={profile.surv} accent={tint.primary} />
             <ProfileBar label="Mobility" value={profile.mob} accent={tint.primary} />
             <ProfileBar label="Utility" value={profile.util} accent={tint.primary} />
@@ -906,9 +1135,9 @@ function ArmorHeroPanel({
         </div>
       </div>
 
-      {/* DESCRIPTION + LOADOUT BANNER */}
-      <div className="px-4 pb-4 flex flex-col gap-3">
-        <p className="text-[12px] text-gray-300 leading-relaxed italic" style={{ borderLeft: `2px solid ${tint.primary}55`, paddingLeft: 10 }}>
+      {/* DESCRIPTION + LOADOUT BANNER — shrink-0 */}
+      <div className="px-3 pb-2 flex flex-col gap-2 shrink-0">
+        <p className="text-[10.5px] text-gray-300 leading-snug italic line-clamp-2" style={{ borderLeft: `2px solid ${tint.primary}55`, paddingLeft: 8 }}>
           “{armor.passive}”
         </p>
 
@@ -1060,16 +1289,23 @@ function WeaponStep({
   const selectedTint = WEAPON_CLASS_TINT[classifyWeapon(selected)];
 
   return (
-    <div className="grid gap-4" style={{ gridTemplateColumns: "minmax(320px, 35%) 1fr" }}>
-      {/* LEFT — selector list */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-1.5 h-1.5 bg-sky-400 shadow-[0_0_4px_currentColor]" />
-          <h3 className="text-[10px] font-display font-black uppercase tracking-[0.32em] text-sky-400">
-            Primary Armament · {WEAPONS.length} options
-          </h3>
+    // Same compressed pattern as ArmorStep — 1fr grid + 380px hero,
+    // h-full so the layout fits the parent step container.
+    <div className="grid gap-3 p-3 h-full" style={{ gridTemplateColumns: "1fr 380px" }}>
+      {/* LEFT — 4-col x 3-row grid for the 12 weapons */}
+      <div className="flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-2 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-sky-400 shadow-[0_0_4px_currentColor]" />
+            <h3 className="text-[10px] font-display font-black uppercase tracking-[0.32em] text-sky-400">
+              Primary Armament · {WEAPONS.length} options
+            </h3>
+          </div>
+          <span className="text-[9px] uppercase tracking-[0.3em] text-helldiver-dim">
+            Click a tile to equip
+          </span>
         </div>
-        <div className="flex flex-col gap-2 overflow-y-auto" style={{ maxHeight: 560 }}>
+        <div className="grid grid-cols-4 grid-rows-3 gap-2 flex-1 min-h-0">
           {WEAPONS.map((w) => {
             const owned = account.ownedWeapons.includes(w.id);
             const tier = account.weaponTiers[w.id] ?? 1;
@@ -1078,7 +1314,7 @@ function WeaponStep({
             const isSelected = w.id === selectedId;
             const isEquipped = w.id === equippedId;
             return (
-              <WeaponTile
+              <WeaponGridCard
                 key={w.id}
                 weapon={w}
                 eff={eff}
@@ -1088,10 +1324,7 @@ function WeaponStep({
                 isSelected={isSelected}
                 isEquipped={isEquipped}
                 onClick={() => {
-                  if (!owned) {
-                    sfx.alert();
-                    return;
-                  }
+                  if (!owned) { sfx.alert(); return; }
                   sfx.cardSelect();
                   setSelectedId(w.id);
                   setEquippedId(w.id);
@@ -1100,10 +1333,9 @@ function WeaponStep({
             );
           })}
         </div>
-        <ArmoryHint />
       </div>
 
-      {/* RIGHT — hero panel */}
+      {/* RIGHT — slim hero preview */}
       <WeaponHeroPanel
         weapon={selected}
         eff={selectedEff}
@@ -1113,6 +1345,115 @@ function WeaponStep({
         isEquipped={selected.id === equippedId}
       />
     </div>
+  );
+}
+
+/**
+ * WeaponGridCard — compact 4-col tile. Tighter than the wider list
+ * tile since 12 weapons need to share one screen.
+ */
+function WeaponGridCard({
+  weapon, eff, owned, tier, tint, isSelected, isEquipped, onClick,
+}: {
+  weapon: Weapon;
+  eff: Weapon;
+  owned: boolean;
+  tier: number;
+  tint: { primary: string; soft: string; label: string; glyph: string };
+  isSelected: boolean;
+  isEquipped: boolean;
+  onClick: () => void;
+}) {
+  const art = getWeaponArt(weapon.id);
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={owned ? { y: -2, scale: 1.01 } : {}}
+      whileTap={owned ? { scale: 0.99 } : {}}
+      transition={{ type: "spring", stiffness: 400, damping: 28 }}
+      disabled={!owned}
+      className={clsx(
+        "relative overflow-hidden text-left flex flex-col",
+        !owned && "opacity-50 cursor-not-allowed",
+      )}
+      style={{
+        background: "rgba(14,18,24,0.55)",
+        border: `1px solid ${isSelected ? tint.primary : "rgba(255,255,255,0.08)"}`,
+        boxShadow: isSelected
+          ? `0 0 14px ${tint.soft}, inset 0 0 0 1px ${tint.primary}55`
+          : isEquipped
+            ? `inset 0 0 0 1px ${tint.primary}55`
+            : "none",
+      }}
+    >
+      <div className="relative flex-1 min-h-0 overflow-hidden">
+        {art ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={art}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ color: tint.primary, fontSize: 24 }}>
+            {tint.glyph}
+          </div>
+        )}
+        <div
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 h-8 pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(7,11,16,0.9) 0%, transparent 100%)" }}
+        />
+        <span
+          className="absolute top-1 left-1 px-1 py-0.5 text-[7.5px] font-display font-black uppercase tracking-[0.28em] z-10"
+          style={{ color: tint.primary, border: `1px solid ${tint.primary}55`, background: "rgba(0,0,0,0.7)" }}
+        >
+          {tint.label}
+        </span>
+        {isEquipped && (
+          <span
+            className="absolute top-1 right-1 px-1 py-0.5 text-[7.5px] font-display font-black uppercase tracking-[0.28em] z-10"
+            style={{ color: "#0A0F14", background: tint.primary }}
+          >
+            ✓
+          </span>
+        )}
+      </div>
+
+      <div
+        className="px-1.5 py-1 shrink-0"
+        style={{ borderTop: `1px solid ${isSelected ? tint.primary + "55" : "rgba(255,255,255,0.06)"}` }}
+      >
+        <div
+          className="font-display font-black uppercase tracking-tight truncate"
+          style={{ color: isSelected ? tint.primary : "rgba(255,255,255,0.92)", fontSize: 9.5, lineHeight: 1.1 }}
+        >
+          {weapon.name}
+        </div>
+        <div className="flex gap-1.5 text-[8.5px] font-mono mt-0.5">
+          <span className="text-helldiver-yellow tabular-nums">DMG {eff.damage}</span>
+          <span className="text-helldiver-steel">·</span>
+          <span className="text-white tabular-nums">×{eff.hitsPerTurn}</span>
+          {eff.ignoreArmor && (
+            <>
+              <span className="text-helldiver-steel">·</span>
+              <span className="text-helldiver-yellow">AP</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {!owned && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-[1px]">
+          <div className="text-[8px] uppercase tracking-[0.28em] text-helldiver-red font-display font-black text-center px-2">
+            🔒 Locked<br />Visit Outfitter
+          </div>
+        </div>
+      )}
+    </motion.button>
   );
 }
 
@@ -1237,11 +1578,11 @@ function WeaponHeroPanel({
 
   return (
     <div
-      className="relative flex flex-col overflow-hidden"
+      className="relative flex flex-col overflow-hidden h-full min-h-0"
       style={{
         background: `linear-gradient(180deg, rgba(14,18,24,0.92) 0%, rgba(7,11,16,0.92) 100%)`,
         border: `1px solid ${tint.primary}33`,
-        boxShadow: isEquipped ? `0 0 32px ${tint.soft}, inset 0 0 60px rgba(0,0,0,0.6)` : "0 8px 28px rgba(0,0,0,0.45)",
+        boxShadow: isEquipped ? `0 0 24px ${tint.soft}, inset 0 0 40px rgba(0,0,0,0.6)` : "0 6px 20px rgba(0,0,0,0.45)",
       }}
     >
       {/* Top hairline */}
@@ -1251,9 +1592,7 @@ function WeaponHeroPanel({
         style={{ background: `linear-gradient(90deg, transparent, ${tint.primary}, transparent)` }}
       />
 
-      {/* HERO ART — object-contain so the entire weapon is visible.
-          Larger height (420) than the old 130-tall portrait so the
-          weapon actually has room to render at a meaningful size. */}
+      {/* HERO ART — flex-1 so it claims whatever vertical space remains */}
       <AnimatePresence mode="wait">
         <motion.div
           key={weapon.id}
@@ -1261,8 +1600,8 @@ function WeaponHeroPanel({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="relative w-full overflow-hidden"
-          style={{ height: 420, background: "#070b10" }}
+          className="relative w-full overflow-hidden flex-1 min-h-0"
+          style={{ background: "#070b10" }}
         >
           {art ? (
             <motion.img
@@ -1300,21 +1639,21 @@ function WeaponHeroPanel({
             }}
           />
 
-          {/* Title overlay */}
-          <div className="absolute left-4 right-4 bottom-3 flex items-end justify-between gap-3">
+          {/* Title overlay — sized for the slim 380px panel */}
+          <div className="absolute left-3 right-3 bottom-2 flex items-end justify-between gap-2">
             <div className="min-w-0">
               <div
-                className="text-[10px] uppercase tracking-[0.4em] font-display font-black mb-1"
+                className="text-[8.5px] uppercase tracking-[0.32em] font-display font-black mb-0.5"
                 style={{ color: tint.primary }}
               >
                 {tint.glyph} {tint.label} · AUTO-FIRE
               </div>
               <div
-                className="font-display font-black uppercase tracking-tight leading-none"
+                className="font-display font-black uppercase tracking-tight leading-none truncate"
                 style={{
                   color: tint.primary,
-                  fontSize: 26,
-                  textShadow: `0 0 12px ${tint.soft}, 0 2px 4px rgba(0,0,0,0.95)`,
+                  fontSize: 17,
+                  textShadow: `0 0 10px ${tint.soft}, 0 2px 4px rgba(0,0,0,0.95)`,
                 }}
               >
                 {weapon.name}
@@ -1325,21 +1664,20 @@ function WeaponHeroPanel({
         </motion.div>
       </AnimatePresence>
 
-      {/* INFO STRIP — stat block + tactical profile side-by-side */}
-      <div className="grid grid-cols-2 gap-3 p-4" style={{ borderTop: `1px solid ${tint.primary}22` }}>
+      {/* INFO STRIP — shrink-0, tighter padding */}
+      <div className="grid grid-cols-2 gap-3 px-3 py-2 shrink-0" style={{ borderTop: `1px solid ${tint.primary}22` }}>
         <div>
-          <SectionLabel tint={tint.primary}>Combat · Stat Block</SectionLabel>
-          <div className="space-y-1.5">
+          <SectionLabel tint={tint.primary}>Stat Block</SectionLabel>
+          <div className="space-y-1">
             <StatRow label="Damage" value={eff.damage} accent="emerald" />
-            <StatRow label="Hits / Turn" value={eff.hitsPerTurn} accent="emerald" />
-            <StatRow label="Targeting" value={0 /* unused */} accent="sky" sign={false} customDisplay={TARGET_LABEL[eff.target]} />
-            {eff.ignoreArmor && <StatRow label="Penetration" value={0} accent="orange" sign={false} customDisplay="ARMOR-PIERCING" />}
+            <StatRow label="Hits/Turn" value={eff.hitsPerTurn} accent="emerald" />
+            <StatRow label="Targeting" value={0} accent="sky" sign={false} customDisplay={TARGET_LABEL[eff.target]} />
+            {eff.ignoreArmor && <StatRow label="Penetration" value={0} accent="orange" sign={false} customDisplay="AP" />}
           </div>
         </div>
-
         <div>
           <SectionLabel tint={tint.primary}>Tactical Profile</SectionLabel>
-          <div className="space-y-2">
+          <div className="space-y-1">
             <ProfileBar label="Firepower" value={profile.power} accent={tint.primary} />
             <ProfileBar label="Tempo" value={profile.tempo} accent={tint.primary} />
             <ProfileBar label="Precision" value={profile.precision} accent={tint.primary} />
@@ -1347,9 +1685,9 @@ function WeaponHeroPanel({
         </div>
       </div>
 
-      {/* DESCRIPTION + ACTIVE LOADOUT BANNER */}
-      <div className="px-4 pb-4 flex flex-col gap-3">
-        <p className="text-[12px] text-gray-300 leading-relaxed italic" style={{ borderLeft: `2px solid ${tint.primary}55`, paddingLeft: 10 }}>
+      {/* DESCRIPTION + ACTIVE LOADOUT BANNER — shrink-0 */}
+      <div className="px-3 pb-2 flex flex-col gap-2 shrink-0">
+        <p className="text-[10.5px] text-gray-300 leading-snug italic line-clamp-2" style={{ borderLeft: `2px solid ${tint.primary}55`, paddingLeft: 8 }}>
           “{weapon.description}”
         </p>
         <ActiveLoadoutBanner active={isEquipped} tint={tint.primary} />
