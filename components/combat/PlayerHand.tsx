@@ -4,7 +4,6 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGame } from "@/lib/store";
 import CardView from "../CardView";
-import { cardPlayExit } from "@/systems/animation/presets/cardAnimations";
 
 interface Props {
   onCardClick: (idx: number) => void;
@@ -74,15 +73,24 @@ export default function PlayerHand({ onCardClick }: Props) {
             return (
               <motion.div
                 key={`${card.id}-${idx}`}
-                layout
-                variants={cardPlayExit}
-                initial="initial"
+                // `layout` was previously enabled but framer's layout
+                // animations were measuring positions and animating
+                // transforms in a way that fought the negative-margin
+                // overlap, leaving cards visually flat side-by-side.
+                // Removed - cards don't reorder so we don't need it.
+                // Inline initial / animate / exit values. The previous
+                // `variants={cardPlayExit}` set opacity:0 in initial, but
+                // my explicit animate object didn't include opacity — so
+                // cards were rendering at opacity 0. Spelling every key
+                // out fixes that and removes any hidden coupling to the
+                // shared variant preset.
+                initial={{ opacity: 0, y: 30, rotate: -5, scale: 0.9 }}
                 animate={
                   isFocused
-                    ? { rotate: 0, y: isSelected ? -42 : -28, scale: 1.18 }
-                    : { rotate: baseRotation, y: baseY, scale: 1 }
+                    ? { opacity: 1, rotate: 0, y: isSelected ? -42 : -28, scale: 1.18 }
+                    : { opacity: 1, rotate: baseRotation, y: baseY, scale: 1 }
                 }
-                exit="exit"
+                exit={{ opacity: 0, y: -90, scale: 0.4, rotate: 4, transition: { duration: 0.3 } }}
                 onMouseEnter={() => setHovered(idx)}
                 onMouseLeave={() => setHovered((cur) => (cur === idx ? null : cur))}
                 onFocus={() => setHovered(idx)}
