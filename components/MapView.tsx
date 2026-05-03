@@ -430,65 +430,59 @@ export default function MapView() {
             background: "linear-gradient(180deg, rgba(14,18,24,0.85), rgba(10,13,18,0.6))",
           }}
         >
-          {/* OBJECTIVES — bare prop drops the inner HudFrame label so my
-              SectionHeading is the only visible header */}
-          <div className="px-3 py-2.5 shrink-0">
+          {/* All sections share px-3 py-1.5 (was 2.5) so 4-5 of them fit
+              comfortably inside the right panel without forcing scroll on
+              normal viewports. The first section also gets py-2 at top to
+              breathe, but every subsequent section uses the tighter spacing. */}
+
+          {/* OBJECTIVES */}
+          <div className="px-3 pt-2 pb-1.5 shrink-0">
             <SectionHeading tint="#FFC72C">Objectives</SectionHeading>
             <ObjectivePanel bare />
           </div>
 
-          {/* FACTION PRESSURE — bare bars only, no nested frame */}
-          <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          {/* FACTION PRESSURE — bars only, no footnote */}
+          <div className="px-3 py-1.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <SectionHeading tint="#ff8a28">Faction Pressure</SectionHeading>
             <FactionPressureMeter bare />
           </div>
 
-          {/* HELLDIVER STATUS */}
-          <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          {/* HELLDIVER + LOADOUT — packed into a single section to save space */}
+          <div className="px-3 py-1.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <SectionHeading tint="#10b981">Helldiver</SectionHeading>
-            <div className="space-y-1 text-[11px] font-mono">
-              <div className="flex justify-between">
-                <span className="text-helldiver-dim uppercase tracking-widest text-[9.5px]">HP</span>
+            <div className="grid grid-cols-3 gap-2 text-[10px] font-mono mb-2">
+              <div className="flex flex-col">
+                <span className="text-helldiver-dim uppercase tracking-widest text-[8.5px]">HP</span>
                 <span className="text-emerald-400 font-bold tabular-nums">
-                  {player.hp}<span className="text-helldiver-dim text-[10px]"> / {player.maxHp}</span>
+                  {player.hp}<span className="text-helldiver-dim"> / {player.maxHp}</span>
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-helldiver-dim uppercase tracking-widest text-[9.5px]">Reinforcements</span>
+              <div className="flex flex-col">
+                <span className="text-helldiver-dim uppercase tracking-widest text-[8.5px]">Reinf</span>
                 <span className="text-helldiver-yellow font-bold tabular-nums">{player.reinforcements}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-helldiver-dim uppercase tracking-widest text-[9.5px]">Stratagems</span>
+              <div className="flex flex-col">
+                <span className="text-helldiver-dim uppercase tracking-widest text-[8.5px]">Strats</span>
                 <span className="text-white font-bold tabular-nums">{ownedDeck.length}</span>
               </div>
             </div>
-          </div>
-
-          {/* LOADOUT — minimal: armor / primary / booster on one line each */}
-          <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <SectionHeading tint="#60c4ff">Loadout</SectionHeading>
-            <div className="space-y-1 text-[11px] font-mono">
+            <div className="space-y-0.5 text-[10.5px] font-mono">
               <LoadoutLine label="ARM" value={armor.name} tint="text-helldiver-yellow" />
               <LoadoutLine label="WPN" value={weapon.name} tint="text-sky-400" />
               <LoadoutLine label="BST" value={booster.name} tint="text-purple-400" />
             </div>
           </div>
 
-          {/* RUN BUFFS — only render if any are active. Compact list, no frame. */}
+          {/* RUN BUFFS — only when present */}
           {runBuffs.length > 0 && (
-            <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="px-3 py-1.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
               <SectionHeading tint="#FFC72C">Active Buffs</SectionHeading>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {runBuffs.map((b) => (
-                  <div
-                    key={b.id}
-                    className="flex items-center gap-2 text-[10px]"
-                  >
+                  <div key={b.id} className="flex items-center gap-2 text-[10px]">
                     <span
                       className="w-1 h-3 shrink-0"
-                      style={{
-                        background: b.lifetime === "next_combat" ? "#60c4ff" : "#FFC72C",
-                      }}
+                      style={{ background: b.lifetime === "next_combat" ? "#60c4ff" : "#FFC72C" }}
                     />
                     <span
                       className={clsx(
