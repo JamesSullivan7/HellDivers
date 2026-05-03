@@ -743,11 +743,16 @@ function EnemyStack({
         <span style={{ color: COLOR.enemy }}>{bosses.filter(b => b.hp > 0).length + minions.filter(m => m.hp > 0).length}</span>
       </div>
 
-      {/* Bosses first */}
+      {/* Bosses first. The wrapper motion.div uses `flex-1 min-h-0` so
+          the inner EnemyCard / BossFrame share the column height equally
+          (their internal flex:1 picks up from us). With this, 2 enemies
+          fill the column 50/50, 3 enemies 33/33/33, etc. — no gap below
+          the last card and no scroll. */}
       <AnimatePresence>
         {bosses.map((b) => (
           <motion.div
             key={b.id}
+            className="flex-1 min-h-0 flex flex-col"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, scale: 0.85 }}
@@ -763,11 +768,12 @@ function EnemyStack({
         ))}
       </AnimatePresence>
 
-      {/* Minions stacked */}
+      {/* Minions stacked — same flex:1 sizing as bosses */}
       <AnimatePresence>
         {minions.map((e, i) => (
           <motion.div
             key={e.id}
+            className="flex-1 min-h-0 flex flex-col"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, scale: 0.85 }}

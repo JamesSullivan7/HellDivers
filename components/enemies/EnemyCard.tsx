@@ -100,15 +100,17 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
         enemy.enraged && "scale-[1.03] animate-pulse-yellow"
       )}
       style={{
-        // Combat right-column was 340px wide and the previous 300px
-        // tall card meant only 1-2 enemies were visible at typical
-        // viewports. Shrunk to 180px so 3-4 enemies stack into the
-        // available height. The internal sections (header, image,
-        // intent, footer) re-flex automatically because the inner
-        // image grid is `flex-1 min-h-0`.
+        // No fixed height — cards `flex-1` share the EnemyStack column
+        // equally so 2 enemies = ~half-column each, 3 = ~third each,
+        // 4 = ~quarter each. The inner image grid (flex-1 min-h-0)
+        // auto-shrinks to whatever's left after header/intent/footer
+        // claim their content-driven space, so the card never breaks
+        // its layout regardless of how tall the column ends up.
         width: "100%",
         maxWidth: "260px",
-        height: "180px",
+        flex: "1 1 0",     // fill column equally with siblings
+        minHeight: "160px", // floor — never collapses below this
+        maxHeight: "300px", // ceiling — never balloons past this on a 2-enemy fight
         borderRadius: "var(--radius-sm)",
       }}
     >
