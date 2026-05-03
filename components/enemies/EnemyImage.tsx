@@ -22,10 +22,19 @@ interface Props {
   templateId?: string;
   /** Enemy display name — overlaid on the portrait. */
   name?: string;
+  /**
+   * "cover" (default) crops to fill the box top-aligned — historical
+   * combat-card behavior.
+   * "contain" shows the entire image with letterboxing — used by the
+   * redesigned combat EnemyCard so the full creature is visible.
+   */
+  fit?: "cover" | "contain";
 }
 
-export default function EnemyImage({ faction, templateId, name }: Props) {
+export default function EnemyImage({ faction, templateId, name, fit = "cover" }: Props) {
   const art = templateId ? getEnemyArt(templateId) : null;
+  const objectFitClass =
+    fit === "contain" ? "object-contain" : "object-cover object-top";
 
   return (
     <div
@@ -37,7 +46,7 @@ export default function EnemyImage({ faction, templateId, name }: Props) {
           <img
             src={art}
             alt={name ?? ""}
-            className="absolute inset-0 w-full h-full object-cover object-top"
+            className={`absolute inset-0 w-full h-full ${objectFitClass}`}
             draggable={false}
             loading="lazy"
           />

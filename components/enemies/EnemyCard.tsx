@@ -5,21 +5,21 @@ import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import { Enemy, Faction } from "@/lib/types";
 import { useGame } from "@/lib/store";
-import EnemyHeader from "./EnemyHeader";
 import EnemyImage from "./EnemyImage";
-import EnemyStats from "./EnemyStats";
 import EnemyIntentPanel from "@/components/intent/EnemyIntentPanel";
-import EnemyStatusRow from "./EnemyStatusRow";
-import EnemyFooter from "./EnemyFooter";
 import { SkullIcon } from "@/lib/icons";
 import { enemyIdleDrift, enemyDeath } from "@/systems/animation/presets/combatAnimations";
 import BurnEmbers from "../effects/BurnEmbers";
 import ShieldRipple from "../effects/ShieldRipple";
 
-const FACTION_BORDER_TOP: Record<Faction, string> = {
-  terminid: "border-faction-terminid",
-  automaton: "border-faction-automaton",
-  illuminate: "border-faction-illuminate",
+/**
+ * Per-faction accent color used for the card chrome (corner brackets,
+ * border, name colour). Mirrors the codex enemy card colour language.
+ */
+const FACTION_ACCENT: Record<Faction, string> = {
+  terminid:   "#ff8a28",
+  automaton:  "#ff4d4d",
+  illuminate: "#a855f7",
 };
 
 interface FloatingNumber {
@@ -75,6 +75,32 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
 
   const motionVariants: any = { ...enemyIdleDrift, ...enemyDeath };
 
+  // ──────────────────────────────────────────────────────────────────────
+  // NEW LAYOUT — single image area + ONE combined info panel
+  //
+  //  ┌─────────────────────────────┐
+  //  │ ▓ ◣                  ARM 3 ▓│  TOP STRIP — faction chip + armor
+  //  ├─────────────────────────────┤
+  //  │                             │
+  //  │     [FULL ENEMY IMAGE]      │  ART (flex-1, object-contain so
+  //  │                             │  the whole creature is visible)
+  //  ├─────────────────────────────┤
+  //  │ STALKER          21 / 21    │  INFO PANEL (single)
+  //  │ ████████████████████████░░░ │  - name + HP numerics
+  //  │ ▶ AMBUSH 7 9                │  - HP bar
+  //  │ THEN CLOAKING…              │  - intent line(s)
+  //  └─────────────────────────────┘
+  //
+  // Matches the visual language of the stratagem / weapon / booster
+  // cards (corner brackets, image-on-top + info-below, no nested
+  // boxes). Combines the previous Header / Stats / Intent / Status /
+  // Footer bands into one info panel + one image.
+  // ──────────────────────────────────────────────────────────────────────
+
+  const accent = FACTION_ACCENT[enemy.faction];
+  const hpPct = Math.max(0, Math.min(100, (enemy.hp / Math.max(1, enemy.maxHp)) * 100));
+  const lowHp = hpPct < 30;
+
   return (
     <motion.button
       disabled={dead || !targetable}
@@ -84,54 +110,119 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
       animate={motionAnimate}
       whileHover={targetable && !dead ? { y: -3 } : {}}
       className={clsx(
-        "relative bg-bg-secondary text-left overflow-hidden border-2 border-t-0 flex flex-col",
+        "relative text-left overflow-hidden flex flex-col",
         "transition-all duration-200",
-        // Faction-color top border (per spec)
-        "before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:content-['']",
-        enemy.faction === "terminid" && "before:bg-faction-terminid",
-        enemy.faction === "automaton" && "before:bg-faction-automaton",
-        enemy.faction === "illuminate" && "before:bg-faction-illuminate",
-        enemy.isBoss
-          ? "border-accent-red shadow-glow-red"
-          : "border-border-strong hover:border-accent-yellow/60",
         needsTarget && targetable && !dead && "ring-2 ring-accent-yellow shadow-glow-yellow cursor-crosshair",
         !needsTarget && "cursor-default",
         dead && "opacity-30 grayscale pointer-events-none",
-        enemy.enraged && "scale-[1.03] animate-pulse-yellow"
+        enemy.enraged && "scale-[1.03] animate-pulse-yellow",
       )}
       style={{
-        // No fixed height — cards `flex-1` share the EnemyStack column
-        // equally so 2 enemies = ~half-column each, 3 = ~third each,
-        // 4 = ~quarter each. The inner image grid (flex-1 min-h-0)
-        // auto-shrinks to whatever's left after header/intent/footer
-        // claim their content-driven space, so the card never breaks
-        // its layout regardless of how tall the column ends up.
+        // Match the stratagem card footprint exactly: 196×220 (the same
+        // family as the "tight" combat-hand cards). flex 1 1 0 lets
+        // multiple enemies share column height when more than 2 are
+        // present; minHeight floor keeps them readable, maxHeight 260
+        // keeps a single enemy from ballooning into a giant solo card.
         width: "100%",
-        maxWidth: "260px",
-        flex: "1 1 0",     // fill column equally with siblings
-        minHeight: "130px", // floor relaxed so enemies fit even when the
-                            // hand strip is taller and the main grid is
-                            // compressed (3 enemies x 130 = 390px = fits)
-        maxHeight: "260px", // ceiling so 1-enemy combats don't balloon
-        borderRadius: "var(--radius-sm)",
+        maxWidth: "240px",
+        flex: "1 1 0",
+        minHeight: 180,
+        maxHeight: 260,
+        margin: "0 auto",
+        background: "linear-gradient(180deg, rgba(14,18,24,0.92) 0%, rgba(7,11,16,0.92) 100%)",
+        border: `1px solid ${enemy.isBoss ? "#ff4d4d" : "rgba(255,255,255,0.08)"}`,
+        boxShadow: enemy.isBoss
+          ? "0 0 18px rgba(255,77,77,0.35), inset 0 0 0 1px rgba(255,77,77,0.55)"
+          : `0 0 0 1px ${accent}22`,
       }}
     >
-      <EnemyHeader name={enemy.name} faction={enemy.faction} />
+      {/* Corner brackets — same visual language as StratagemCard */}
+      <span aria-hidden className="absolute top-0 left-0 w-1.5 h-1.5 z-10 pointer-events-none" style={{ borderTop: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
+      <span aria-hidden className="absolute top-0 right-0 w-1.5 h-1.5 z-10 pointer-events-none" style={{ borderTop: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
+      <span aria-hidden className="absolute bottom-0 left-0 w-1.5 h-1.5 z-10 pointer-events-none" style={{ borderBottom: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
+      <span aria-hidden className="absolute bottom-0 right-0 w-1.5 h-1.5 z-10 pointer-events-none" style={{ borderBottom: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
 
-      {/* Image (~70%) + Stats column (~30%) split */}
-      <div className="grid grid-cols-[70%_30%] flex-1 min-h-0 border-y border-border-subtle">
-        <EnemyImage faction={enemy.faction} templateId={enemy.templateId} name={enemy.name} />
-        <EnemyStats hp={enemy.hp} maxHp={enemy.maxHp} shield={enemy.shield} armor={enemy.armor} />
+      {/* TOP STRIP — minimal: faction chip on left, armor / shield on right */}
+      <div className="relative flex items-center justify-between px-2 h-5 shrink-0 z-10" style={{ borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
+        <span
+          className="text-[8px] font-display font-black uppercase tracking-[0.32em]"
+          style={{ color: accent }}
+        >
+          {enemy.faction}
+        </span>
+        <div className="flex items-center gap-1">
+          {enemy.armor > 0 && (
+            <span className="text-[7.5px] tabular-nums font-display font-black px-1 leading-none py-0.5" style={{ border: "1px solid rgba(255,138,40,0.55)", color: "#ff8a28" }}>
+              ARM {enemy.armor}
+            </span>
+          )}
+          {enemy.shield > 0 && (
+            <span className="text-[7.5px] tabular-nums font-display font-black px-1 leading-none py-0.5" style={{ border: "1px solid rgba(96,196,255,0.55)", color: "#60c4ff" }}>
+              SHD {enemy.shield}
+            </span>
+          )}
+          {enemy.isBoss && (
+            <span className="text-[7.5px] font-display font-black px-1 leading-none py-0.5" style={{ background: "#ff4d4d", color: "#0a0d12" }}>
+              BOSS
+            </span>
+          )}
+        </div>
       </div>
 
-      <EnemyIntentPanel enemy={enemy} fogged={fogged} />
-      <EnemyStatusRow burn={enemy.burn} />
-      <EnemyFooter
-        templateId={enemy.templateId}
-        faction={enemy.faction}
-        maxHp={enemy.maxHp}
-        isBoss={enemy.isBoss}
-      />
+      {/* ART — flex-1 with object-contain so the entire enemy is visible.
+          EnemyImage already handles fallback silhouette + name overlay
+          when the source art is missing. Soft dark gradient at the bottom
+          blends into the info panel below. */}
+      <div className="relative flex-1 min-h-0 overflow-hidden">
+        <EnemyImage faction={enemy.faction} templateId={enemy.templateId} fit="contain" />
+        <div
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 h-8 pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 100%)" }}
+        />
+      </div>
+
+      {/* COMBINED INFO PANEL — name, HP bar, intent. One block, no rules.
+          This is the merged "top + bottom" sections the user asked for. */}
+      <div
+        className="relative px-2 pt-1 pb-1.5 shrink-0 z-10"
+        style={{ background: "rgba(7,11,16,0.85)" }}
+      >
+        {/* Name + HP numerics on one row */}
+        <div className="flex items-center justify-between gap-1.5">
+          <span
+            className="font-display font-black uppercase tracking-tight truncate flex-1 leading-none"
+            style={{ color: accent, fontSize: 11 }}
+          >
+            {enemy.name}
+          </span>
+          <span
+            className="tabular-nums text-[10px] font-display font-black leading-none shrink-0"
+            style={{ color: lowHp ? "#ff4d4d" : "#10b981" }}
+          >
+            {enemy.hp}<span className="text-helldiver-dim">/{enemy.maxHp}</span>
+          </span>
+        </div>
+
+        {/* HP bar — slim, animated */}
+        <div className="mt-1 h-1 bg-black/70 border border-white/10 overflow-hidden">
+          <motion.div
+            className="h-full"
+            style={{
+              background: lowHp ? "linear-gradient(90deg, #ff4d4d, #ff8a28)" : "#10b981",
+              boxShadow: lowHp ? "0 0 8px rgba(255,77,77,0.55)" : undefined,
+            }}
+            animate={{ width: `${hpPct}%` }}
+            transition={{ type: "spring", stiffness: 180, damping: 22 }}
+          />
+        </div>
+
+        {/* Intent — uses the existing rich intent panel which carries
+            severity glow, badges, peeks, etc. */}
+        <div className="mt-1">
+          <EnemyIntentPanel enemy={enemy} fogged={fogged} />
+        </div>
+      </div>
 
       {/* Status particle effects */}
       {!dead && enemy.burn > 0 && <BurnEmbers seed={enemy.id} />}
@@ -143,7 +234,7 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
         </div>
       )}
 
-      {/* Floating damage numbers */}
+      {/* Floating damage numbers — unchanged */}
       <div className="pointer-events-none absolute inset-0 overflow-visible z-overlay">
         <AnimatePresence>
           {floats.map((f) => (
