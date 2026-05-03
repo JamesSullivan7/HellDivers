@@ -330,7 +330,11 @@ function PlayerPanel({ runBuffs }: { runBuffs: any[] }) {
     <aside
       // overflow-y-auto: tall buff lists scroll INSIDE the column instead of
       // stretching the whole layout. min-h-0 on parent grid lets this work.
-      className="hidden lg:flex flex-col p-2 gap-2 border-r overflow-y-auto min-h-0"
+      // justify-center: helldiver portrait + stats sit in the middle of the
+      // column instead of top-aligned with empty space below. The void the
+      // user saw between the helldiver info and the bottom of the grid
+      // becomes evenly-distributed breathing room above and below.
+      className="hidden lg:flex flex-col p-2 gap-2 border-r overflow-y-auto min-h-0 justify-center"
       style={{ borderColor: COLOR.border, background: "rgba(17,24,33,0.55)" }}
     >
       {/* Portrait card — fixed-height banner so the panel never dictates the

@@ -109,8 +109,10 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
         width: "100%",
         maxWidth: "260px",
         flex: "1 1 0",     // fill column equally with siblings
-        minHeight: "160px", // floor — never collapses below this
-        maxHeight: "300px", // ceiling — never balloons past this on a 2-enemy fight
+        minHeight: "130px", // floor relaxed so enemies fit even when the
+                            // hand strip is taller and the main grid is
+                            // compressed (3 enemies x 130 = 390px = fits)
+        maxHeight: "260px", // ceiling so 1-enemy combats don't balloon
         borderRadius: "var(--radius-sm)",
       }}
     >

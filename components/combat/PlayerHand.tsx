@@ -58,14 +58,13 @@ export default function PlayerHand({ onCardClick }: Props) {
         above the strip without being clipped.
       */}
       <div
-        className="relative flex items-end justify-center pb-2 pt-3"
-        // Hand strip slimmed from 250px -> 232px so the EnemyStack column
-        // above gets ~18 more px to render multiple hostiles without
-        // truncating the bottom enemies. Cards in tight mode are 230px,
-        // so 232 is the absolute floor that still keeps them un-clipped
-        // before the lift animation. overflow: visible ensures the
-        // hovered/selected card can still rise out of the strip cleanly.
-        style={{ minHeight: 232, overflow: "visible" }}
+        className="relative flex items-end justify-center pb-3 pt-6"
+        // Hand strip raised from 232 -> 300 so the cards section claims
+        // more of the screen. This compresses the main grid above by
+        // 68px, eliminating the void the user complained about in the
+        // helldiver and battlefield columns. Hover/select still lifts
+        // the focused card up into the breathing room without clipping.
+        style={{ minHeight: 300, overflow: "visible" }}
       >
         <AnimatePresence>
           {combat.hand.map((card, idx) => {
