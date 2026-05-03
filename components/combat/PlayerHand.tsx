@@ -59,7 +59,13 @@ export default function PlayerHand({ onCardClick }: Props) {
       */}
       <div
         className="relative flex items-end justify-center pb-2 pt-3"
-        style={{ minHeight: 250, overflow: "visible" }}
+        // Hand strip slimmed from 250px -> 232px so the EnemyStack column
+        // above gets ~18 more px to render multiple hostiles without
+        // truncating the bottom enemies. Cards in tight mode are 230px,
+        // so 232 is the absolute floor that still keeps them un-clipped
+        // before the lift animation. overflow: visible ensures the
+        // hovered/selected card can still rise out of the strip cleanly.
+        style={{ minHeight: 232, overflow: "visible" }}
       >
         <AnimatePresence>
           {combat.hand.map((card, idx) => {
