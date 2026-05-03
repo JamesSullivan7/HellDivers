@@ -143,86 +143,110 @@ export default function MapView() {
   const canvasWidth = (widestCols - 1) * COL_GUTTER + NODE_SIZE * 2 + TREE_PAD_X * 2;
   const canvasHeight = (tiers - 1) * TIER_HEIGHT + NODE_SIZE + TREE_PAD_Y * 2;
 
+  // Threat tier colour cascades through the top strip + threat number.
+  const threatColor =
+    difficulty >= 8 ? "#ff4d4d" : difficulty >= 5 ? "#ff8a28" : "#FFC72C";
+
   return (
-    <div className="min-h-screen text-white font-mono p-6 relative">
+    // h-screen + overflow-hidden + flex-col = the entire mission map is
+    // strictly one viewport. The map cell scrolls inside if it cannot fit
+    // (very tall trees on short viewports), the rest of the layout stays
+    // pinned. No page-level scroll. Keeps the map as the hero element.
+    <div
+      className="h-screen overflow-hidden text-white font-mono relative flex flex-col"
+      style={{ background: "#0a0d12" }}
+    >
       <StarField />
 
-      <div className="max-w-7xl mx-auto relative z-10">
-        {/* Run Identity banner — sits above the standard operation briefing */}
-        <RunIdentityBanner />
+      {/* ── TOP STRIP (≈80px) — slim horizontal command briefing ── */}
+      <header
+        className="relative z-10 shrink-0 px-4 py-2 flex items-center gap-4 border-b"
+        style={{
+          borderColor: "rgba(255,199,44,0.22)",
+          background: "linear-gradient(180deg, rgba(14,18,24,0.92), rgba(10,13,18,0.85))",
+          minHeight: 80,
+        }}
+      >
+        {/* gold hairline accent */}
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, #FFC72C, transparent)" }}
+        />
 
-        <HudFrame label="Galactic Operation Briefing" accent="yellow" glow className="p-5 mb-6">
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.4em] text-helldiver-yellow mb-1 flex items-center gap-2">
-                <FactionIcon faction={faction} className="w-4 h-4" />
-                {missionCodename}
-              </div>
-              <div className="text-3xl font-display font-black tracking-tight mb-1">
-                PLANET <span className="text-helldiver-yellow">{planet.name}</span>
-              </div>
-              <div className="text-[10px] text-helldiver-dim uppercase tracking-widest mb-2">
-                {planet.biome} · <span className="text-emerald-400">{missionSpec.label.toUpperCase()}</span>
-              </div>
-              <div className="text-xs text-gray-300 max-w-xl italic">
-                {missionSpec.briefing}
-              </div>
-              {message && (
-                <div className="mt-2 text-helldiver-yellow text-sm">› {message}</div>
-              )}
-            </div>
-            <div className="text-right">
-              <div className="text-[9px] uppercase tracking-[0.3em] text-helldiver-dim">Threat Tier</div>
-              <div className={
-                "font-display font-black text-3xl " +
-                (difficulty >= 8 ? "text-helldiver-red" : difficulty >= 5 ? "text-helldiver-orange" : "text-helldiver-yellow")
-              }>
-                {difficulty}/10
-              </div>
-              <div className="hidden md:block text-helldiver-yellow/60 mt-2">
-                <HellpodIcon className="w-12 h-12 ml-auto" />
-              </div>
+        {/* Mission codename + planet */}
+        <div className="min-w-0 flex flex-col gap-0.5 shrink-0">
+          <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.35em] text-helldiver-yellow">
+            <FactionIcon faction={faction} className="w-3.5 h-3.5" />
+            {missionCodename}
+          </div>
+          <div className="font-display font-black tracking-tight text-[18px] leading-none">
+            PLANET <span className="text-helldiver-yellow">{planet.name}</span>
+          </div>
+          <div className="text-[9px] text-helldiver-dim uppercase tracking-[0.32em]">
+            {planet.biome} · <span className="text-emerald-400">{missionSpec.label.toUpperCase()}</span>
+          </div>
+        </div>
+
+        {/* Briefing + modifiers (one line each, max) */}
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <div className="text-[11px] text-gray-300 italic leading-snug truncate" title={missionSpec.briefing}>
+            “{missionSpec.briefing}”
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap min-h-[16px]">
+            {message && (
+              <span className="text-[10px] text-helldiver-yellow truncate">› {message}</span>
+            )}
+            {modifiers.length > 0 && modifiers.map((id) => {
+              const m = getModifier(id);
+              if (!m) return null;
+              return (
+                <span
+                  key={id}
+                  className="px-1.5 h-4 inline-flex items-center text-[8.5px] uppercase tracking-[0.3em] font-display font-black"
+                  style={{
+                    color: "#ff8a28",
+                    border: "1px solid rgba(255,138,40,0.45)",
+                    background: "rgba(255,138,40,0.08)",
+                  }}
+                  title={m.description}
+                >
+                  ⚠ {m.name}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Threat dial */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right leading-tight">
+            <div className="text-[8px] uppercase tracking-[0.32em] text-helldiver-dim">Threat</div>
+            <div
+              className="font-display font-black tabular-nums leading-none"
+              style={{ color: threatColor, fontSize: 26 }}
+            >
+              {difficulty}<span className="text-helldiver-dim text-base">/10</span>
             </div>
           </div>
+          <HellpodIcon className="w-9 h-9 text-helldiver-yellow/60" />
+        </div>
+      </header>
 
-          {modifiers.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-helldiver-yellow/30">
-              <div className="text-[9px] uppercase tracking-[0.3em] text-helldiver-orange mb-1">
-                ⚠ Active Sector Modifiers
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {modifiers.map((id) => {
-                  const m = getModifier(id);
-                  if (!m) return null;
-                  return (
-                    <div
-                      key={id}
-                      className="px-2 py-1 bg-helldiver-orange/10 border border-helldiver-orange/50 text-[10px]"
-                      title={m.description}
-                    >
-                      <span className="text-helldiver-orange font-bold">{m.name}</span>{" "}
-                      <span className="text-gray-300">— {m.description}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </HudFrame>
-
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-6">
-          <HudFrame label="Operation Path" accent="steel" className="p-4">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-helldiver-dim mb-3">
-              Branching Mission Plan · select your route
-            </div>
-            <div className="overflow-auto flex justify-center">
-              <div
-                style={{
-                  width: canvasWidth,
-                  height: canvasHeight,
-                  position: "relative",
-                }}
-              >
+      {/* ── MAIN AREA — map (flex-1) + right panel (320px) ── */}
+      <div
+        className="relative z-10 flex-1 min-h-0 grid"
+        style={{ gridTemplateColumns: "1fr 320px" }}
+      >
+        {/* MAP CELL — hero element, centered, takes full available height */}
+        <div className="relative overflow-auto flex items-center justify-center p-4">
+            <div
+              style={{
+                width: canvasWidth,
+                height: canvasHeight,
+                position: "relative",
+              }}
+            >
                 {/* SVG layer for edges */}
                 <svg
                   width={canvasWidth}
@@ -396,114 +420,158 @@ export default function MapView() {
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-3 text-[9px] uppercase tracking-widest text-helldiver-dim">
-              <Legend color="border-helldiver-yellow" text="text-helldiver-yellow" label="Patrol" />
-              <Legend color="border-helldiver-orange" text="text-helldiver-orange" label="Elite" />
-              <Legend color="border-purple-400" text="text-purple-300" label="Encounter" />
-              <Legend color="border-emerald-500" text="text-emerald-400" label="Resupply" />
-              <Legend color="border-amber-300" text="text-amber-300" label="Cache" />
-              <Legend color="border-lime-500" text="text-lime-400" label="Hazard" />
-              <Legend color="border-cyan-400" text="text-cyan-300" label="Signal" />
-              <Legend color="border-helldiver-red" text="text-helldiver-red" label="Boss" />
-              <span className="text-helldiver-dim">·</span>
-              <span>◐ partial intel</span>
-              <span>? unknown</span>
-            </div>
-          </HudFrame>
-
-          <div className="space-y-4">
+        {/* RIGHT PANEL — single unified column. No nested boxes, no
+            HudFrame chrome. Spacing defines the structure. Sections are
+            separated by a hairline rule + uppercase title. */}
+        <aside
+          className="relative overflow-y-auto border-l flex flex-col"
+          style={{
+            borderColor: "rgba(255,199,44,0.15)",
+            background: "linear-gradient(180deg, rgba(14,18,24,0.85), rgba(10,13,18,0.6))",
+          }}
+        >
+          {/* OBJECTIVES */}
+          <div className="px-3 py-2.5 shrink-0">
+            <SectionHeading tint="#FFC72C">Objectives</SectionHeading>
             <ObjectivePanel />
+          </div>
 
+          {/* FACTION PRESSURE — compact bars only */}
+          <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <SectionHeading tint="#ff8a28">Faction Pressure</SectionHeading>
             <FactionPressureMeter />
-            <RunModifierBadgeStrip />
-            <PendingConsequenceIndicator />
-            <ConsequenceHistoryPanel />
+          </div>
 
-            <div className="flex justify-end">
-              <RunSeedDisplay />
+          {/* HELLDIVER STATUS */}
+          <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <SectionHeading tint="#10b981">Helldiver</SectionHeading>
+            <div className="space-y-1 text-[11px] font-mono">
+              <div className="flex justify-between">
+                <span className="text-helldiver-dim uppercase tracking-widest text-[9.5px]">HP</span>
+                <span className="text-emerald-400 font-bold tabular-nums">
+                  {player.hp}<span className="text-helldiver-dim text-[10px]"> / {player.maxHp}</span>
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-helldiver-dim uppercase tracking-widest text-[9.5px]">Reinforcements</span>
+                <span className="text-helldiver-yellow font-bold tabular-nums">{player.reinforcements}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-helldiver-dim uppercase tracking-widest text-[9.5px]">Stratagems</span>
+                <span className="text-white font-bold tabular-nums">{ownedDeck.length}</span>
+              </div>
             </div>
+          </div>
 
-            {runBuffs.length > 0 && (
-              <HudFrame label="Active Buffs" accent="steel" className="p-3">
-                <div className="space-y-2">
-                  {runBuffs.map((b) => (
-                    <div
-                      key={b.id}
+          {/* LOADOUT — minimal: armor / primary / booster on one line each */}
+          <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <SectionHeading tint="#60c4ff">Loadout</SectionHeading>
+            <div className="space-y-1 text-[11px] font-mono">
+              <LoadoutLine label="ARM" value={armor.name} tint="text-helldiver-yellow" />
+              <LoadoutLine label="WPN" value={weapon.name} tint="text-sky-400" />
+              <LoadoutLine label="BST" value={booster.name} tint="text-purple-400" />
+            </div>
+          </div>
+
+          {/* RUN BUFFS — only render if any are active. Compact list, no frame. */}
+          {runBuffs.length > 0 && (
+            <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <SectionHeading tint="#FFC72C">Active Buffs</SectionHeading>
+              <div className="space-y-1">
+                {runBuffs.map((b) => (
+                  <div
+                    key={b.id}
+                    className="flex items-center gap-2 text-[10px]"
+                  >
+                    <span
+                      className="w-1 h-3 shrink-0"
+                      style={{
+                        background: b.lifetime === "next_combat" ? "#60c4ff" : "#FFC72C",
+                      }}
+                    />
+                    <span
                       className={clsx(
-                        "border-l-2 pl-2 py-1",
-                        b.lifetime === "next_combat"
-                          ? "border-sky-400"
-                          : "border-helldiver-yellow"
+                        "font-bold truncate",
+                        b.lifetime === "next_combat" ? "text-sky-300" : "text-helldiver-yellow",
                       )}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={clsx(
-                          "text-[11px] font-bold",
-                          b.lifetime === "next_combat" ? "text-sky-300" : "text-helldiver-yellow"
-                        )}>
-                          {b.name}
-                        </span>
-                        <span className="text-[8px] uppercase tracking-widest text-helldiver-dim">
-                          {b.lifetime === "next_combat" ? "1 fight" : "run"}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-gray-300 leading-snug">
-                        {b.description}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </HudFrame>
-            )}
-
-            <HudFrame label="Helldiver" accent="yellow" className="p-3">
-              <div className="space-y-1.5 text-sm font-mono">
-                <div className="flex justify-between"><span className="text-helldiver-dim">HP</span><span className="text-emerald-400 font-bold">{player.hp} / {player.maxHp}</span></div>
-                <div className="flex justify-between"><span className="text-helldiver-dim">Reinforcements</span><span className="text-helldiver-yellow font-bold">{player.reinforcements}</span></div>
-                <div className="flex justify-between"><span className="text-helldiver-dim">Stratagems</span><span className="text-white font-bold">{ownedDeck.length}</span></div>
-              </div>
-            </HudFrame>
-
-            <HudFrame label="Equipment" accent="steel" className="p-3">
-              <div className="space-y-2 text-[11px] font-mono">
-                <div>
-                  <div className="text-[9px] uppercase tracking-widest text-helldiver-dim">Armor</div>
-                  <div className="text-helldiver-yellow font-bold leading-tight">{armor.name}</div>
-                </div>
-                <div>
-                  <div className="text-[9px] uppercase tracking-widest text-helldiver-dim">Primary</div>
-                  <div className="text-sky-400 font-bold leading-tight">{weapon.name}</div>
-                </div>
-                <div>
-                  <div className="text-[9px] uppercase tracking-widest text-helldiver-dim">Booster</div>
-                  <div className="text-purple-400 font-bold leading-tight">{booster.name}</div>
-                </div>
-              </div>
-            </HudFrame>
-
-            <HudFrame label="Stratagem Loadout" accent="steel" className="p-3">
-              <div className="max-h-48 overflow-y-auto space-y-1 text-[11px]">
-                {ownedDeck.map((c, i) => (
-                  <div
-                    key={i}
-                    className="flex justify-between border-b border-helldiver-steel/40 py-1 hover:bg-helldiver-yellow/5"
-                  >
-                    <span className="truncate text-gray-200">{c.name}</span>
-                    <span className="text-helldiver-yellow tabular-nums font-bold">{c.cost}R</span>
+                      {b.name}
+                    </span>
+                    <span className="ml-auto text-[8px] uppercase tracking-widest text-helldiver-dim shrink-0">
+                      {b.lifetime === "next_combat" ? "1 fight" : "run"}
+                    </span>
                   </div>
                 ))}
               </div>
-            </HudFrame>
-
-            <SquadStatusPanel
-              currentPhase="map"
-              currentNode={currentNodeIndex >= 0 ? currentNodeIndex : 0}
-              currentHp={player.hp}
-              currentMaxHp={player.maxHp}
-            />
-          </div>
-        </div>
+            </div>
+          )}
+        </aside>
       </div>
+
+      {/* ── BOTTOM LEGEND STRIP (32px) — horizontal, low priority ── */}
+      <footer
+        className="relative z-10 shrink-0 px-4 flex items-center gap-3 overflow-x-auto border-t"
+        style={{
+          height: 32,
+          borderColor: "rgba(255,199,44,0.12)",
+          background: "rgba(10,13,18,0.85)",
+        }}
+      >
+        <span className="text-[8.5px] uppercase tracking-[0.32em] text-helldiver-dim shrink-0">Legend</span>
+        <LegendChip glyph="✦" tint="#FFC72C" label="Patrol" />
+        <LegendChip glyph="☠" tint="#ff8a28" label="Elite" />
+        <LegendChip glyph="?" tint="#a855f7" label="Encounter" />
+        <LegendChip glyph="✚" tint="#10b981" label="Resupply" />
+        <LegendChip glyph="◆" tint="#fcd34d" label="Cache" />
+        <LegendChip glyph="☣" tint="#84cc16" label="Hazard" />
+        <LegendChip glyph="◈" tint="#22d3ee" label="Signal" />
+        <LegendChip glyph="★" tint="#ff4d4d" label="Boss" />
+        <span className="text-helldiver-dim text-[9px] shrink-0">·</span>
+        <span className="text-[9px] tracking-widest text-helldiver-dim shrink-0">◐ partial intel</span>
+        <span className="text-[9px] tracking-widest text-helldiver-dim shrink-0">? unknown</span>
+      </footer>
+    </div>
+  );
+}
+
+/** Tiny uppercase section heading used inside the unified right panel. */
+function SectionHeading({ tint, children }: { tint: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="flex items-center gap-1.5 mb-1.5 text-[9px] font-display font-black uppercase tracking-[0.34em]"
+      style={{ color: tint }}
+    >
+      <span className="w-1 h-1" style={{ background: tint, boxShadow: `0 0 4px ${tint}` }} />
+      {children}
+    </div>
+  );
+}
+
+/** Inline loadout row — label chip + value name. No nested frame. */
+function LoadoutLine({ label, value, tint }: { label: string; value: string; tint: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="px-1 py-0.5 text-[8px] uppercase tracking-[0.26em] text-helldiver-dim shrink-0" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+        {label}
+      </span>
+      <span className={clsx("font-bold leading-tight truncate", tint)}>{value}</span>
+    </div>
+  );
+}
+
+/** Compact horizontal legend pill for the bottom strip. */
+function LegendChip({ glyph, tint, label }: { glyph: string; tint: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <span
+        className="font-display font-black"
+        style={{ color: tint, fontSize: 10, lineHeight: 1, textShadow: `0 0 4px ${tint}66` }}
+      >
+        {glyph}
+      </span>
+      <span className="text-[9px] uppercase tracking-widest" style={{ color: tint }}>
+        {label}
+      </span>
     </div>
   );
 }
