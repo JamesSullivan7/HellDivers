@@ -88,7 +88,7 @@ const PRESSURE_LABEL: Record<"terminids" | "automatons" | "illuminate", string> 
   illuminate: "Illuminate",
 };
 
-export function FactionPressureMeter() {
+export function FactionPressureMeter({ bare = false }: { bare?: boolean } = {}) {
   const identity = useRunStore((s) => s.identity);
   const pressure = useRunStore((s) => s.factionPressure);
   if (!identity) return null;
@@ -99,10 +99,9 @@ export function FactionPressureMeter() {
     "illuminate",
   ];
 
-  return (
-    <HudFrame label="Faction Pressure" accent="steel" className="p-3">
-      <div className="space-y-2">
-        {factions.map((f) => {
+  const list = (
+    <div className="space-y-2">
+      {factions.map((f) => {
           const v = pressure[f];
           const isCritical = v >= 80;
           const isHigh = v >= 60;
@@ -144,10 +143,29 @@ export function FactionPressureMeter() {
             </div>
           );
         })}
-      </div>
-      <div className="mt-2 pt-2 border-t border-white/10 text-[9px] text-helldiver-dim uppercase tracking-widest leading-snug">
-        High pressure → ambushes & reinforced encounters
-      </div>
+    </div>
+  );
+
+  const footnote = (
+    <div className="mt-2 pt-2 border-t border-white/10 text-[9px] text-helldiver-dim uppercase tracking-widest leading-snug">
+      High pressure → ambushes & reinforced encounters
+    </div>
+  );
+
+  // Bare = no HudFrame wrap; the parent handles the section heading.
+  if (bare) {
+    return (
+      <>
+        {list}
+        {footnote}
+      </>
+    );
+  }
+
+  return (
+    <HudFrame label="Faction Pressure" accent="steel" className="p-3">
+      {list}
+      {footnote}
     </HudFrame>
   );
 }

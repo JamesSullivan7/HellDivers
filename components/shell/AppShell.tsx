@@ -37,8 +37,14 @@ export default function AppShell({
 
       <div className="flex-1 flex relative z-base overflow-hidden">
         <LeftNav active={activeNav} />
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-tok-5 max-w-[1600px] mx-auto">{children}</div>
+        <main className="flex-1 overflow-y-auto min-h-0">
+          {/*
+            h-full so children that opt into h-full (LoadoutScreen,
+            CombatScreen, etc.) can actually claim the full available
+            viewport height instead of collapsing to content height.
+            Pages that don't use h-full just stack normally.
+          */}
+          <div className="p-tok-5 max-w-[1600px] mx-auto h-full">{children}</div>
         </main>
         {rightPanel && (
           <RightContextPanel label={rightPanelLabel}>{rightPanel}</RightContextPanel>

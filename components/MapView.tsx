@@ -430,16 +430,17 @@ export default function MapView() {
             background: "linear-gradient(180deg, rgba(14,18,24,0.85), rgba(10,13,18,0.6))",
           }}
         >
-          {/* OBJECTIVES */}
+          {/* OBJECTIVES — bare prop drops the inner HudFrame label so my
+              SectionHeading is the only visible header */}
           <div className="px-3 py-2.5 shrink-0">
             <SectionHeading tint="#FFC72C">Objectives</SectionHeading>
-            <ObjectivePanel />
+            <ObjectivePanel bare />
           </div>
 
-          {/* FACTION PRESSURE — compact bars only */}
+          {/* FACTION PRESSURE — bare bars only, no nested frame */}
           <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <SectionHeading tint="#ff8a28">Faction Pressure</SectionHeading>
-            <FactionPressureMeter />
+            <FactionPressureMeter bare />
           </div>
 
           {/* HELLDIVER STATUS */}

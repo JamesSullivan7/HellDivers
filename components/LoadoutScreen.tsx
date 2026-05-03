@@ -274,8 +274,31 @@ export default function LoadoutScreen() {
                         boxShadow: isEquipped ? "0 0 14px rgba(168,85,247,0.35), inset 0 0 0 1px rgba(168,85,247,0.55)" : "none",
                       }}
                     >
-                      <div className="relative flex-1 min-h-0 overflow-hidden">
-                        <BoosterPortrait boosterId={b.id} className="!h-full !border-0" />
+                      <div className="relative flex-1 min-h-0 overflow-hidden bg-gradient-to-b from-purple-400/[0.04] to-black/40">
+                        {/* Inline image so it fills the flex-1 cell.
+                            BoosterPortrait has a fixed inline height that
+                            overrode any Tailwind !h-full and capped the
+                            artwork at 130px. */}
+                        {(() => {
+                          const art = getBoosterArt(b.id);
+                          return art ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={art}
+                              alt=""
+                              loading="lazy"
+                              draggable={false}
+                              className="absolute inset-0 w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-purple-400/40 text-3xl">◆</div>
+                          );
+                        })()}
+                        <div
+                          aria-hidden
+                          className="absolute inset-x-0 bottom-0 h-8 pointer-events-none"
+                          style={{ background: "linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 100%)" }}
+                        />
                         {isEquipped && (
                           <span
                             className="absolute top-1 right-1 px-1 py-0.5 text-[7.5px] font-display font-black uppercase tracking-[0.28em] z-10"

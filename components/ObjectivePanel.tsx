@@ -4,15 +4,15 @@ import clsx from "clsx";
 import { useGame } from "@/lib/store";
 import HudFrame from "./HudFrame";
 
-export default function ObjectivePanel() {
+export default function ObjectivePanel({ bare = false }: { bare?: boolean } = {}) {
   const objectives = useGame((s) => s.objectives);
 
   if (!objectives || objectives.length === 0) return null;
 
-  return (
-    <HudFrame label="Mission Objectives" accent="yellow" className="p-3">
-      <div className="space-y-2">
-        {objectives.map((o) => {
+  // Inner list — used both inside the framed default and the bare variant.
+  const list = (
+    <div className="space-y-2">
+      {objectives.map((o) => {
           const pct = o.target > 0 ? Math.min(100, Math.round((o.progress / o.target) * 100)) : (o.completed ? 100 : 0);
           return (
             <div
@@ -56,7 +56,16 @@ export default function ObjectivePanel() {
             </div>
           );
         })}
-      </div>
+    </div>
+  );
+
+  // Bare = render just the list. Used by parents that supply their own
+  // section heading (e.g. the redesigned MapView right panel).
+  if (bare) return list;
+
+  return (
+    <HudFrame label="Mission Objectives" accent="yellow" className="p-3">
+      {list}
     </HudFrame>
   );
 }
