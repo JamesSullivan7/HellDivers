@@ -131,10 +131,11 @@ export default function CombatScreenAAA({
       />
 
       {/* ── MAIN GRID ──
-          min-h-0 + side-panel overflow-y-auto means tall content scrolls
-          INSIDE its column. Narrower columns (288 / 1fr / 340) give the
-          battlefield more horizontal room and reduce the visual dead-space
-          the user flagged. */}
+          Now claims everything between TopBar and ResourceBar. The hand
+          strip is no longer a flex sibling — it's absolute-positioned
+          over the centre column so the helldiver and enemies columns
+          extend to full height, and the cards overlay only the
+          battlefield (not the portraits). */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[288px_1fr_340px] min-h-0 relative z-10">
         {/* LEFT — Player Panel */}
         <PlayerPanel runBuffs={runBuffs} />
@@ -153,9 +154,36 @@ export default function CombatScreenAAA({
           needsTarget={needsTarget}
           onEnemyClick={onEnemyClick}
         />
+
+        {/* ── HAND OVERLAY ──
+            Absolute-positioned at the bottom of the middle column so:
+              • Helldiver column on the left renders full-height (portrait
+                + stats + buffs all visible)
+              • Enemy column on the right renders full-height (every
+                hostile fits)
+              • Cards float in the middle, anchored to the bottom of the
+                battlefield, never covering the side images.
+            pointer-events: none on the wrapper, auto on the inner hand,
+            so empty space around the fan still passes clicks through
+            to the battlefield underneath (used to dismiss target picks).
+        */}
+        <div
+          className="absolute bottom-0 pointer-events-none z-30 flex justify-center"
+          // left/right inset matches the side-column widths so the
+          // overlay only spans the middle (battlefield) column. The
+          // helldiver portrait and enemy column are never covered.
+          style={{ left: 288, right: 340 }}
+        >
+          <div className="pointer-events-auto w-full">
+            <PlayerHand onCardClick={onCardClick} />
+          </div>
+        </div>
       </div>
 
-      {/* ── RESOURCE BAR + END TURN ── */}
+      {/* ── RESOURCE BAR + END TURN ──
+          Stays at the very bottom of the screen as a slim strip.
+          Holds the requisition pips, deck/discard counters, and the
+          END TURN CTA. The hand-overlay above floats just above this. */}
       <ResourceBar
         requisition={player.requisition}
         maxRequisition={player.maxRequisition}
@@ -165,9 +193,6 @@ export default function CombatScreenAAA({
         exhaustedCount={combat.exhausted.length}
         onEndTurn={onEndTurn}
       />
-
-      {/* ── HAND ── */}
-      <PlayerHand onCardClick={onCardClick} />
     </div>
   );
 }

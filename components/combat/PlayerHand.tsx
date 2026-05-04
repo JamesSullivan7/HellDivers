@@ -43,7 +43,11 @@ export default function PlayerHand({ onCardClick }: Props) {
   const middleIdx = (total - 1) / 2;
 
   return (
-    <div className="border-t border-accent-yellow/30 bg-bg-tertiary/40 backdrop-blur-sm shrink-0 relative">
+    // Transparent shell — the hand strip is rendered as an overlay on
+    // top of the battlefield, so it should not paint a panel background
+    // that would obscure the centre stage. The cards themselves carry
+    // their own chrome / shadow / tinted borders, which is enough.
+    <div className="shrink-0 relative">
       {/* SELECT TARGET prompt — overlay */}
       {selected !== null && needsTarget && (
         <div className="absolute right-3 top-1 z-10 text-accent-yellow font-display font-bold animate-blink text-[9px] tracking-[0.25em] uppercase">
@@ -58,13 +62,14 @@ export default function PlayerHand({ onCardClick }: Props) {
         above the strip without being clipped.
       */}
       <div
-        className="relative flex items-end justify-center pb-3 pt-6"
-        // Hand strip raised from 232 -> 300 so the cards section claims
-        // more of the screen. This compresses the main grid above by
-        // 68px, eliminating the void the user complained about in the
-        // helldiver and battlefield columns. Hover/select still lifts
-        // the focused card up into the breathing room without clipping.
-        style={{ minHeight: 300, overflow: "visible" }}
+        className="relative flex items-end justify-center pb-1 pt-6"
+        // Hand is now an OVERLAY — no fixed strip height. minHeight
+        // matches the tight card height (230) plus enough breathing
+        // room for the hover/select lift (~42px) above its resting
+        // position so a focused card never clips out of view.
+        // overflow: visible is critical — without it, the lifted card
+        // would be clipped at the top edge of this wrapper.
+        style={{ minHeight: 270, overflow: "visible" }}
       >
         <AnimatePresence>
           {combat.hand.map((card, idx) => {
