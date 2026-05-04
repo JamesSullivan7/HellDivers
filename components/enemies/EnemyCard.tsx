@@ -106,7 +106,10 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
       animate={motionAnimate}
       whileHover={targetable && !dead ? { y: -3 } : {}}
       className={clsx(
-        "relative text-left overflow-hidden flex flex-col",
+        // The card is just the image now — no flex column, no info
+        // panel. relative + overflow-hidden lets the badges, HP bar,
+        // and damage floats absolute-position over the image cleanly.
+        "relative text-left overflow-hidden",
         "transition-all duration-200",
         needsTarget && targetable && !dead && "ring-2 ring-accent-yellow shadow-glow-yellow cursor-crosshair",
         !needsTarget && "cursor-default",
@@ -114,48 +117,69 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
         enemy.enraged && "scale-[1.03] animate-pulse-yellow",
       )}
       style={{
-        // flex 1 1 0 = each enemy claims an equal share of the
-        // (now full-height) right column. Cap removed — with the hand
-        // overlay no longer eating column space, enemies can grow to
-        // fully fill their slot, which makes the image read as
-        // "filling the card" the way the user asked.
+        // The combat enemy card is now JUST the source image — same
+        // chrome the codex uses (corner brackets, full source image
+        // showing its built-in name banner). Width capped at 200 and
+        // aspect 4:5 (matches the source jpg aspect) so 3 enemies
+        // fit a typical column without scroll.
         width: "100%",
-        maxWidth: "240px",
-        flex: "1 1 0",
-        minHeight: 180,
+        maxWidth: "200px",
+        aspectRatio: "4 / 5",
         margin: "0 auto",
-        background: "linear-gradient(180deg, rgba(14,18,24,0.92) 0%, rgba(7,11,16,0.92) 100%)",
+        background: "rgba(7,11,16,0.85)",
         border: `1px solid ${enemy.isBoss ? "#ff4d4d" : "rgba(255,255,255,0.08)"}`,
         boxShadow: enemy.isBoss
           ? "0 0 18px rgba(255,77,77,0.35), inset 0 0 0 1px rgba(255,77,77,0.55)"
           : `0 0 0 1px ${accent}22`,
       }}
     >
-      {/* Corner brackets — same visual language as StratagemCard */}
+      {/* Corner brackets — match codex enemy card */}
       <span aria-hidden className="absolute top-0 left-0 w-1.5 h-1.5 z-20 pointer-events-none" style={{ borderTop: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
       <span aria-hidden className="absolute top-0 right-0 w-1.5 h-1.5 z-20 pointer-events-none" style={{ borderTop: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
       <span aria-hidden className="absolute bottom-0 left-0 w-1.5 h-1.5 z-20 pointer-events-none" style={{ borderBottom: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
       <span aria-hidden className="absolute bottom-0 right-0 w-1.5 h-1.5 z-20 pointer-events-none" style={{ borderBottom: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
 
       {/*
-        ART — image fills the card from the very top. The TERMINID /
-        AUTOMATON / ILLUMINATE faction tag is gone (the corner-bracket
-        accent colour is itself a faction signal). Armor / Shield / Boss
-        chips overlay the top-right of the image instead of taking a
-        whole top strip — they only render when relevant.
+        ART — full source image (not cropped). The source jpgs have
+        their own gold name banner at the top and footer strip at
+        the bottom — that IS the card. Using fit="contain" preserves
+        the whole thing edge-to-edge.
       */}
-      <div className="relative flex-1 min-h-0 overflow-hidden">
-        <EnemyImage faction={enemy.faction} templateId={enemy.templateId} fit="cover" />
+      <div className="absolute inset-0 overflow-hidden">
+        <EnemyImage faction={enemy.faction} templateId={enemy.templateId} fit="contain" />
 
-        {/* Soft dark gradient at the bottom of the image so the info
-            panel below reads cleanly without a hard rule. */}
-        <div
-          aria-hidden
-          className="absolute inset-x-0 bottom-0 h-8 pointer-events-none"
-          style={{ background: "linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 100%)" }}
-        />
+        {/* HP bar — thin overlay at the very bottom edge of the image,
+            on top of the source's gold footer strip. The bar colour
+            is the only health signal; the numerics + name are baked
+            into the source image already. */}
+        <div className="absolute inset-x-0 bottom-0 z-10 h-1.5 bg-black/70">
+          <motion.div
+            className="h-full"
+            style={{
+              background: lowHp
+                ? "linear-gradient(90deg, #ff4d4d, #ff8a28)"
+                : "#10b981",
+              boxShadow: lowHp ? "0 0 8px rgba(255,77,77,0.65)" : undefined,
+            }}
+            animate={{ width: `${hpPct}%` }}
+            transition={{ type: "spring", stiffness: 180, damping: 22 }}
+          />
+        </div>
 
-        {/* Badge stack — top-right of image, only shown when relevant */}
+        {/* HP numerics — small, top-left corner. Tiny so the source
+            banner stays the focal point. */}
+        <span
+          className="absolute top-1 left-1 z-10 px-1 py-0.5 text-[8.5px] font-display font-black tabular-nums leading-none"
+          style={{
+            background: "rgba(0,0,0,0.7)",
+            border: `1px solid ${lowHp ? "#ff4d4d" : "#10b981"}`,
+            color: lowHp ? "#ff4d4d" : "#10b981",
+          }}
+        >
+          {enemy.hp}/{enemy.maxHp}
+        </span>
+
+        {/* Status badges — top-right, only when relevant */}
         <div className="absolute top-1 right-1 z-10 flex flex-col items-end gap-0.5 pointer-events-none">
           {enemy.isBoss && (
             <span className="text-[7.5px] font-display font-black px-1 leading-none py-0.5" style={{ background: "#ff4d4d", color: "#0a0d12" }}>
@@ -172,50 +196,6 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
               SHD {enemy.shield}
             </span>
           )}
-        </div>
-      </div>
-
-      {/*
-        MINIMAL INFO PANEL — name + HP only. The detailed intent
-        breakdown ("NEXT MOVE / CLEAVE 6 8 / THEN BITE 4 5") was
-        removed per the user's brief: "this section can be removed
-        from the cards on the combat page. i want the stats left on
-        the enemy cards in the codex page." The CodexScreen
-        EnemyDataCard keeps its full intent breakdown — only this
-        combat card is slimmed. That extra ~70px of vertical space
-        is reclaimed by the image area above (flex-1 grows into it).
-      */}
-      <div
-        className="relative px-2 pt-1 pb-1.5 shrink-0 z-10"
-        style={{ background: "rgba(7,11,16,0.85)" }}
-      >
-        {/* Name + HP numerics on one row */}
-        <div className="flex items-center justify-between gap-1.5">
-          <span
-            className="font-display font-black uppercase tracking-tight truncate flex-1 leading-none"
-            style={{ color: accent, fontSize: 11 }}
-          >
-            {enemy.name}
-          </span>
-          <span
-            className="tabular-nums text-[10px] font-display font-black leading-none shrink-0"
-            style={{ color: lowHp ? "#ff4d4d" : "#10b981" }}
-          >
-            {enemy.hp}<span className="text-helldiver-dim">/{enemy.maxHp}</span>
-          </span>
-        </div>
-
-        {/* HP bar — slim, animated */}
-        <div className="mt-1 h-1 bg-black/70 border border-white/10 overflow-hidden">
-          <motion.div
-            className="h-full"
-            style={{
-              background: lowHp ? "linear-gradient(90deg, #ff4d4d, #ff8a28)" : "#10b981",
-              boxShadow: lowHp ? "0 0 8px rgba(255,77,77,0.55)" : undefined,
-            }}
-            animate={{ width: `${hpPct}%` }}
-            transition={{ type: "spring", stiffness: 180, damping: 22 }}
-          />
         </div>
       </div>
 
