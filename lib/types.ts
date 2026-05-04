@@ -262,4 +262,20 @@ export interface CombatState {
   turn: number;
   selectedCardIndex: number | null;
   log: string[];
+  /**
+   * Stim charges available for THIS combat. Refilled to
+   * STIM_CHARGES_PER_COMBAT (+ armor's bonusStims) at combat start.
+   * Stim is a per-encounter utility.
+   */
+  stimCharges: number;
+}
+
+/**
+ * Run-wide utility charges. Initialized at run start from
+ * RUN_UTILITY_INITIAL and never refill — once spent, gone for
+ * the rest of the run.
+ */
+export interface RunUtility {
+  resupply: number;
+  reinforce: number;
 }

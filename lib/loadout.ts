@@ -297,8 +297,8 @@ export const STRATAGEM_PICK_POOL = [
   "support_spear",
   "support_rg",
   "support_grenade",
-  "util_resupply",
-  "util_reinforce",
+  // util_resupply and util_reinforce removed - they're now run-wide
+  // utility charges (UtilityTray), not pickable stratagems.
   "util_supply_pack",
   "util_ballistic_shield",
   // ── EXPANSION pool ──
@@ -326,22 +326,36 @@ export const STRATAGEM_PICK_POOL = [
   "support_exosuit",
 ];
 
+/**
+ * Cards every helldiver gets in their starting deck on top of their
+ * 4 stratagem picks. Stim and Resupply USED to live here as in-deck
+ * cards but are now run/combat-charge utilities (see RUN_UTILITY_INITIAL
+ * + STIM_CHARGES_PER_COMBAT below) and are no longer drawn into the
+ * hand. Three Orbital Precision Strikes + one Shield generator stay.
+ */
 export const FIXED_BASICS = [
   "orbital_precision",
   "orbital_precision",
   "orbital_precision",
-  "util_stim",
   "util_shield",
 ];
 
 export const STRATAGEM_PICKS_REQUIRED = 4;
 
 /**
- * Resupply is a free stratagem every Helldiver carries onto the field —
- * the player picks 4 stratagems and resupply is automatically added on
- * top, giving them 5 stratagem cards in the starting deck.
+ * Run-wide utility charges granted on new run. Don't refill between
+ * combats — once spent, gone for the rest of the run.
  */
-export const FREE_STRATAGEM_ID = "util_resupply";
+export const RUN_UTILITY_INITIAL: { resupply: number; reinforce: number } = {
+  resupply: 2,
+  reinforce: 1,
+};
+
+/**
+ * Stim is the only utility that resets per encounter. Each combat
+ * start refills the player's stim charges to this value.
+ */
+export const STIM_CHARGES_PER_COMBAT = 2;
 
 // ──────────────────────────────────────────────────────────────────────────
 // OUTFITTER · purchase + upgrade costs

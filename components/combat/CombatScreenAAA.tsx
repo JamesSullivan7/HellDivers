@@ -37,6 +37,7 @@ import { getCardById } from "@/lib/cards";
 import EnemyView from "../EnemyView";
 import BossFrame from "../boss/BossFrame";
 import PlayerHand from "./PlayerHand";
+import UtilityTray from "./UtilityTray";
 import StarField from "../StarField";
 import AnimationRunner from "@/systems/animation/AnimationRunner";
 import EnrageCinematic from "../effects/EnrageCinematic";
@@ -535,6 +536,13 @@ function Battlefield({
 }) {
   return (
     <div className="relative flex flex-col items-center justify-center p-3 overflow-hidden min-h-0">
+      {/* UTILITY TRAY — pinned to the top-left corner of the battlefield,
+          right of the helldiver portrait. Houses the three persistent
+          ability buttons (REINFORCE / STIM / RESUPPLY) with charge dots. */}
+      <div className="absolute top-3 left-3 z-30 pointer-events-auto">
+        <UtilityTray />
+      </div>
+
       {/* SEAF battle backdrop — main mood-setter */}
       <div
         className="absolute inset-0 pointer-events-none"

@@ -12,7 +12,6 @@ import {
   BOOSTERS,
   STRATAGEM_PICK_POOL,
   STRATAGEM_PICKS_REQUIRED,
-  FREE_STRATAGEM_ID,
   FIXED_BASICS,
   DEFAULT_ARMOR,
   DEFAULT_WEAPON,
@@ -87,9 +86,10 @@ export default function LoadoutScreen() {
 
   const selectableCards = CARD_LIBRARY.filter((c) => {
     if (!STRATAGEM_PICK_POOL.includes(c.id)) return false;
-    // Resupply is included automatically as the free 5th slot — hide it
-    // from the picker so the player doesn't double up on a "free" pick.
-    if (c.id === FREE_STRATAGEM_ID) return false;
+    // Stim/Resupply/Reinforce are run-utility charges now (not stratagems)
+    // and have already been removed from STRATAGEM_PICK_POOL, but a
+    // belt-and-suspenders filter in case CARD_LIBRARY adds them again.
+    if (c.id === "util_resupply" || c.id === "util_reinforce" || c.id === "util_stim") return false;
     if (filter !== "all" && c.type !== filter) return false;
     if (!showLocked && !account.unlockedCards.includes(c.id)) return false;
     return true;
@@ -350,7 +350,7 @@ export default function LoadoutScreen() {
               <div className="flex items-center gap-2 mb-2 shrink-0">
                 <span className="w-1.5 h-1.5 bg-helldiver-yellow shadow-[0_0_4px_currentColor]" />
                 <h3 className="text-[10px] font-display font-black uppercase tracking-[0.32em] text-helldiver-yellow">
-                  Pick {STRATAGEM_PICKS_REQUIRED} · Resupply <span className="text-emerald-400">free</span>
+                  Pick {STRATAGEM_PICKS_REQUIRED} stratagems
                 </h3>
                 <div className="flex-1" />
                 <span className={clsx(
@@ -361,8 +361,9 @@ export default function LoadoutScreen() {
                 </span>
               </div>
 
-              {/* Selected pills + locked free Resupply slot — slim 36px row */}
-              <div className="grid grid-cols-5 gap-1.5 mb-2 shrink-0" style={{ height: 36 }}>
+              {/* Selected pills — 4 slots only (Resupply / Stim / Reinforce
+                  are run-utility charges, not deck cards anymore). */}
+              <div className="grid grid-cols-4 gap-1.5 mb-2 shrink-0" style={{ height: 36 }}>
                 {Array.from({ length: STRATAGEM_PICKS_REQUIRED }).map((_, i) => {
                   const id = stratagems[i];
                   const card = id ? getCardById(id) : null;
@@ -380,12 +381,6 @@ export default function LoadoutScreen() {
                     </div>
                   );
                 })}
-                <div
-                  className="px-2 flex items-center justify-center text-center border border-emerald-500 bg-emerald-500/10 text-emerald-400 font-mono"
-                  title="Resupply is free and always included in your loadout."
-                >
-                  <span className="text-[10px] tracking-wider">◆ Resupply (free)</span>
-                </div>
               </div>
 
               {/* Filters — slim row */}

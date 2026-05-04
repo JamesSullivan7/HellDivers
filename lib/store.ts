@@ -35,7 +35,8 @@ import {
   ARMORS,
   WEAPONS,
   BOOSTERS,
-  FREE_STRATAGEM_ID,
+  RUN_UTILITY_INITIAL,
+  STIM_CHARGES_PER_COMBAT,
 } from "./loadout";
 import {
   Account,
@@ -75,7 +76,10 @@ import { useRunStore } from "./runStore";
 import { selectRunIdentity } from "./runIdentity";
 import { generateSeedString } from "./seededRng";
 
-const BASE_HAND_SIZE = 5;
+// Hand always draws to 4. Was 5 historically (4 picks + free Resupply
+// in the 5th slot) — Resupply is now a run-utility charge instead of
+// a card, so the natural hand size is 4.
+const BASE_HAND_SIZE = 4;
 const MAX_REQUISITION = 4;
 const STARTING_HP = 55;
 const CRIT_MULTIPLIER = 1.3;
@@ -171,6 +175,12 @@ interface GameStore {
   objectives: import("./types").MissionObjective[];
   /** Run-wide buffs from choice events. */
   runBuffs: import("./types").RunBuff[];
+  /**
+   * Run-wide utility charges. Initialised from RUN_UTILITY_INITIAL on
+   * new run. Resupply / Reinforce decrement here when used; charges
+   * never refill mid-run. Stim is per-combat (combat.stimCharges).
+   */
+  runUtility: import("./types").RunUtility;
   /** Damage dealt this turn (tracked for the deal-damage objective). */
   damageThisTurn: number;
   /** Whether player gained any block this run (tracked for no-block objective). */
@@ -189,6 +199,12 @@ interface GameStore {
   setDifficulty: (d: number) => void;
   enterNode: (index: number) => void;
   endTurn: () => void;
+  /**
+   * Spend a charge from the utility tray (Stim per-combat / Resupply
+   * + Reinforce per-run) and apply its effect immediately. No-op if
+   * the player has no charges left or there's no active combat.
+   */
+  useUtility: (kind: "stim" | "resupply" | "reinforce") => void;
   beginPlayCard: (handIndex: number, enemyId?: string) => void;
   resolvePendingPlay: (multiplier: number) => void;
   cancelPendingPlay: () => void;
@@ -246,6 +262,9 @@ function emptyCombat(): CombatState {
     turn: 0,
     selectedCardIndex: null,
     log: [],
+    // Refilled to STIM_CHARGES_PER_COMBAT (+ armor.bonusStims) on
+    // every combat start; see beginCombat / enterNode flow.
+    stimCharges: 0,
   };
 }
 
@@ -289,17 +308,11 @@ function buildLoadoutDeck(loadout: Loadout): Card[] {
   const cards: Card[] = [];
   FIXED_BASICS.forEach((id) => cards.push(getCardById(id)));
   loadout.stratagemIds.forEach((id) => cards.push(getCardById(id)));
-  // Free Resupply — every Helldiver carries it onto the field. Skip if the
-  // player already picked it as one of their 4 (no double-up).
-  if (!loadout.stratagemIds.includes(FREE_STRATAGEM_ID)) {
-    cards.push(getCardById(FREE_STRATAGEM_ID));
-  }
-  // Med-Kit armor passive: extra stims in the starting deck.
-  const armor = getArmorEffective(loadout.armorId, loadout.armorTier ?? 1);
-  const extraStims = armor.bonusStims ?? 0;
-  for (let i = 0; i < extraStims; i++) {
-    cards.push(getCardById("util_stim"));
-  }
+  // Resupply is now a run-utility charge (see runUtility state +
+  // useUtility action) so we no longer auto-add it to the deck.
+  // Med-Kit armor passive used to add extra stim cards to the
+  // deck — stim is also a utility now, so the bonus translates into
+  // extra combat-stim charges granted at combat start (see beginCombat).
   return cards;
 }
 
@@ -357,6 +370,7 @@ export const useGame = create<GameStore>((set, get) => ({
   lastRunReward: null,
   objectives: [],
   runBuffs: [],
+  runUtility: { ...RUN_UTILITY_INITIAL },
   damageThisTurn: 0,
   blockUsedThisRun: false,
   pendingEventId: null,
@@ -785,6 +799,7 @@ export const useGame = create<GameStore>((set, get) => ({
       lastRunReward: null,
       objectives,
       runBuffs: [],
+      runUtility: { ...RUN_UTILITY_INITIAL },
       damageThisTurn: 0,
       blockUsedThisRun: false,
       pendingEventId: null,
@@ -976,6 +991,12 @@ export const useGame = create<GameStore>((set, get) => ({
     openingLog.push(`> Node engaged.`);
     openingLog.push(`> Hostiles: ${enemies.map((e) => e.name).join(", ")}.`);
 
+    // Stim charges refill every combat to the per-combat budget plus
+    // any bonus from armor (Med-Kit champion etc.). This replaces the
+    // old "+N stim cards in starting deck" mechanic.
+    const armorBonusStims = armor.bonusStims ?? 0;
+    const stimCharges = STIM_CHARGES_PER_COMBAT + armorBonusStims;
+
     let combat: CombatState = {
       enemies,
       deck,
@@ -986,6 +1007,7 @@ export const useGame = create<GameStore>((set, get) => ({
       turn: 1,
       selectedCardIndex: null,
       log: openingLog,
+      stimCharges,
     };
     const log = [...combat.log];
     combat = drawCards(combat, effectiveHandSize, log);
@@ -1038,6 +1060,61 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   cancelPendingPlay: () => set({ pendingPlay: null }),
+
+  useUtility: (kind) => {
+    const state = get();
+    if (state.phase !== "combat") return;
+
+    // Resolve charges remaining and effect for the requested utility.
+    let chargesRemaining = 0;
+    if (kind === "stim") chargesRemaining = state.combat.stimCharges;
+    else if (kind === "resupply") chargesRemaining = state.runUtility.resupply;
+    else if (kind === "reinforce") chargesRemaining = state.runUtility.reinforce;
+    if (chargesRemaining <= 0) return;
+    // SFX is played by the UtilityTray component on click — store
+    // is purely state. Mirrors the old card-effect logic for the
+    // three utility ids (util_stim / util_resupply / util_reinforce).
+    let nextPlayer = { ...state.player };
+    let log = [...state.combat.log];
+    let nextCombat = state.combat;
+
+    if (kind === "stim") {
+      // Heal 5 HP — same as the util_stim card's effect.
+      const heal = 5;
+      nextPlayer.hp = Math.min(nextPlayer.maxHp, nextPlayer.hp + heal);
+      log.push(`> Stim used. +${heal} HP.`);
+      nextCombat = { ...state.combat, stimCharges: state.combat.stimCharges - 1, log };
+      set({
+        combat: nextCombat,
+        player: nextPlayer,
+      });
+    } else if (kind === "resupply") {
+      // Draw 2 cards + gain 1 R — same as util_resupply card.
+      nextPlayer.requisition = Math.min(
+        nextPlayer.maxRequisition,
+        nextPlayer.requisition + 1,
+      );
+      log.push(`> Resupply called. +1 R.`);
+      nextCombat = drawCards(state.combat, 2, log);
+      nextCombat = { ...nextCombat, log };
+      set({
+        combat: nextCombat,
+        player: nextPlayer,
+        runUtility: { ...state.runUtility, resupply: state.runUtility.resupply - 1 },
+      });
+    } else if (kind === "reinforce") {
+      // Heal 12 HP — same as util_reinforce card's effect.
+      const heal = 12;
+      nextPlayer.hp = Math.min(nextPlayer.maxHp, nextPlayer.hp + heal);
+      log.push(`> Reinforce called. +${heal} HP.`);
+      nextCombat = { ...state.combat, log };
+      set({
+        combat: nextCombat,
+        player: nextPlayer,
+        runUtility: { ...state.runUtility, reinforce: state.runUtility.reinforce - 1 },
+      });
+    }
+  },
 
   endTurn: () => {
     const state = get();
