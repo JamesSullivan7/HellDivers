@@ -118,16 +118,15 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
         enemy.enraged && "scale-[1.03] animate-pulse-yellow",
       )}
       style={{
-        // Match the stratagem card footprint exactly: 196×220 (the same
-        // family as the "tight" combat-hand cards). flex 1 1 0 lets
-        // multiple enemies share column height when more than 2 are
-        // present; minHeight floor keeps them readable, maxHeight 260
-        // keeps a single enemy from ballooning into a giant solo card.
+        // flex 1 1 0 = each enemy claims an equal share of the
+        // (now full-height) right column. Cap removed — with the hand
+        // overlay no longer eating column space, enemies can grow to
+        // fully fill their slot, which makes the image read as
+        // "filling the card" the way the user asked.
         width: "100%",
         maxWidth: "240px",
         flex: "1 1 0",
         minHeight: 180,
-        maxHeight: 260,
         margin: "0 auto",
         background: "linear-gradient(180deg, rgba(14,18,24,0.92) 0%, rgba(7,11,16,0.92) 100%)",
         border: `1px solid ${enemy.isBoss ? "#ff4d4d" : "rgba(255,255,255,0.08)"}`,
@@ -174,7 +173,11 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
           when the source art is missing. Soft dark gradient at the bottom
           blends into the info panel below. */}
       <div className="relative flex-1 min-h-0 overflow-hidden">
-        <EnemyImage faction={enemy.faction} templateId={enemy.templateId} fit="contain" />
+        {/* fit="cover" so the creature image fills the card area
+            edge-to-edge with no letterboxing. The user's last brief was
+            "image fills the card" - cover trades a small crop for a
+            full visual presence, which is what they asked for. */}
+        <EnemyImage faction={enemy.faction} templateId={enemy.templateId} fit="cover" />
         <div
           aria-hidden
           className="absolute inset-x-0 bottom-0 h-8 pointer-events-none"

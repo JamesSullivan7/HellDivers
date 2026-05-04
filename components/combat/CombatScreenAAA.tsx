@@ -355,20 +355,20 @@ function PlayerPanel({ runBuffs }: { runBuffs: any[] }) {
     <aside
       // overflow-y-auto: tall buff lists scroll INSIDE the column instead of
       // stretching the whole layout. min-h-0 on parent grid lets this work.
-      // justify-center: helldiver portrait + stats sit in the middle of the
-      // column instead of top-aligned with empty space below. The void the
-      // user saw between the helldiver info and the bottom of the grid
-      // becomes evenly-distributed breathing room above and below.
-      className="hidden lg:flex flex-col p-2 gap-2 border-r overflow-y-auto min-h-0 justify-center"
+      // No more justify-center — the portrait now grows to fill the column
+      // via flex-1, so the helldiver image is full-sized as the user
+      // requested. HP / Block / Reinforcements / Buffs sit beneath it.
+      className="hidden lg:flex flex-col p-2 gap-2 border-r overflow-y-auto min-h-0"
       style={{ borderColor: COLOR.border, background: "rgba(17,24,33,0.55)" }}
     >
-      {/* Portrait card — fixed-height banner so the panel never dictates the
-          column height. 132px keeps the cinematic Helldiver feel without
-          eating the whole side rail. */}
+      {/* Portrait card — flex-1 so it claims whatever vertical space is
+          left after the HP / Block / Reinforcements / Buffs sections
+          render. With the hand now an overlay, the helldiver column
+          extends full screen and the portrait grows to fill it. */}
       <div
-        className="relative border overflow-hidden shrink-0"
+        className="relative border overflow-hidden flex-1 min-h-0"
         style={{
-          height: 132,
+          minHeight: 220,
           borderColor: lowHp ? COLOR.enemy : COLOR.player,
           boxShadow: lowHp
             ? "0 0 18px rgba(255,77,77,0.35)"
