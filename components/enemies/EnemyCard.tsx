@@ -136,53 +136,47 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
       }}
     >
       {/* Corner brackets — same visual language as StratagemCard */}
-      <span aria-hidden className="absolute top-0 left-0 w-1.5 h-1.5 z-10 pointer-events-none" style={{ borderTop: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
-      <span aria-hidden className="absolute top-0 right-0 w-1.5 h-1.5 z-10 pointer-events-none" style={{ borderTop: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
-      <span aria-hidden className="absolute bottom-0 left-0 w-1.5 h-1.5 z-10 pointer-events-none" style={{ borderBottom: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
-      <span aria-hidden className="absolute bottom-0 right-0 w-1.5 h-1.5 z-10 pointer-events-none" style={{ borderBottom: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
+      <span aria-hidden className="absolute top-0 left-0 w-1.5 h-1.5 z-20 pointer-events-none" style={{ borderTop: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
+      <span aria-hidden className="absolute top-0 right-0 w-1.5 h-1.5 z-20 pointer-events-none" style={{ borderTop: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
+      <span aria-hidden className="absolute bottom-0 left-0 w-1.5 h-1.5 z-20 pointer-events-none" style={{ borderBottom: `1px solid ${accent}`, borderLeft: `1px solid ${accent}` }} />
+      <span aria-hidden className="absolute bottom-0 right-0 w-1.5 h-1.5 z-20 pointer-events-none" style={{ borderBottom: `1px solid ${accent}`, borderRight: `1px solid ${accent}` }} />
 
-      {/* TOP STRIP — minimal: faction chip on left, armor / shield on right */}
-      <div className="relative flex items-center justify-between px-2 h-5 shrink-0 z-10" style={{ borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
-        <span
-          className="text-[8px] font-display font-black uppercase tracking-[0.32em]"
-          style={{ color: accent }}
-        >
-          {enemy.faction}
-        </span>
-        <div className="flex items-center gap-1">
-          {enemy.armor > 0 && (
-            <span className="text-[7.5px] tabular-nums font-display font-black px-1 leading-none py-0.5" style={{ border: "1px solid rgba(255,138,40,0.55)", color: "#ff8a28" }}>
-              ARM {enemy.armor}
-            </span>
-          )}
-          {enemy.shield > 0 && (
-            <span className="text-[7.5px] tabular-nums font-display font-black px-1 leading-none py-0.5" style={{ border: "1px solid rgba(96,196,255,0.55)", color: "#60c4ff" }}>
-              SHD {enemy.shield}
-            </span>
-          )}
-          {enemy.isBoss && (
-            <span className="text-[7.5px] font-display font-black px-1 leading-none py-0.5" style={{ background: "#ff4d4d", color: "#0a0d12" }}>
-              BOSS
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ART — flex-1 with object-contain so the entire enemy is visible.
-          EnemyImage already handles fallback silhouette + name overlay
-          when the source art is missing. Soft dark gradient at the bottom
-          blends into the info panel below. */}
+      {/*
+        ART — image fills the card from the very top. The TERMINID /
+        AUTOMATON / ILLUMINATE faction tag is gone (the corner-bracket
+        accent colour is itself a faction signal). Armor / Shield / Boss
+        chips overlay the top-right of the image instead of taking a
+        whole top strip — they only render when relevant.
+      */}
       <div className="relative flex-1 min-h-0 overflow-hidden">
-        {/* fit="cover" so the creature image fills the card area
-            edge-to-edge with no letterboxing. The user's last brief was
-            "image fills the card" - cover trades a small crop for a
-            full visual presence, which is what they asked for. */}
         <EnemyImage faction={enemy.faction} templateId={enemy.templateId} fit="cover" />
+
+        {/* Soft dark gradient at the bottom of the image so the info
+            panel below reads cleanly without a hard rule. */}
         <div
           aria-hidden
           className="absolute inset-x-0 bottom-0 h-8 pointer-events-none"
           style={{ background: "linear-gradient(to top, rgba(7,11,16,0.95) 0%, transparent 100%)" }}
         />
+
+        {/* Badge stack — top-right of image, only shown when relevant */}
+        <div className="absolute top-1 right-1 z-10 flex flex-col items-end gap-0.5 pointer-events-none">
+          {enemy.isBoss && (
+            <span className="text-[7.5px] font-display font-black px-1 leading-none py-0.5" style={{ background: "#ff4d4d", color: "#0a0d12" }}>
+              BOSS
+            </span>
+          )}
+          {enemy.armor > 0 && (
+            <span className="text-[7.5px] tabular-nums font-display font-black px-1 leading-none py-0.5" style={{ border: "1px solid rgba(255,138,40,0.7)", color: "#ff8a28", background: "rgba(0,0,0,0.65)" }}>
+              ARM {enemy.armor}
+            </span>
+          )}
+          {enemy.shield > 0 && (
+            <span className="text-[7.5px] tabular-nums font-display font-black px-1 leading-none py-0.5" style={{ border: "1px solid rgba(96,196,255,0.7)", color: "#60c4ff", background: "rgba(0,0,0,0.65)" }}>
+              SHD {enemy.shield}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* COMBINED INFO PANEL — name, HP bar, intent. One block, no rules.

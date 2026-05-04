@@ -33,8 +33,12 @@ interface Props {
 
 export default function EnemyImage({ faction, templateId, name, fit = "cover" }: Props) {
   const art = templateId ? getEnemyArt(templateId) : null;
+  // object-cover defaults to "center center" which shows the middle of
+  // the source image — exactly the creature, not the title banner at
+  // the top of the source card. object-top crops to the banner, which
+  // we explicitly do not want.
   const objectFitClass =
-    fit === "contain" ? "object-contain" : "object-cover object-top";
+    fit === "contain" ? "object-contain" : "object-cover object-center";
 
   return (
     <div
