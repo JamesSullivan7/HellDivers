@@ -4,9 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import { Enemy, Faction } from "@/lib/types";
-import { useGame } from "@/lib/store";
 import EnemyImage from "./EnemyImage";
-import EnemyIntentPanel from "@/components/intent/EnemyIntentPanel";
 import { SkullIcon } from "@/lib/icons";
 import { enemyIdleDrift, enemyDeath } from "@/systems/animation/presets/combatAnimations";
 import BurnEmbers from "../effects/BurnEmbers";
@@ -36,8 +34,6 @@ interface Props {
 }
 
 export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: Props) {
-  const modifiers = useGame((s) => s.modifiers);
-  const fogged = modifiers.includes("heavy_fog");
   const dead = enemy.hp <= 0;
 
   const lastHpRef = useRef(enemy.hp);
@@ -179,8 +175,16 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
         </div>
       </div>
 
-      {/* COMBINED INFO PANEL — name, HP bar, intent. One block, no rules.
-          This is the merged "top + bottom" sections the user asked for. */}
+      {/*
+        MINIMAL INFO PANEL — name + HP only. The detailed intent
+        breakdown ("NEXT MOVE / CLEAVE 6 8 / THEN BITE 4 5") was
+        removed per the user's brief: "this section can be removed
+        from the cards on the combat page. i want the stats left on
+        the enemy cards in the codex page." The CodexScreen
+        EnemyDataCard keeps its full intent breakdown — only this
+        combat card is slimmed. That extra ~70px of vertical space
+        is reclaimed by the image area above (flex-1 grows into it).
+      */}
       <div
         className="relative px-2 pt-1 pb-1.5 shrink-0 z-10"
         style={{ background: "rgba(7,11,16,0.85)" }}
@@ -212,12 +216,6 @@ export default function EnemyCard({ enemy, targetable, needsTarget, onClick }: P
             animate={{ width: `${hpPct}%` }}
             transition={{ type: "spring", stiffness: 180, damping: 22 }}
           />
-        </div>
-
-        {/* Intent — uses the existing rich intent panel which carries
-            severity glow, badges, peeks, etc. */}
-        <div className="mt-1">
-          <EnemyIntentPanel enemy={enemy} fogged={fogged} />
         </div>
       </div>
 
